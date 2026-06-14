@@ -119,6 +119,8 @@ export interface QueryResult {
   rowCount: number
   /** 查询耗时（毫秒） */
   durationMs: number
+  /** 非查询语句的反馈信息（如 "3 行受影响"） */
+  message?: string
   /** 是否被截断（达到行数上限） */
   truncated?: boolean
 }

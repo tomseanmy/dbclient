@@ -4,18 +4,17 @@ import { useConnectionStore } from './store/connections'
 import { ObjectTree } from './components/ObjectTree'
 import { TableDetail } from './components/TableDetail'
 import { ConnectionManager } from './pages/ConnectionManager'
+import { SqlWorkspace } from './components/SqlWorkspace'
 
-interface SelectedTable {
-  connectionId: string
-  schema?: string
-  table: string
-}
+type View =
+  | { type: 'welcome' }
+  | { type: 'tableDetail'; conn: ConnectionListItem; schema?: string; table: string }
+  | { type: 'sqlWorkspace'; conn: ConnectionListItem }
 
 export default function App() {
   const { connections, loadConnections } = useConnectionStore()
   const [page, setPage] = useState<'workspace' | 'manage'>('workspace')
-  const [selectedConn, setSelectedConn] = useState<ConnectionListItem | null>(null)
-  const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null)
+  const [view, setView] = useState<View>({ type: 'welcome' })
   const [bootInfo, setBootInfo] = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,8 +29,11 @@ export default function App() {
     schema: string | undefined,
     table: Table,
   ) => {
-    setSelectedConn(conn)
-    setSelectedTable({ connectionId: conn.id, schema, table: table.name })
+    setView({ type: 'tableDetail', conn, schema, table: table.name })
+  }
+
+  const handleOpenSql = (conn: ConnectionListItem) => {
+    setView({ type: 'sqlWorkspace', conn })
   }
 
   const handleManageConnections = () => setPage('manage')
@@ -44,9 +46,12 @@ export default function App() {
           {bootInfo && <span className="brand-version">{bootInfo}</span>}
         </div>
         <ObjectTree
-          selectedTable={selectedTable}
+          selectedTable={
+            view.type === 'tableDetail' ? { connectionId: view.conn.id, table: view.table } : null
+          }
           onSelectTable={handleSelectTable}
           onManageConnections={handleManageConnections}
+          onOpenSql={handleOpenSql}
         />
       </aside>
 
@@ -58,11 +63,13 @@ export default function App() {
               loadConnections()
             }}
           />
-        ) : selectedConn && selectedTable ? (
+        ) : view.type === 'sqlWorkspace' ? (
+          <SqlWorkspace connection={view.conn} />
+        ) : view.type === 'tableDetail' ? (
           <TableDetail
-            connection={selectedConn}
-            schema={selectedTable.schema}
-            table={{ name: selectedTable.table, type: 'table' }}
+            connection={view.conn}
+            schema={view.schema}
+            table={{ name: view.table, type: 'table' }}
           />
         ) : (
           <div className="welcome">
@@ -73,6 +80,10 @@ export default function App() {
                 <div className="feature">
                   <span className="feature-icon">🔌</span>
                   <span>多数据库连接（MySQL / PostgreSQL / SQLite / Redis）</span>
+                </div>
+                <div className="feature">
+                  <span className="feature-icon">📝</span>
+                  <span>SQL 编辑器 + 数据网格</span>
                 </div>
                 <div className="feature">
                   <span className="feature-icon">🌳</span>
@@ -86,7 +97,7 @@ export default function App() {
               <p className="welcome-hint">
                 {connections.length === 0
                   ? '点击左侧「+」创建你的第一个连接'
-                  : '点击左侧连接开始浏览数据库'}
+                  : '点击左侧连接的「查询」按钮开始写 SQL'}
               </p>
             </div>
           </div>

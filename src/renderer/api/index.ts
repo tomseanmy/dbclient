@@ -23,6 +23,8 @@ export type {
   Column,
   Index,
   ForeignKey,
+  QueryResult,
+  CellValue,
   RedisKeyOverview,
   ConnectionStatus,
   UnifiedType,

@@ -43,6 +43,15 @@ const api: RendererApi = {
   'db:listTables': (req) => invoke('db:listTables', req),
   'db:describeTable': (req) => invoke('db:describeTable', req),
   'db:getRedisOverview': (req) => invoke('db:getRedisOverview', req),
+
+  // ----- SQL 执行 -----
+  'db:executeQuery': (req) => invoke('db:executeQuery', req),
+  'db:executeStatement': (req) => invoke('db:executeStatement', req),
+
+  // ----- SQL 历史 -----
+  'sqlHistory:list': (req) => invoke('sqlHistory:list', req),
+  'sqlHistory:search': (req) => invoke('sqlHistory:search', req),
+  'sqlHistory:clear': (req) => invoke('sqlHistory:clear', req),
 }
 
 contextBridge.exposeInMainWorld('api', api)

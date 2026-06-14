@@ -13,9 +13,15 @@ interface ObjectTreeProps {
   selectedTable: { connectionId: string; schema?: string; table: string } | null
   onSelectTable: (conn: ConnectionListItem, schema: string | undefined, table: Table) => void
   onManageConnections: () => void
+  onOpenSql: (conn: ConnectionListItem) => void
 }
 
-export function ObjectTree({ selectedTable, onSelectTable, onManageConnections }: ObjectTreeProps) {
+export function ObjectTree({
+  selectedTable,
+  onSelectTable,
+  onManageConnections,
+  onOpenSql,
+}: ObjectTreeProps) {
   const { connections, states, connectDb, disconnectDb, loadSchemas, loadTables } =
     useConnectionStore()
   const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
@@ -99,6 +105,16 @@ export function ObjectTree({ selectedTable, onSelectTable, onManageConnections }
               >
                 {conn.environment}
               </span>
+              <button
+                className="conn-query-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenSql(conn)
+                }}
+                title="打开 SQL 查询"
+              >
+                📝
+              </button>
             </div>
 
             {/* 连接中 */}

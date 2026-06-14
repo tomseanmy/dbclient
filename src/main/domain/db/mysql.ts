@@ -269,4 +269,44 @@ export class MysqlDriver implements DbDriver {
     if (!db) throw new Error('无法确定当前数据库，请在连接配置中指定 database')
     return db
   }
+
+  async executeQuery(
+    sql: string,
+    opts?: import('./driver').QueryOptions,
+  ): Promise<import('@shared/types/database').QueryResult> {
+    const limit = opts?.limit ?? 1000
+    const start = Date.now()
+    if (!this.pool) throw new Error('MySQL 未连接')
+    const [result] = await this.pool.query(sql)
+    const rows = Array.isArray(result) ? (result as import('mysql2').RowDataPacket[]) : []
+    let columns: { name: string; dataType: string }[] = []
+    if (rows.length > 0) {
+      columns = Object.keys(rows[0]!).map((name) => ({
+        name,
+        dataType: typeof rows[0]![name],
+      }))
+    }
+    const truncated = rows.length > limit
+    const limitedRows = rows.slice(0, limit).map((r) => ({ ...r }))
+    return {
+      columns,
+      rows: limitedRows,
+      rowCount: limitedRows.length,
+      durationMs: Date.now() - start,
+      truncated,
+    }
+  }
+
+  async executeStatement(
+    sql: string,
+    _opts?: import('./driver').QueryOptions,
+  ): Promise<{ rowsAffected: number }> {
+    if (!this.pool) throw new Error('MySQL 未连接')
+    const [result] = await this.pool.query(sql)
+    const rowsAffected =
+      result && typeof result === 'object' && 'affectedRows' in result
+        ? (result as { affectedRows: number }).affectedRows
+        : 0
+    return { rowsAffected }
+  }
 }

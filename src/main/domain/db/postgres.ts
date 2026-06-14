@@ -300,4 +300,35 @@ export class PostgresDriver implements DbDriver {
       foreignKeys: [...fkMap.values()],
     }
   }
+  async executeQuery(
+    sql: string,
+    opts?: import('./driver').QueryOptions,
+  ): Promise<import('@shared/types/database').QueryResult> {
+    const limit = opts?.limit ?? 1000
+    const start = Date.now()
+    if (!this.pool) throw new Error('PostgreSQL 未连接')
+    const res = await this.pool.query(sql)
+    const columns = res.fields.map((f) => ({
+      name: f.name,
+      dataType: String(f.dataTypeID ?? 'unknown'),
+    }))
+    const truncated = res.rows.length > limit
+    const limitedRows = res.rows.slice(0, limit).map((r) => ({ ...r }))
+    return {
+      columns,
+      rows: limitedRows,
+      rowCount: limitedRows.length,
+      durationMs: Date.now() - start,
+      truncated,
+    }
+  }
+
+  async executeStatement(
+    sql: string,
+    _opts?: import('./driver').QueryOptions,
+  ): Promise<{ rowsAffected: number }> {
+    if (!this.pool) throw new Error('PostgreSQL 未连接')
+    const res = await this.pool.query(sql)
+    return { rowsAffected: res.rowCount ?? 0 }
+  }
 }

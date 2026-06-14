@@ -7,7 +7,13 @@
  * 关键约束：本模块属于核心领域层，不依赖 electron，可独立测试。
  */
 import type { ConnectionConfig } from '@shared/types/connection'
-import type { RedisKeyOverview, Schema, Table, TableMeta } from '@shared/types/database'
+import type {
+  QueryResult,
+  RedisKeyOverview,
+  Schema,
+  Table,
+  TableMeta,
+} from '@shared/types/database'
 import type { UnifiedType } from '@shared/types/database'
 
 /** 驱动实现所需的连接上下文（含密码，从 CredentialStore 取出后传入） */
@@ -20,6 +26,14 @@ export interface DriverContext {
 export interface DescribeOptions {
   schema?: string
   table: string
+}
+
+/** 查询执行选项 */
+export interface QueryOptions {
+  /** 最大返回行数（默认 1000） */
+  limit?: number
+  /** 超时毫秒（默认 30000） */
+  timeout?: number
 }
 
 /** 统一 DB 驱动接口 */
@@ -41,6 +55,12 @@ export interface DbDriver {
 
   /** 获取表的完整结构 */
   describeTable(opts: DescribeOptions): Promise<TableMeta>
+
+  /** 执行查询，返回结果集（SELECT 等返回行） */
+  executeQuery(sql: string, opts?: QueryOptions): Promise<QueryResult>
+
+  /** 执行语句，返回影响行数（INSERT/UPDATE/DELETE/DDL） */
+  executeStatement(sql: string, opts?: QueryOptions): Promise<{ rowsAffected: number }>
 }
 
 /**

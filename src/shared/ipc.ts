@@ -89,6 +89,48 @@ export interface IpcContracts {
     req: { connectionId: string }
     res: RedisKeyOverview
   }
+  'db:executeQuery': {
+    req: { connectionId: string; sql: string; limit?: number }
+    res: import('./types/database').QueryResult
+  }
+  'db:executeStatement': {
+    req: { connectionId: string; sql: string }
+    res: { rowsAffected: number }
+  }
+
+  // ----- SQL 历史 -----
+  'sqlHistory:list': {
+    req: { connectionId?: string; limit?: number }
+    res: {
+      id: number
+      connectionId: string | null
+      sqlText: string
+      status: string
+      durationMs: number | null
+      rowsAffected: number | null
+      errorMessage: string | null
+      source: string
+      executedAt: string
+    }[]
+  }
+  'sqlHistory:search': {
+    req: { keyword: string; limit?: number }
+    res: {
+      id: number
+      connectionId: string | null
+      sqlText: string
+      status: string
+      durationMs: number | null
+      rowsAffected: number | null
+      errorMessage: string | null
+      source: string
+      executedAt: string
+    }[]
+  }
+  'sqlHistory:clear': {
+    req: { connectionId?: string }
+    res: { success: boolean }
+  }
 }
 
 // ===== 派生类型 =====

@@ -229,4 +229,57 @@ export class SqliteDriver implements DbDriver {
       ddl: ddlRow?.sql ?? undefined,
     }
   }
+  async executeQuery(
+    sql: string,
+    opts?: import('./driver').QueryOptions,
+  ): Promise<import('@shared/types/database').QueryResult> {
+    const limit = opts?.limit ?? 1000
+    const start = Date.now()
+    const db = this.getDb()
+    const stmt = db.prepare(sql)
+    let rows: Record<string, unknown>[] = []
+    let columns: { name: string; dataType: string }[] = []
+    // SELECT 类语句用 all()，否则用 run()
+    try {
+      const allRows = stmt.all() as Record<string, unknown>[]
+      if (allRows.length > 0) {
+        columns = Object.keys(allRows[0]!).map((name) => ({
+          name,
+          dataType: typeof allRows[0]![name],
+        }))
+      }
+      rows = allRows
+    } catch {
+      // 非 SELECT 语句（better-sqlite3 的 all() 对非查询会抛错）
+      const info = stmt.run()
+      return {
+        columns: [],
+        rows: [],
+        rowCount: 0,
+        durationMs: Date.now() - start,
+        message: `${info.changes} 行受影响`,
+      }
+    }
+    const truncated = rows.length > limit
+    const limitedRows = rows.slice(0, limit) as Record<
+      string,
+      import('@shared/types/database').CellValue
+    >[]
+    return {
+      columns,
+      rows: limitedRows,
+      rowCount: limitedRows.length,
+      durationMs: Date.now() - start,
+      truncated,
+    }
+  }
+
+  async executeStatement(
+    sql: string,
+    _opts?: import('./driver').QueryOptions,
+  ): Promise<{ rowsAffected: number }> {
+    const db = this.getDb()
+    const info = db.prepare(sql).run()
+    return { rowsAffected: info.changes }
+  }
 }

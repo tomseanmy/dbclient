@@ -120,4 +120,11 @@ export class RedisDriverClass implements IRedisDriver {
       serverInfo: versionLine?.split(':')[1]?.trim(),
     }
   }
+  async executeQuery(_sql: string, _opts?: import('./driver').QueryOptions): Promise<never> {
+    throw new Error('Redis 不支持 SQL 查询，请使用专属命令')
+  }
+
+  async executeStatement(_sql: string, _opts?: import('./driver').QueryOptions): Promise<never> {
+    throw new Error('Redis 不支持 SQL 语句')
+  }
 }

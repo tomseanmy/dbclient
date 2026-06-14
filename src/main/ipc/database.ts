@@ -69,6 +69,30 @@ export function registerDatabaseHandlers(): void {
     return driver.describeTable({ schema, table })
   })
 
+  // 执行查询（SELECT 等）
+  registerHandler('db:executeQuery', async (_event, { connectionId, sql, limit }) => {
+    const { executeSql } = await import('@main/domain/executor')
+    const outcome = await executeSql({ connectionId, source: 'gui' }, sql, { limit })
+    if (outcome.kind === 'query') return outcome.result
+    // 语句类型包装成 QueryResult 形式
+    return {
+      columns: [],
+      rows: [],
+      rowCount: 0,
+      durationMs: 0,
+      message: `${outcome.rowsAffected} 行受影响`,
+    }
+  })
+
+  // 执行语句（INSERT/UPDATE/DELETE/DDL）
+  registerHandler('db:executeStatement', async (_event, { connectionId, sql }) => {
+    const { executeSql } = await import('@main/domain/executor')
+    const outcome = await executeSql({ connectionId, source: 'gui' }, sql)
+    return {
+      rowsAffected: outcome.kind === 'statement' ? outcome.rowsAffected : outcome.result.rowCount,
+    }
+  })
+
   // Redis key 概览
   registerHandler('db:getRedisOverview', async (_event, { connectionId }) => {
     const driver = getRedisDriver(connectionId)
