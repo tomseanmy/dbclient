@@ -259,3 +259,34 @@ T1.1 类型定义
 - **better-sqlite3 双 ABI 问题**：应用本地库和用户 SQLite 连接共用 better-sqlite3，它为 Electron ABI 编译，纯 Node 脚本（vitest）无法直接测试 driver。driver 逻辑需在 Electron 运行时内验证。
 - **端到端测试**：需要实际数据库实例（MySQL/PG/Redis）或 SQLite 文件。建议用 Docker 起测试库，或直接在 GUI 内创建连接验证。
 - **keytar 在 CI 环境**：CI 无 Keychain，keytar 会失败。生产环境（macOS/Win）正常。Linux 无 keyring 时需主密码兜底（P2）。
+
+### 4.4 实施中踩的坑
+
+#### 坑 1：keytar 动态 import 导致方法丢失
+
+**现象**：`connection:create` 报 `keytar.setPassword is not a function`。
+
+**根因**：`credential/store.ts` 用 `await import('keytar')` 动态导入。keytar 是 CJS native 模块，经 `externalizeDepsPlugin` 处理后，动态 `import()` 在 CJS 产物中返回的是 ESM wrapper 对象，方法在 `.default` 上而非顶层。
+
+**对策**：改用静态 `import * as keytar from 'keytar'`。`externalizeDepsPlugin` 对静态 import 会生成 `const keytar = require("keytar")` + `_interopNamespaceDefault`，正确复制所有方法。
+
+**教训**：Electron 主进程（CJS 产物）中，native 模块一律用静态 import，避免动态 import 的 ESM/CJS 互操作问题。
+
+#### 坑 2：PostgreSQL 密码 undefined 触发 SASL 错误
+
+**现象**：连接 PG 报 `SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string`。
+
+**根因**：`manager.ts` 取密码 `getPassword()` 返回 `null`，传给 driver 的 `ctx.password` 为 `undefined`，PG 驱动不接受。
+
+**对策**：各驱动抽取 `buildConnConfig`，密码为空时不包含 `password` 字段。MySQL 用 `?? ''` 兜底。
+
+**教训**：DB 驱动的连接配置参数，undefined/null 要显式排除，不能假设驱动会自动处理。
+
+### 4.5 端到端验证结果
+
+在 macOS 环境下，使用真实 PostgreSQL 实例完成端到端验证：
+
+- ✅ 新建 PG 连接（密码存入 macOS Keychain）
+- ✅ 展开连接 → schema → 表
+- ✅ 查看表结构（列/索引/外键/DDL）
+- ✅ 连接状态指示正常
