@@ -62,35 +62,33 @@ const TYPE_MAPPINGS: Record<string, UnifiedType> = {
 export class PostgresDriver implements DbDriver {
   pool: Pool | null = null
 
-  async connect(ctx: DriverContext): Promise<void> {
-    if (this.pool) return
+  /** 构造 pg 连接配置（password 为空时不包含该字段，避免 SASL 报错） */
+  private buildConnConfig(ctx: DriverContext): Record<string, unknown> {
     const { config } = ctx
-    this.pool = new PgPool({
+    const opts: Record<string, unknown> = {
       host: config.host ?? 'localhost',
       port: config.port ?? 5432,
       user: config.username,
-      password: ctx.password,
       database: config.database,
       ssl: config.options?.ssl ? { rejectUnauthorized: false } : undefined,
       connectionTimeoutMillis: config.options?.connectTimeout ?? 10000,
-      max: 5,
-    })
-    // 验证连接
+    }
+    // 只有密码非空时才传，pg 不接受 undefined/null
+    if (ctx.password) {
+      opts.password = ctx.password
+    }
+    return opts
+  }
+
+  async connect(ctx: DriverContext): Promise<void> {
+    if (this.pool) return
+    this.pool = new PgPool({ ...this.buildConnConfig(ctx), max: 5 })
     const client = await this.pool.connect()
     client.release()
   }
 
   async testConnection(ctx: DriverContext): Promise<{ serverInfo?: string }> {
-    const { config } = ctx
-    const client = new pg.Client({
-      host: config.host ?? 'localhost',
-      port: config.port ?? 5432,
-      user: config.username,
-      password: ctx.password,
-      database: config.database,
-      ssl: config.options?.ssl ? { rejectUnauthorized: false } : undefined,
-      connectionTimeoutMillis: config.options?.connectTimeout ?? 10000,
-    })
+    const client = new pg.Client(this.buildConnConfig(ctx))
     await client.connect()
     try {
       const res = await client.query('SELECT version() AS version')

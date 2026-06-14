@@ -4,6 +4,7 @@
  * 密码不入本地数据库，通过此接口存取（macOS Keychain / Win Vault）。
  * 主密码加密兜底（Linux 无 keyring 时）留到后续。
  */
+import * as keytar from 'keytar'
 
 /** 凭据存储接口 */
 export interface CredentialStore {
@@ -20,20 +21,20 @@ const SERVICE_NAME = 'ai-db-client'
 
 /**
  * 基于 keytar 的 Keychain 实现（macOS Keychain / Win Credential Vault / Linux Secret Service）
+ *
+ * keytar 是 CJS native 模块，通过 externalizeDepsPlugin 保持为外部 require，
+ * 静态 import * 在 CJS 产物中正确映射到 module.exports。
  */
 class KeychainCredentialStore implements CredentialStore {
   async getPassword(connectionId: string): Promise<string | null> {
-    const keytar = await import('keytar')
     return keytar.getPassword(SERVICE_NAME, connectionId)
   }
 
   async setPassword(connectionId: string, password: string): Promise<void> {
-    const keytar = await import('keytar')
     await keytar.setPassword(SERVICE_NAME, connectionId, password)
   }
 
   async deletePassword(connectionId: string): Promise<void> {
-    const keytar = await import('keytar')
     await keytar.deletePassword(SERVICE_NAME, connectionId)
   }
 }
