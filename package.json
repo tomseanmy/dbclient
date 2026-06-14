@@ -19,20 +19,28 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md,yml,yaml}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "rebuild": "cross-env ELECTRON_RUN_AS_NODE= electron-rebuild -f -w better-sqlite3",
+    "rebuild": "cross-env ELECTRON_RUN_AS_NODE= electron-rebuild -f -w better-sqlite3 -w keytar",
     "prepare": "husky"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.1",
+    "clsx": "^2.1.1",
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",
+    "ioredis": "^5.11.1",
+    "keytar": "^7.9.0",
+    "lucide-react": "^1.18.0",
+    "mysql2": "^3.22.5",
+    "pg": "^8.21.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.14"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3",
-      "electron"
+      "electron",
+      "keytar"
     ]
   },
   "devDependencies": {
@@ -41,7 +49,9 @@
     "@electron/rebuild": "^4.0.4",
     "@eslint/js": "^9.39.4",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/mysql": "^2.15.27",
     "@types/node": "^25.9.3",
+    "@types/pg": "^8.20.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",

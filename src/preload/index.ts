@@ -8,19 +8,41 @@
  *
  * window.api 的形状由 RendererApi 类型严格约束，
  * 渲染进程调用时享受完整类型提示与编译期检查。
+ *
+ * 维护说明：新增 channel 时需手动在此处添加对应条目。
  */
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcChannel, IpcReq, IpcRes, RendererApi } from '@shared/ipc'
 
-// 手工维护与 IpcChannel 同步的 api 对象。
-// 这里显式列出每个 channel，避免动态构造丢失类型信息。
-// 新增 channel 时需同步：1) ipc.ts 2) 此处 3) 主进程 handler
+/** 基于 IPC 类型契约的类型安全调用辅助 */
+function invoke<C extends IpcChannel>(
+  channel: C,
+  ...args: IpcReq<C> extends void ? [] : [IpcReq<C>]
+): Promise<IpcRes<C>> {
+  const req = args[0]
+  return ipcRenderer.invoke(channel, req) as Promise<IpcRes<C>>
+}
+
 const api: RendererApi = {
-  'app:ping': () => ipcRenderer.invoke('app:ping') as Promise<IpcRes<'app:ping'>>,
-  'app:getInfo': () => ipcRenderer.invoke('app:getInfo') as Promise<IpcRes<'app:getInfo'>>,
+  // ----- 应用级 -----
+  'app:ping': () => invoke('app:ping'),
+  'app:getInfo': () => invoke('app:getInfo'),
+
+  // ----- 连接管理 -----
+  'connection:list': () => invoke('connection:list'),
+  'connection:get': (req) => invoke('connection:get', req),
+  'connection:create': (req) => invoke('connection:create', req),
+  'connection:update': (req) => invoke('connection:update', req),
+  'connection:delete': (req) => invoke('connection:delete', req),
+  'connection:test': (req) => invoke('connection:test', req),
+
+  // ----- 数据库浏览 -----
+  'db:connect': (req) => invoke('db:connect', req),
+  'db:disconnect': (req) => invoke('db:disconnect', req),
+  'db:listSchemas': (req) => invoke('db:listSchemas', req),
+  'db:listTables': (req) => invoke('db:listTables', req),
+  'db:describeTable': (req) => invoke('db:describeTable', req),
+  'db:getRedisOverview': (req) => invoke('db:getRedisOverview', req),
 }
 
 contextBridge.exposeInMainWorld('api', api)
-
-// 类型导出（供 preload 自身类型检查）
-export type { IpcChannel, IpcReq, IpcRes, RendererApi }

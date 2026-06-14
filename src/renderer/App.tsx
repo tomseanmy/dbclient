@@ -1,80 +1,96 @@
 import { useEffect, useState } from 'react'
-import { api } from './api'
+import { api, type ConnectionListItem, type Table } from './api'
+import { useConnectionStore } from './store/connections'
+import { ObjectTree } from './components/ObjectTree'
+import { TableDetail } from './components/TableDetail'
+import { ConnectionManager } from './pages/ConnectionManager'
 
-interface PingResult {
-  pong: string
-  ts: number
-  version: string
-}
-
-interface AppInfo {
-  appVersion: string
-  electronVersion: string
-  nodeVersion: string
-  platform: string
-  userDataPath: string
+interface SelectedTable {
+  connectionId: string
+  schema?: string
+  table: string
 }
 
 export default function App() {
-  const [ping, setPing] = useState<PingResult | null>(null)
-  const [info, setInfo] = useState<AppInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { connections, loadConnections } = useConnectionStore()
+  const [page, setPage] = useState<'workspace' | 'manage'>('workspace')
+  const [selectedConn, setSelectedConn] = useState<ConnectionListItem | null>(null)
+  const [selectedTable, setSelectedTable] = useState<SelectedTable | null>(null)
+  const [bootInfo, setBootInfo] = useState<string | null>(null)
 
   useEffect(() => {
+    loadConnections()
     api['app:ping']()
-      .then(setPing)
-      .catch((e) => setError(String(e)))
-    api['app:getInfo']()
-      .then(setInfo)
-      .catch((e) => setError(String(e)))
-  }, [])
+      .then((r) => setBootInfo(`v${r.version}`))
+      .catch(() => {})
+  }, [loadConnections])
+
+  const handleSelectTable = (
+    conn: ConnectionListItem,
+    schema: string | undefined,
+    table: Table,
+  ) => {
+    setSelectedConn(conn)
+    setSelectedTable({ connectionId: conn.id, schema, table: table.name })
+  }
+
+  const handleManageConnections = () => setPage('manage')
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>AI DB Client</h1>
-        <p className="subtitle">开源的 AI 原生数据库工具 · M0 骨架</p>
-      </header>
+    <div className="app-root">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <span className="brand-name">AI DB Client</span>
+          {bootInfo && <span className="brand-version">{bootInfo}</span>}
+        </div>
+        <ObjectTree
+          selectedTable={selectedTable}
+          onSelectTable={handleSelectTable}
+          onManageConnections={handleManageConnections}
+        />
+      </aside>
 
-      <main className="app-main">
-        <section className="card">
-          <h2>IPC 连通性测试</h2>
-          {error ? (
-            <p className="error">❌ {error}</p>
-          ) : !ping ? (
-            <p className="muted">正在 ping 主进程…</p>
-          ) : (
-            <p className="success">
-              ✅ {ping.pong} · v{ping.version} · {new Date(ping.ts).toLocaleTimeString()}
-            </p>
-          )}
-        </section>
-
-        <section className="card">
-          <h2>运行环境</h2>
-          {!info ? (
-            <p className="muted">加载中…</p>
-          ) : (
-            <dl className="info-grid">
-              <dt>App 版本</dt>
-              <dd>{info.appVersion}</dd>
-              <dt>Electron</dt>
-              <dd>{info.electronVersion}</dd>
-              <dt>Node</dt>
-              <dd>{info.nodeVersion}</dd>
-              <dt>平台</dt>
-              <dd>{info.platform}</dd>
-              <dt>用户数据目录</dt>
-              <dd className="mono">{info.userDataPath}</dd>
-            </dl>
-          )}
-        </section>
-
-        <section className="card placeholder">
-          <p className="muted">
-            🚧 后续模块（M1 连接管理 / M2 SQL 编辑器 / M4 AI 对话 / M5 MCP Server）开发中
-          </p>
-        </section>
+      <main className="main-content">
+        {page === 'manage' ? (
+          <ConnectionManager
+            onClose={() => {
+              setPage('workspace')
+              loadConnections()
+            }}
+          />
+        ) : selectedConn && selectedTable ? (
+          <TableDetail
+            connection={selectedConn}
+            schema={selectedTable.schema}
+            table={{ name: selectedTable.table, type: 'table' }}
+          />
+        ) : (
+          <div className="welcome">
+            <div className="welcome-card">
+              <h1>AI DB Client</h1>
+              <p className="welcome-subtitle">开源的 AI 原生数据库工具</p>
+              <div className="welcome-features">
+                <div className="feature">
+                  <span className="feature-icon">🔌</span>
+                  <span>多数据库连接（MySQL / PostgreSQL / SQLite / Redis）</span>
+                </div>
+                <div className="feature">
+                  <span className="feature-icon">🌳</span>
+                  <span>对象浏览与表结构查看</span>
+                </div>
+                <div className="feature muted-feature">
+                  <span className="feature-icon">🤖</span>
+                  <span>AI 对话 + MCP Server（开发中）</span>
+                </div>
+              </div>
+              <p className="welcome-hint">
+                {connections.length === 0
+                  ? '点击左侧「+」创建你的第一个连接'
+                  : '点击左侧连接开始浏览数据库'}
+              </p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

@@ -4,17 +4,25 @@
  * 设计原则：
  * - 所有 IPC channel 的请求/响应类型在此集中声明，两端共享
  * - 渲染进程通过 preload 暴露的 window.api 调用，全程类型安全
- * - 后续 db:* / ai:* / mcp:* / connection:* 在此扩展
+ * - 后续 ai:* / mcp:* 在此扩展
  *
  * 新增 channel 时：
- * 1. 在 IPC_CONTRACTS 中添加条目
- * 2. preload 白名单自动包含（基于此类型）
- * 3. 主进程 ipc/registry 注册 handler
+ * 1. 在 IpcContracts 中添加条目
+ * 2. preload 白名单手动同步（见 src/preload/index.ts）
+ * 3. 主进程 ipc/ 注册 handler
  */
+import type {
+  ConnectionConfig,
+  ConnectionInput,
+  ConnectionListItem,
+  ConnectionTestInput,
+  ConnectionTestResult,
+} from './types/connection'
+import type { RedisKeyOverview, Schema, Table, TableMeta } from './types/database'
 
 // ===== 通道元数据：每个 channel 的请求/响应类型 =====
 export interface IpcContracts {
-  // 应用级
+  // ----- 应用级 -----
   'app:ping': {
     req: void
     res: { pong: 'pong'; ts: number; version: string }
@@ -28,6 +36,58 @@ export interface IpcContracts {
       platform: string
       userDataPath: string
     }
+  }
+
+  // ----- 连接管理 -----
+  'connection:list': {
+    req: void
+    res: ConnectionListItem[]
+  }
+  'connection:get': {
+    req: { id: string }
+    res: ConnectionConfig | null
+  }
+  'connection:create': {
+    req: ConnectionInput
+    res: ConnectionConfig
+  }
+  'connection:update': {
+    req: { id: string; input: ConnectionInput }
+    res: ConnectionConfig
+  }
+  'connection:delete': {
+    req: { id: string }
+    res: { success: boolean }
+  }
+  'connection:test': {
+    req: ConnectionTestInput
+    res: ConnectionTestResult
+  }
+
+  // ----- 数据库浏览 -----
+  'db:connect': {
+    req: { connectionId: string }
+    res: { success: boolean; message: string; serverInfo?: string }
+  }
+  'db:disconnect': {
+    req: { connectionId: string }
+    res: { success: boolean }
+  }
+  'db:listSchemas': {
+    req: { connectionId: string }
+    res: Schema[]
+  }
+  'db:listTables': {
+    req: { connectionId: string; schema?: string }
+    res: Table[]
+  }
+  'db:describeTable': {
+    req: { connectionId: string; schema?: string; table: string }
+    res: TableMeta
+  }
+  'db:getRedisOverview': {
+    req: { connectionId: string }
+    res: RedisKeyOverview
   }
 }
 

@@ -15,6 +15,7 @@ import { join } from 'node:path'
 import { logger } from './infra/logger'
 import { initDb, closeDb } from './infra/storage/db'
 import { registerAllHandlers } from './ipc/registry'
+import { closeAll as closeAllConnections } from './domain/db/manager'
 
 // ===== 单实例锁：防止多开导致本地库/MCP 端口冲突 =====
 if (!app.requestSingleInstanceLock()) {
@@ -67,7 +68,8 @@ app.on('activate', () => {
 })
 
 // ===== 退出前清理 =====
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
+  await closeAllConnections()
   closeDb()
 })
 

@@ -26,5 +26,9 @@ export function registerHandler<C extends IpcChannel>(
 /** 注册所有 IPC handler（应用启动时调用一次） */
 export async function registerAllHandlers(): Promise<void> {
   const { registerAppHandlers } = await import('./app')
+  const { registerConnectionHandlers } = await import('./connection')
+  const { registerDatabaseHandlers } = await import('./database')
   registerAppHandlers()
+  registerConnectionHandlers()
+  registerDatabaseHandlers()
 }
