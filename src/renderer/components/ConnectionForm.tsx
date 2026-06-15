@@ -35,7 +35,11 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
   const [color, setColor] = useState(initial?.color ?? '')
 
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [testResult, setTestResult] = useState<{
+    success: boolean
+    message: string
+    fileNotFound?: boolean
+  } | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -65,14 +69,28 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
     sortOrder: initial?.sortOrder ?? 0,
   })
 
-  const handleTest = async () => {
+  const handleTest = async (opts?: { createFile?: boolean }) => {
     setTesting(true)
     setTestResult(null)
     try {
-      const result = await api['connection:test'](buildInput())
+      const input = buildInput()
+      if (opts?.createFile) {
+        input.options = { ...input.options, extra: { createIfNotExist: true } }
+      }
+      const result = await api['connection:test'](input)
       setTestResult(result)
     } catch (err) {
-      setTestResult({ success: false, message: err instanceof Error ? err.message : String(err) })
+      const msg = err instanceof Error ? err.message : String(err)
+      // SQLite 文件不存在的特殊处理
+      if (msg.includes('数据库文件不存在')) {
+        setTestResult({
+          success: false,
+          message: msg,
+          fileNotFound: true,
+        })
+      } else {
+        setTestResult({ success: false, message: msg })
+      }
     } finally {
       setTesting(false)
     }
@@ -200,8 +218,18 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
       {error && <div className="form-error">{error}</div>}
       {testResult && (
         <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
-          {testResult.success ? '✅ ' : '❌ '}
+          {testResult.success ? '✅ ' : '❅ '}
           {testResult.message}
+          {testResult.fileNotFound && (
+            <button
+              className="btn btn-primary btn-sm"
+              style={{ marginLeft: 8 }}
+              onClick={() => handleTest({ createFile: true })}
+              disabled={testing}
+            >
+              创建并测试
+            </button>
+          )}
         </div>
       )}
 
@@ -209,7 +237,11 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
         <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>
           取消
         </button>
-        <button className="btn btn-secondary" onClick={handleTest} disabled={testing || saving}>
+        <button
+          className="btn btn-secondary"
+          onClick={() => handleTest()}
+          disabled={testing || saving}
+        >
           {testing ? '测试中…' : '测试连接'}
         </button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

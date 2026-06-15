@@ -8,6 +8,8 @@
  */
 import Database from 'better-sqlite3'
 import type { Database as DB } from 'better-sqlite3'
+import { existsSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import type { DriverContext, DescribeOptions } from './driver'
 import { mapUnifiedType } from './driver'
 import type { DbDriver } from './driver'
@@ -56,6 +58,24 @@ export class SqliteDriver implements DbDriver {
     const { config } = ctx
     const filePath = config.database
     if (!filePath) throw new Error('SQLite 连接需要指定数据库文件路径')
+
+    // 文件不存在时的处理
+    if (!existsSync(filePath)) {
+      // createIfNotExist 标志由前端传入（用户确认创建后）
+      const shouldCreate = config.options?.extra?.createIfNotExist === true
+      if (shouldCreate) {
+        const dir = dirname(filePath)
+        if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+        const newDb = new Database(filePath)
+        newDb.close()
+      } else {
+        // 抛出特殊错误，前端识别后提示「是否创建」
+        const err = new Error('数据库文件不存在：' + filePath)
+        err.name = 'FileNotFound'
+        throw err
+      }
+    }
+
     const testDb = new Database(filePath, { readonly: true })
     try {
       const row = testDb.prepare('SELECT sqlite_version() AS version').get() as
