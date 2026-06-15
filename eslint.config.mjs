@@ -14,6 +14,8 @@ export default tseslint.config(
       'dist/**',
       'release/**',
       'coverage/**',
+      // website/ 是独立静态站点，不属于 TS 应用代码，不参与项目 eslint
+      'website/**',
       '*.db',
     ],
   },
