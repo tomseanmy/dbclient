@@ -1369,3 +1369,31 @@ textarea {
   font-size: 12px;
   opacity: 0.8;
 }
+
+/* ===== 刷新按钮 ===== */
+.conn-refresh-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--text-sidebar-muted);
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.tree-node:hover .conn-refresh-btn {
+  opacity: 0.8;
+}
+
+.conn-refresh-btn:hover {
+  opacity: 1 !important;
+  color: var(--text-sidebar);
+}
+
+.conn-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}

@@ -3,9 +3,19 @@
  *
  * 展示：连接节点 → schema → 表/视图。
  * 懒加载：点击连接才连库，点击 schema 才加载表。
+ * 支持手动刷新 + DDL 执行后自动刷新（监听 refreshTick）。
  */
-import { useState } from 'react'
-import { ChevronRight, Database, Server, Table2, Eye, Loader2, AlertCircle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  ChevronRight,
+  Database,
+  Server,
+  Table2,
+  Eye,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+} from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import type { ConnectionListItem, Table } from '../api'
 
@@ -22,20 +32,40 @@ export function ObjectTree({
   onManageConnections,
   onOpenSql,
 }: ObjectTreeProps) {
-  const { connections, states, connectDb, disconnectDb, loadSchemas, loadTables } =
-    useConnectionStore()
+  const {
+    connections,
+    states,
+    connectDb,
+    disconnectDb,
+    loadSchemas,
+    loadTables,
+    refreshConnection,
+    refreshTick,
+  } = useConnectionStore()
   const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set())
+  const [refreshingConn, setRefreshingConn] = useState<string | null>(null)
+
+  // 监听全局刷新信号（DDL 执行后 triggerRefresh 递增 refreshTick）
+  useEffect(() => {
+    if (refreshTick === 0) return
+    // 刷新所有已展开且已连接的连接
+    expandedConns.forEach((connId) => {
+      const state = states[connId]
+      if (state?.connected) {
+        refreshConnection(connId)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTick])
 
   const toggleConn = async (conn: ConnectionListItem) => {
     const key = conn.id
     const isOpen = expandedConns.has(key)
     if (isOpen) {
-      // 收起 + 断开
       setExpandedConns((prev) => new Set([...prev].filter((k) => k !== key)))
       await disconnectDb(conn.id)
     } else {
-      // 展开 + 连接 + 加载 schema
       setExpandedConns((prev) => new Set(prev).add(key))
       const state = states[key]
       if (!state?.connected) {
@@ -57,6 +87,18 @@ export function ObjectTree({
       await loadTables(connId, schemaName)
     }
   }
+
+  const handleRefresh = useCallback(
+    async (connId: string) => {
+      setRefreshingConn(connId)
+      try {
+        await refreshConnection(connId)
+      } finally {
+        setRefreshingConn(null)
+      }
+    },
+    [refreshConnection],
+  )
 
   return (
     <div className="object-tree">
@@ -82,6 +124,7 @@ export function ObjectTree({
         const schemas = state?.schemas ?? []
         const isConnecting = state?.connecting
         const connError = state?.error
+        const isRefreshing = refreshingConn === conn.id
 
         return (
           <div key={conn.id} className="tree-node-group">
@@ -105,6 +148,19 @@ export function ObjectTree({
               >
                 {conn.environment}
               </span>
+              {isOpen && state?.connected && (
+                <button
+                  className="conn-refresh-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRefresh(conn.id)
+                  }}
+                  title="刷新"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw size={11} className={isRefreshing ? 'spin' : ''} />
+                </button>
+              )}
               <button
                 className="conn-query-btn"
                 onClick={(e) => {

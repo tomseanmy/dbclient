@@ -1,51 +1,47 @@
 /**
  * 连接状态管理（Zustand）
  *
- * 管理：连接列表、选中连接、新建/编辑表单状态、对象浏览状态。
+ * 管理：连接列表、对象浏览状态。
+ * 支持手动刷新与 DDL 执行后自动刷新。
  */
 import { create } from 'zustand'
 import { api, type ConnectionListItem, type DbType, type Environment } from '../api'
 
 /** 对象树中单个连接的浏览状态 */
 interface ConnectionState {
-  /** 是否已连接到数据库服务器 */
   connected?: boolean
-  /** 连接中（loading） */
   connecting?: boolean
-  /** 错误信息 */
   error?: string
-  /** 展开的 schema 列表 */
   schemas?: Awaited<ReturnType<(typeof api)['db:listSchemas']>>
-  /** 选中的 schema 下的表列表（按 schema 名索引） */
   tables?: Record<string, Awaited<ReturnType<(typeof api)['db:listTables']>>>
 }
 
 interface ConnectionStore {
-  /** 所有连接列表 */
   connections: ConnectionListItem[]
   loading: boolean
-
-  /** 各连接的浏览状态（按连接 ID 索引） */
   states: Record<string, ConnectionState>
+  /** 全局刷新计数器，DDL 执行后递增，ObjectTree 监听它自动刷新 */
+  refreshTick: number
 
-  /** 加载连接列表 */
   loadConnections: () => Promise<void>
 
-  /** 连接到数据库 */
   connectDb: (connectionId: string) => Promise<boolean>
-  /** 断开连接 */
   disconnectDb: (connectionId: string) => Promise<void>
 
-  /** 加载 schema 列表 */
   loadSchemas: (connectionId: string) => Promise<void>
-  /** 加载某 schema 下的表 */
   loadTables: (connectionId: string, schema: string) => Promise<void>
+
+  /** 刷新指定连接的所有已展开数据（schemas + 已加载的 tables） */
+  refreshConnection: (connectionId: string) => Promise<void>
+  /** 触发全局刷新信号（DDL 执行后调用） */
+  triggerRefresh: () => void
 }
 
-export const useConnectionStore = create<ConnectionStore>((set) => ({
+export const useConnectionStore = create<ConnectionStore>((set, get) => ({
   connections: [],
   loading: false,
   states: {},
+  refreshTick: 0,
 
   loadConnections: async () => {
     set({ loading: true })
@@ -97,10 +93,11 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
 
   disconnectDb: async (connectionId) => {
     await api['db:disconnect']({ connectionId })
+    // 断开时清空缓存，避免重连后看到旧数据
     set((s) => ({
       states: {
         ...s.states,
-        [connectionId]: { connected: false },
+        [connectionId]: { connected: false, schemas: undefined, tables: undefined },
       },
     }))
   },
@@ -137,9 +134,25 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
       }
     })
   },
+
+  refreshConnection: async (connectionId) => {
+    const state = get().states[connectionId]
+    if (!state?.connected) return
+    // 刷新 schemas
+    await get().loadSchemas(connectionId)
+    // 刷新已加载的 tables
+    if (state.tables) {
+      const schemas = Object.keys(state.tables)
+      await Promise.all(schemas.map((sc) => get().loadTables(connectionId, sc)))
+    }
+  },
+
+  triggerRefresh: () => {
+    set((s) => ({ refreshTick: s.refreshTick + 1 }))
+  },
 }))
 
-// 辅助：数据库类型标签与默认端口
+// 辅助常量
 export const DB_LABELS: Record<DbType, string> = {
   mysql: 'MySQL',
   postgres: 'PostgreSQL',

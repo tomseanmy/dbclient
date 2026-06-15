@@ -11,6 +11,7 @@
 import { useState, useCallback } from 'react'
 import { Download, Copy, Check, ChevronDown } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult, type SecurityCheckResult } from '../api'
+import { useConnectionStore } from '../store/connections'
 import { SqlEditor } from './SqlEditor'
 import { DataGrid } from './DataGrid'
 import { SqlHistory } from './SqlHistory'
@@ -22,6 +23,7 @@ interface SqlWorkspaceProps {
 }
 
 export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
+  const triggerRefresh = useConnectionStore((s) => s.triggerRefresh)
   const [sql, setSql] = useState('-- 在此输入 SQL\nSELECT * FROM ')
   const [result, setResult] = useState<QueryResult | null>(null)
   const [executing, setExecuting] = useState(false)
@@ -43,13 +45,17 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
           sql: sqlToRun,
         })
         setResult(res)
+        // 如果是写操作（有 message 说明是非 SELECT），刷新对象树
+        if (res.message) {
+          triggerRefresh()
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       } finally {
         setExecuting(false)
       }
     },
-    [connection.id],
+    [connection.id, triggerRefresh],
   )
 
   const handleExecute = useCallback(
@@ -100,6 +106,8 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
         confirmedKeyword: keyword,
       })
       setResult(res)
+      // 确认执行的是危险操作，一定刷新
+      triggerRefresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
