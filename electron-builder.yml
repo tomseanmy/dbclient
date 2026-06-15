@@ -1,0 +1,80 @@
+# electron-builder 配置
+# 文档: https://www.electron.build/configuration
+# 当前为未签名构建；后续如需签名，补 CSC_* / APPLE_* 环境变量即可。
+
+appId: com.tomseanmy.dbclient
+productName: AI DB Client
+copyright: Copyright © ${author}
+
+directories:
+  output: release
+  buildResources: build
+
+# 使用 package.json 的 version 作为构建版本
+# 打 tag 前请先把 package.json 的 version 改成与 tag 一致
+
+# 主进程入口（与 package.json 的 main 一致）
+files:
+  - out/**/*
+  - package.json
+  - '!**/.DS_Store'
+
+# 原生模块 (.node) 需要解包到 asar 外，否则 better-sqlite3 / keytar 无法加载
+asarUnpack:
+  - '**/*.node'
+
+# Node 版本与打包目标相关的元数据，electron-builder 会自动用宿主机的架构编译原生模块
+nodeGypRebuild: false
+npmRebuild: true
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+  # 未签名
+  identity: null
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  # 不做公证
+  notarize: false
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  contents:
+    - x: 130
+      'y': 220
+    - x: 410
+      'y': 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+linux:
+  category: Development
+  target:
+    - AppImage
+    - deb
+  maintainer: tomsean <tom_sean@outlook.com>
+
+AppImage:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+deb:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  depends:
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - libsecret-1-0
