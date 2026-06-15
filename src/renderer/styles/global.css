@@ -1,20 +1,35 @@
 /* ===== 全局 ===== */
 :root {
-  --bg: #f8f9fa;
-  --bg-sidebar: #1e1e2e;
-  --bg-card: #ffffff;
-  --bg-hover: #f1f3f5;
-  --border: #e5e7eb;
-  --text: #1a1a1a;
-  --text-muted: #6b7280;
-  --text-sidebar: #cdd6f4;
-  --text-sidebar-muted: #7f849c;
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --danger: #dc2626;
-  --success: #16a34a;
+  /* macOS 暗岩灰配色 rgb(25,26,28) */
+  --bg: #191a1c; /* 主背景：暗岩灰 */
+  --bg-elevated: #1f2023; /* 卡片/面板抬升一层 */
+  --bg-sidebar: transparent; /* 侧栏透明：透出原生毛玻璃 vibrancy */
+  --bg-card: #1f2023;
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --bg-hover-strong: rgba(255, 255, 255, 0.12);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text: #e6e6e6; /* 主文字 */
+  --text-muted: #9a9a9f; /* 次要文字 */
+  --text-sidebar: #e6e6e6;
+  --text-sidebar-muted: #8a8a90;
+
+  --primary: #0a84ff; /* macOS 蓝 */
+  --primary-hover: #3d9bff;
+  --danger: #ff453a; /* macOS 红 */
+  --success: #30d158; /* macOS 绿 */
+  --warning: #ffd60a; /* macOS 黄 */
+
+  /* 暗色语义底色（用于提示/徽章等） */
+  --surface-info: rgba(10, 132, 255, 0.16);
+  --surface-success: rgba(48, 209, 88, 0.16);
+  --surface-danger: rgba(255, 69, 58, 0.16);
+  --surface-warning: rgba(255, 214, 10, 0.16);
+
   --radius: 6px;
   --sidebar-width: 280px;
+  --shell-gap: 8px;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', sans-serif;
@@ -32,6 +47,7 @@ body {
   margin: 0;
   padding: 0;
   user-select: none;
+  background: var(--bg);
 }
 
 input,
@@ -44,25 +60,26 @@ textarea {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: var(--bg);
+  -webkit-app-region: drag;
 }
 
 .sidebar {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
-  background: var(--bg-sidebar);
+  background: var(--bg-sidebar); /* 透明：透出原生毛玻璃 */
   color: var(--text-sidebar);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #11111b;
   overflow: hidden;
+  padding-top: 34px;
 }
 
 .sidebar-brand {
-  padding: 12px 16px;
+  padding: 0 16px 12px;
   display: flex;
   align-items: baseline;
   gap: 8px;
-  border-bottom: 1px solid #313244;
 }
 
 .brand-name {
@@ -77,8 +94,26 @@ textarea {
 
 .main-content {
   flex: 1;
-  overflow: auto;
+  min-width: 0;
+  margin: var(--shell-gap) var(--shell-gap) var(--shell-gap) 0;
+  overflow: hidden;
   background: var(--bg);
+  border-radius: 14px;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--border);
+  -webkit-app-region: no-drag;
+}
+
+button,
+input,
+textarea,
+select,
+.tree-node,
+.tab-item,
+.context-menu,
+.modal-overlay {
+  -webkit-app-region: no-drag;
 }
 
 /* ===== 对象树 ===== */
@@ -124,7 +159,7 @@ textarea {
 }
 
 .tree-node:hover {
-  background: #313244;
+  background: var(--bg-hover);
 }
 
 .chevron {
@@ -154,7 +189,7 @@ textarea {
   font-size: 10px;
   padding: 1px 5px;
   border-radius: 3px;
-  background: #313244;
+  background: var(--bg-hover);
   color: var(--text-sidebar-muted);
   flex-shrink: 0;
 }
@@ -167,7 +202,19 @@ textarea {
 }
 
 .tree-children {
-  padding-left: 16px;
+  padding-left: 0;
+}
+
+.tree-level-0 {
+  padding-left: 12px;
+}
+
+.tree-level-1 {
+  padding-left: 24px;
+}
+
+.tree-level-2 {
+  padding-left: 36px;
 }
 
 .tree-schema {
@@ -177,7 +224,6 @@ textarea {
 
 .tree-table {
   font-size: 12px;
-  padding-left: 36px;
 }
 
 .tree-table.selected {
@@ -197,14 +243,18 @@ textarea {
 }
 
 .tree-empty-sm {
-  padding: 4px 36px;
+  padding-top: 4px;
+  padding-right: 12px;
+  padding-bottom: 4px;
   font-size: 11px;
   color: var(--text-sidebar-muted);
 }
 
 .tree-loading,
 .tree-error {
-  padding: 4px 24px;
+  padding-top: 4px;
+  padding-right: 12px;
+  padding-bottom: 4px;
   font-size: 11px;
   color: var(--text-sidebar-muted);
   display: flex;
@@ -213,7 +263,7 @@ textarea {
 }
 
 .tree-error {
-  color: #f38ba8;
+  color: var(--danger);
 }
 
 .spin {
@@ -277,16 +327,20 @@ textarea {
 
 /* ===== 连接管理页 ===== */
 .page-connection-manager {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 32px;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .page-header h1 {
@@ -294,97 +348,13 @@ textarea {
   margin: 0;
 }
 
-.page-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-muted);
-}
-
-.empty-state .btn {
-  margin-top: 16px;
-}
-
-.connection-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
-}
-
-.connection-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  transition: box-shadow 0.15s;
-}
-
-.connection-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.conn-type-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  color: white;
-}
-
-.env-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.card-name {
-  font-size: 15px;
-  margin: 4px 0;
-}
-
-.card-detail {
-  font-size: 12px;
-  margin: 2px 0;
-  color: var(--text-muted);
-  word-break: break-all;
-}
-
-.card-detail.muted {
-  opacity: 0.7;
-}
-
-.card-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-
 /* ===== 连接表单 ===== */
 .connection-form {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 24px;
-  max-width: 560px;
-}
-
-.connection-form h2 {
-  margin: 0 0 20px;
-  font-size: 18px;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
 }
 
 .form-field {
@@ -407,18 +377,22 @@ textarea {
 .form-field input {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   font-size: 13px;
   font-family: inherit;
-  background: white;
+  background: var(--bg-elevated);
   color: var(--text);
+}
+
+.form-field input::placeholder {
+  color: var(--text-muted);
 }
 
 .form-field input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.25);
 }
 
 .form-row {
@@ -439,9 +413,9 @@ textarea {
 .type-btn,
 .env-btn {
   padding: 6px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  background: white;
+  background: var(--bg-elevated);
   cursor: pointer;
   font-size: 12px;
   font-family: inherit;
@@ -461,14 +435,14 @@ textarea {
 }
 
 .env-btn.active {
-  background: white;
+  background: var(--bg-hover-strong);
 }
 
 .form-error {
   color: var(--danger);
   font-size: 12px;
   padding: 8px 12px;
-  background: #fef2f2;
+  background: var(--surface-danger);
   border-radius: var(--radius);
   margin-bottom: 12px;
 }
@@ -481,12 +455,12 @@ textarea {
 }
 
 .form-test-result.success {
-  background: #f0fdf4;
+  background: var(--surface-success);
   color: var(--success);
 }
 
 .form-test-result.error {
-  background: #fef2f2;
+  background: var(--surface-danger);
   color: var(--danger);
 }
 
@@ -526,8 +500,8 @@ textarea {
 }
 
 .btn-secondary {
-  background: white;
-  border-color: var(--border);
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
   color: var(--text);
 }
 
@@ -536,13 +510,13 @@ textarea {
 }
 
 .btn-danger {
-  background: white;
-  border-color: #fecaca;
+  background: var(--bg-elevated);
+  border-color: var(--surface-danger);
   color: var(--danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #fef2f2;
+  background: var(--surface-danger);
 }
 
 .btn-sm {
@@ -563,7 +537,7 @@ textarea {
 }
 
 .btn-icon:hover {
-  background: #313244;
+  background: var(--bg-hover);
 }
 
 /* ===== 表详情 ===== */
@@ -593,7 +567,7 @@ textarea {
   display: inline-block;
   font-size: 11px;
   padding: 2px 8px;
-  background: #f3f4f6;
+  background: var(--bg-hover);
   border-radius: 10px;
   color: var(--text-muted);
   margin-top: 6px;
@@ -610,7 +584,7 @@ textarea {
 .detail-error {
   color: var(--danger);
   padding: 12px;
-  background: #fef2f2;
+  background: var(--surface-danger);
   border-radius: var(--radius);
 }
 
@@ -651,7 +625,7 @@ textarea {
 .data-table th {
   text-align: left;
   padding: 8px 10px;
-  background: #f9fafb;
+  background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
   font-weight: 600;
   color: var(--text-muted);
@@ -660,11 +634,11 @@ textarea {
 
 .data-table td {
   padding: 6px 10px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .data-table tr:hover td {
-  background: #fafbfc;
+  background: var(--bg-hover);
 }
 
 .col-name {
@@ -683,31 +657,31 @@ textarea {
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 3px;
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 .type-badge.type-string {
-  background: #dbeafe;
-  color: #1e40af;
+  background: var(--surface-info);
+  color: #6db5ff;
 }
 
 .type-badge.type-integer,
 .type-badge.type-number,
 .type-badge.type-decimal {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--surface-warning);
+  color: var(--warning);
 }
 
 .type-badge.type-boolean {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--surface-success);
+  color: var(--success);
 }
 
 .type-badge.type-datetime,
 .type-badge.type-date,
 .type-badge.type-time {
-  background: #fce7f3;
-  color: #9d174d;
+  background: rgba(255, 69, 58, 0.16);
+  color: #ff8174;
 }
 
 .yes {
@@ -743,8 +717,8 @@ textarea {
 }
 
 .ddl-code {
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: #0f1012;
+  color: #e6e6e6;
   padding: 16px;
   border-radius: var(--radius);
   overflow: auto;
@@ -770,7 +744,7 @@ textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -778,11 +752,12 @@ textarea {
 }
 
 .modal {
-  background: white;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 24px;
   max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .modal h3 {
@@ -827,7 +802,7 @@ textarea {
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: #f9fafb;
+  background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
 }
 
@@ -859,7 +834,7 @@ textarea {
 }
 
 .monaco-wrapper {
-  background: white;
+  background: var(--bg-elevated);
 }
 
 /* ===== 结果区 ===== */
@@ -878,7 +853,7 @@ textarea {
   justify-content: space-between;
   align-items: center;
   padding: 6px 12px;
-  background: #f9fafb;
+  background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
@@ -911,10 +886,10 @@ textarea {
   position: absolute;
   top: 100%;
   right: 0;
-  background: white;
-  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
   z-index: 10;
 }
 
@@ -927,6 +902,7 @@ textarea {
   cursor: pointer;
   font-size: 12px;
   text-align: left;
+  color: var(--text);
 }
 
 .export-menu button:hover {
@@ -935,8 +911,8 @@ textarea {
 
 .result-error {
   padding: 12px 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--surface-danger);
+  border: 1px solid rgba(255, 69, 58, 0.3);
   border-radius: 6px;
   color: var(--danger);
   margin-bottom: 12px;
@@ -985,8 +961,8 @@ textarea {
 }
 
 .grid-head th {
-  background: #f3f4f6;
-  border-bottom: 2px solid var(--border);
+  background: var(--bg-elevated);
+  border-bottom: 2px solid var(--border-strong);
   padding: 6px 10px;
   text-align: left;
   font-weight: 600;
@@ -1000,7 +976,7 @@ textarea {
 }
 
 .grid-th:hover {
-  background: #e5e7eb;
+  background: var(--bg-hover);
 }
 
 .sort-icon {
@@ -1009,45 +985,53 @@ textarea {
 }
 
 .grid-row {
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .grid-row:hover {
-  background: #f9fafb;
+  background: var(--bg-hover);
 }
 
 .grid-row-num,
 .grid-row-num-cell {
-  width: 40px;
-  min-width: 40px;
-  text-align: center;
-  color: #9ca3af;
+  width: 32px;
+  min-width: 32px;
+  text-align: left;
+  color: var(--text-muted);
   font-size: 11px;
-  background: #fafbfc;
-  border-right: 1px solid #f3f4f6;
-  padding: 4px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  padding: 4px 6px;
 }
 
 .grid-cell {
   padding: 4px 10px;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 300px;
 }
 
+.grid-cell-editing {
+  padding: 0;
+  overflow: visible;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
 .cell-null {
-  color: #9ca3af;
+  color: var(--text-muted);
   font-style: italic;
   font-size: 11px;
 }
 
 .cell-text {
-  color: #1f2937;
+  color: var(--text);
 }
 
 .cell-number {
-  color: #7c3aed;
+  color: #c084fc;
   font-family: 'SF Mono', monospace;
   font-size: 11px;
 }
@@ -1058,19 +1042,19 @@ textarea {
 }
 
 .cell-datetime {
-  color: #be185d;
+  color: #ff8174;
   font-family: 'SF Mono', monospace;
   font-size: 11px;
 }
 
 .cell-binary {
-  color: #6b7280;
+  color: var(--text-muted);
   font-family: 'SF Mono', monospace;
   font-size: 11px;
 }
 
 .cell-json {
-  color: #1e40af;
+  color: #6db5ff;
   font-size: 11px;
 }
 
@@ -1082,7 +1066,7 @@ textarea {
   background: none;
   border: none;
   cursor: pointer;
-  color: #1e40af;
+  color: #6db5ff;
   font-size: 11px;
   display: inline-flex;
   align-items: center;
@@ -1092,7 +1076,7 @@ textarea {
 .cell-json-expanded {
   margin: 4px 0 0;
   padding: 6px;
-  background: #f3f4f6;
+  background: var(--bg-hover);
   border-radius: 3px;
   font-size: 11px;
   white-space: pre-wrap;
@@ -1123,7 +1107,7 @@ textarea {
 .sql-history-panel {
   border-top: 1px solid var(--border);
   flex-shrink: 0;
-  background: #fafbfc;
+  background: var(--bg-elevated);
 }
 
 .history-toggle {
@@ -1165,6 +1149,7 @@ textarea {
   font-size: 12px;
   outline: none;
   font-family: inherit;
+  color: var(--text);
 }
 
 .history-list {
@@ -1179,11 +1164,11 @@ textarea {
   padding: 4px 12px;
   cursor: pointer;
   font-size: 12px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border);
 }
 
 .history-item:hover {
-  background: white;
+  background: var(--bg-hover);
 }
 
 .history-item.error {
@@ -1231,7 +1216,7 @@ textarea {
   display: inline-block;
   font-size: 11px;
   padding: 2px 8px;
-  background: #fef3c7;
+  background: var(--surface-warning);
   color: var(--warning);
   border-radius: 4px;
   margin-left: 8px;
@@ -1240,12 +1225,12 @@ textarea {
 
 .btn-warning {
   background: var(--warning);
-  color: white;
+  color: #1a1a1a;
   border: none;
 }
 
 .btn-warning:hover:not(:disabled) {
-  background: #b45309;
+  background: #edb100;
 }
 
 /* 确认弹窗 */
@@ -1272,7 +1257,7 @@ textarea {
 }
 
 .confirm-analysis {
-  background: #f9fafb;
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px 12px;
@@ -1292,8 +1277,8 @@ textarea {
 }
 
 .confirm-sql {
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: #0f1012;
+  color: #e6e6e6;
   padding: 12px;
   border-radius: 6px;
   font-family: 'SF Mono', monospace;
@@ -1316,7 +1301,7 @@ textarea {
 }
 
 .confirm-keyword-section code {
-  background: #fef2f2;
+  background: var(--surface-danger);
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 700;
@@ -1330,6 +1315,8 @@ textarea {
   border-radius: 6px;
   font-size: 14px;
   font-family: 'SF Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
 }
 
 /* 权限提示 */
@@ -1344,14 +1331,14 @@ textarea {
 }
 
 .perm-denied {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--surface-danger);
+  border: 1px solid rgba(255, 69, 58, 0.3);
   color: var(--danger);
 }
 
 .perm-elevated {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--surface-success);
+  border: 1px solid rgba(48, 209, 88, 0.3);
   color: var(--success);
 }
 
@@ -1410,7 +1397,7 @@ textarea {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #f1f3f5;
+  background: var(--bg-elevated);
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -1425,7 +1412,7 @@ textarea {
   border-radius: 7px;
   cursor: pointer;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
   background: transparent;
   white-space: nowrap;
   border: none;
@@ -1435,21 +1422,29 @@ textarea {
 }
 
 .tab-item:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #374151;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .tab-item.active {
-  background: white;
+  background: var(--bg-hover-strong);
   color: var(--primary);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  text-shadow: 0 0 0 currentColor;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 .tab-label {
-  max-width: 120px;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* tab 内容的 abbr tooltip 样式 */
+.tab-item abbr {
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .tab-close {
@@ -1457,7 +1452,7 @@ textarea {
   border: none;
   cursor: pointer;
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--text-muted);
   padding: 0 2px;
   line-height: 1;
   border-radius: 3px;
@@ -1467,7 +1462,7 @@ textarea {
 
 .tab-close:hover {
   color: var(--danger);
-  background: rgba(220, 38, 38, 0.1);
+  background: var(--surface-danger);
 }
 
 .tab-content {
@@ -1512,17 +1507,17 @@ textarea {
   font-size: 11px;
   color: var(--text-muted);
   border-top: 1px solid var(--border);
-  background: #f9fafb;
+  background: var(--bg-elevated);
   flex-shrink: 0;
 }
 
 /* ===== 右键菜单 ===== */
 .context-menu {
   position: fixed;
-  background: white;
-  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   min-width: 160px;
   padding: 4px 0;
@@ -1552,7 +1547,7 @@ textarea {
 }
 
 .ctx-item.ctx-danger:hover {
-  background: #fef2f2;
+  background: var(--surface-danger);
 }
 
 .ctx-divider {
@@ -1561,27 +1556,15 @@ textarea {
   margin: 4px 0;
 }
 
-/* ===== 连接管理 modal 样式 ===== */
-.page-connection-manager {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 32px;
-}
-
-/* ConnectionManager 作为 modal 时用 overlay 包裹 */
-.modal-overlay .page-connection-manager {
-  padding: 24px;
-}
-
 /* ===== 连接管理 Modal ===== */
 .connection-manager-modal {
   background: var(--bg);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  max-width: 920px;
-  width: 90vw;
-  max-height: 85vh;
-  overflow: auto;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  width: min(720px, 92vw);
+  height: min(760px, 88vh);
+  overflow: hidden;
 }
 
 /* ===== TableData 编辑工具栏 ===== */
@@ -1593,25 +1576,34 @@ textarea {
 
 .cell-edit-input {
   width: 100%;
-  border: 2px solid var(--primary);
-  border-radius: 3px;
-  padding: 2px 4px;
+  height: 31px;
+  border: none;
+  border-radius: 0;
+  padding: 4px 9px;
   font-size: 12px;
-  font-family: 'SF Mono', monospace;
-  background: white;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  line-height: 22px;
+  font-family: 'SF Mono', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  color: var(--text);
+  background: transparent;
+  outline: none;
+  box-shadow: none;
 }
 
+.cell-edit-input:focus {
+  box-shadow: none;
+}
+
+/* 暗色下脏行/选中行用更明显的半透明高亮 */
 .grid-row-dirty {
-  background: #fef9c3 !important;
+  background: rgba(255, 214, 10, 0.14) !important;
 }
 
 .grid-row-dirty:hover {
-  background: #fef3c7 !important;
+  background: rgba(255, 214, 10, 0.2) !important;
 }
 
 .grid-row-selected {
-  background: #dbeafe !important;
+  background: rgba(10, 132, 255, 0.22) !important;
 }
 
 .changes-badge {
@@ -1623,8 +1615,8 @@ textarea {
 .commit-log {
   margin: 8px 16px;
   padding: 8px 12px;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: #0f1012;
+  color: #e6e6e6;
   border-radius: 6px;
   font-family: 'SF Mono', monospace;
   font-size: 11px;
@@ -1644,8 +1636,48 @@ textarea {
   gap: 6px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--border);
-  background: #f9fafb;
+  background: var(--bg-elevated);
   flex-shrink: 0;
+}
+
+.table-data-toolbar-bar abbr {
+  text-decoration: none;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s,
+    box-shadow 0.12s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.icon-btn:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.25);
+}
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* 序号列可点击选中 */
@@ -1655,10 +1687,10 @@ textarea {
 }
 
 .grid-row-selectable:hover {
-  background: #e0e7ff !important;
+  background: rgba(10, 132, 255, 0.2) !important;
   color: var(--primary);
 }
 
 .grid-row-num-cell.grid-row-selectable:active {
-  background: #c7d2fe !important;
+  background: rgba(10, 132, 255, 0.32) !important;
 }

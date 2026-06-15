@@ -138,14 +138,11 @@ export const connectionsDao = {
       updated_at: now,
     })
 
-    // 密码更新（传入则覆盖，不传则不动）
-    if (input.password !== undefined) {
-      if (input.password) {
-        await getCredentialStore().setPassword(id, input.password)
-      } else {
-        // 空密码表示清除
-        await getCredentialStore().deletePassword(id)
-      }
+    // 密码更新：只有传入非空密码才覆盖；留空（undefined/null/''）则保持原密码不变。
+    // 注意：经 contextBridge/IPC 序列化后 undefined 可能变为 null/''，
+    // 因此用 truthy 判断而非 !== undefined，避免误删已有密码。
+    if (input.password) {
+      await getCredentialStore().setPassword(id, input.password)
     }
 
     return this.get(id)!
