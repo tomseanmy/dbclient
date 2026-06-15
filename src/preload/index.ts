@@ -77,6 +77,14 @@ const api: RendererApi = {
   // ----- AI 对话与辅助 -----
   'ai:chat': (req) => invoke('ai:chat', req),
   'ai:assist': (req) => invoke('ai:assist', req),
+
+  // ----- 窗口控制（win/linux 自绘标题栏）-----
+  'window:minimize': () => invoke('window:minimize'),
+  'window:maximizeToggle': () => invoke('window:maximizeToggle'),
+  'window:close': () => invoke('window:close'),
+  'window:isMaximized': () => invoke('window:isMaximized'),
 }
 
 contextBridge.exposeInMainWorld('api', api)
+// 暴露平台标识：渲染层首屏即可同步判断 mac/win/linux，无需 IPC 异步往返
+contextBridge.exposeInMainWorld('platform', process.platform)

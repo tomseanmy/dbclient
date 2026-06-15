@@ -13,7 +13,18 @@ import {
   flexRender,
 } from '@tanstack/react-table'
 import type { SortingState, ColumnDef } from '@tanstack/react-table'
-import { ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  Key,
+  Table2,
+  Columns3Cog,
+  Filter,
+  X,
+} from 'lucide-react'
 import type { QueryResult, CellValue } from '../api'
 
 interface BinaryValue {
@@ -50,12 +61,57 @@ export interface DataGridProps {
     column: string,
     value: unknown,
   ) => void
+  /** 受控编辑态：当前正在编辑的单元格，与双击走同一条路径 */
+  editing?: { rowKey: string | number; column: string } | null
+  onEditingChange?: (editing: { rowKey: string | number; column: string } | null) => void
+  /** 选中整列回调（点击列头时触发） */
+  selectedColumn?: string | null
+  onSelectColumn?: (column: string | null) => void
+  /** 列元信息（主键/可空），用于列头左侧类型 icon；不传则不显示 icon */
+  columnMeta?: Record<string, { isPrimaryKey?: boolean; nullable?: boolean }>
+  /** 列筛选：当前生效的筛选值（列名 -> 值），用于列头筛选按钮高亮 */
+  filters?: Record<string, string>
+  /** 列头筛选输入回调（列名 -> 值，空字符串表示清除该列筛选） */
+  onFilterChange?: (column: string, value: string) => void
   /** 底部额外滚动空间（px），让悬浮工具条不遮挡最后一行 */
   bottomPadding?: number
 }
 
+/** 列头左侧类型 icon：主键 / 非空 / 可空 */
+function ColumnTypeIcon({
+  isPrimaryKey,
+  nullable,
+}: {
+  isPrimaryKey?: boolean
+  nullable?: boolean
+}) {
+  if (isPrimaryKey) {
+    return <Key size={14} className="col-type-icon col-type-pk" />
+  }
+  if (nullable === false) {
+    return <Columns3Cog size={14} className="col-type-icon col-type-notnull" />
+  }
+  return <Table2 size={14} className="col-type-icon col-type-nullable" />
+}
+
+/** 判断列类型是否为时间类型（date/datetime/timestamp/time 等） */
+function isTemporalType(dataType: string): boolean {
+  const t = dataType.toLowerCase()
+  return (
+    t === 'date' ||
+    t === 'datetime' ||
+    t === 'timestamp' ||
+    t === 'time' ||
+    t === 'year' ||
+    t === 'timestamptz' ||
+    t === 'datetimetz' ||
+    t.startsWith('timestamp') ||
+    t.startsWith('datetime')
+  )
+}
+
 /** 渲染单个单元格值（只读模式） */
-function CellRenderer({ value }: { value: RichValue }) {
+function CellRenderer({ value, dataType }: { value: RichValue; dataType: string }) {
   const [expanded, setExpanded] = useState(false)
 
   if (value === null || value === undefined) {
@@ -101,12 +157,10 @@ function CellRenderer({ value }: { value: RichValue }) {
   }
 
   if (typeof value === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(value)) {
-      return (
-        <span className="cell-datetime" title={value}>
-          {value.replace('T', ' ').slice(0, 19)}
-        </span>
-      )
+    // 时间类型（date/datetime/timestamp/time）按数据库原始字面值显示，
+    // 不做格式化或时区转换
+    if (isTemporalType(dataType)) {
+      return <span className="cell-datetime">{value}</span>
     }
     if (value.length > 100) {
       return (
@@ -189,12 +243,28 @@ export function DataGrid({
   selectedCell,
   onSelectCell,
   onCellContextMenu,
+  editing,
+  onEditingChange,
+  selectedColumn,
+  onSelectColumn,
+  columnMeta,
+  filters,
+  onFilterChange,
   bottomPadding = 0,
 }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
-  const [editing, setEditing] = useState<{ row: number; col: string } | null>(null)
-
+  // 选中整列：优先使用受控 prop，未受控时回退到内部状态
+  const [selectedColumnInternal, setSelectedColumnInternal] = useState<string | null>(null)
+  const effectiveSelectedColumn = selectedColumn ?? selectedColumnInternal
+  const setSelectedColumnState = (col: string | null) => {
+    if (onSelectColumn) onSelectColumn(col)
+    else setSelectedColumnInternal(col)
+  }
+  // 列头筛选弹窗：当前打开的列名 + 展开方向（右侧空间不足时向左展开）
+  const [filterColumn, setFilterColumn] = useState<string | null>(null)
+  const [filterAlign, setFilterAlign] = useState<'left' | 'right'>('right')
+  const filterBtnRef = useRef<HTMLSpanElement>(null)
   const columns = useMemo<ColumnDef<Record<string, RichValue>>[]>(
     () =>
       result.columns.map((col: { name: string; dataType: string }) => ({
@@ -210,23 +280,23 @@ export function DataGrid({
             typeof originalRowKey === 'string' || typeof originalRowKey === 'number'
               ? originalRowKey
               : row.index
-          // 编辑模式
-          if (editing && editing.row === row.index && editing.col === col.name) {
+          // 编辑模式（受控）：双击与右键「编辑」共用同一路径，按 rowKey 匹配，排序后仍稳定
+          if (editing && editing.rowKey === rowKey && editing.column === col.name) {
             return (
               <CellEditor
                 initialValue={v}
                 rowKey={rowKey}
                 column={col.name}
                 onCommit={onCellChange}
-                onCancel={() => setEditing(null)}
+                onCancel={() => onEditingChange?.(null)}
               />
             )
           }
-          return <CellRenderer value={v} />
+          return <CellRenderer value={v} dataType={col.dataType} />
         },
         size: 150,
       })),
-    [result.columns, editing, onCellChange],
+    [result.columns, editing, onEditingChange, onCellChange],
   )
 
   const data = useMemo(() => result.rows as Record<string, RichValue>[], [result.rows])
@@ -261,6 +331,32 @@ export function DataGrid({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [rows.length])
 
+  // 点击表格外或滚动时关闭列头筛选弹窗
+  useEffect(() => {
+    if (!filterColumn) return
+    const container = containerRef.current
+    const close = () => setFilterColumn(null)
+    const onPointerDown = (e: MouseEvent) => {
+      if (container && !container.contains(e.target as Node)) close()
+    }
+    // 弹窗宽度估算（输入框 140 + 清除按钮 + 内边距 + 边框）
+    const POP_WIDTH = 190
+    // 判断按钮右侧空间是否足够；不足则向左展开
+    const btn = filterBtnRef.current
+    if (btn && container) {
+      const btnRect = btn.getBoundingClientRect()
+      const cRect = container.getBoundingClientRect()
+      const spaceRight = cRect.right - btnRect.left
+      setFilterAlign(spaceRight < POP_WIDTH ? 'left' : 'right')
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    container?.addEventListener('scroll', close, { passive: true })
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      container?.removeEventListener('scroll', close)
+    }
+  }, [filterColumn])
+
   const scrollBottomPad = bottomPadding
   const visibleRows = rows.slice(visibleRange.start, visibleRange.end)
   const topSpacerHeight = visibleRange.start * rowHeight
@@ -274,9 +370,14 @@ export function DataGrid({
     )
   }
 
-  const handleCellDoubleClick = (rowIndex: number, colName: string) => {
+  const handleCellDoubleClick = (rowKey: string | number, colName: string) => {
     if (!editable) return
-    setEditing({ row: rowIndex, col: colName })
+    onEditingChange?.({ rowKey, column: colName })
+  }
+
+  /** 点击列头：选中整列（再次点击同一列取消） */
+  const handleHeaderClick = (colId: string) => {
+    setSelectedColumnState(effectiveSelectedColumn === colId ? null : colId)
   }
 
   // 单个 table + sticky thead：表头与表体共享 colgroup，列宽天然对齐
@@ -295,15 +396,93 @@ export function DataGrid({
               <th className="grid-row-num">#</th>
               {hg.headers.map((header) => {
                 const sortDir = header.column.getIsSorted()
+                const isColSelected = effectiveSelectedColumn === header.id
+                const meta = columnMeta?.[header.id]
+                const hasFilter = filters?.[header.id] !== undefined && filters?.[header.id] !== ''
+                const isFilterOpen = filterColumn === header.id
                 return (
                   <th
                     key={header.id}
-                    onClick={header.column.getToggleSortingHandler()}
-                    className="grid-th"
+                    onClick={() => handleHeaderClick(header.id)}
+                    className={`grid-th ${isColSelected ? 'grid-col-selected' : ''}`}
+                    title="点击选中整列"
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    {sortDir === 'asc' && <ArrowUp size={10} className="sort-icon" />}
-                    {sortDir === 'desc' && <ArrowDown size={10} className="sort-icon" />}
+                    <span className="grid-th-inner">
+                      {columnMeta && (
+                        <ColumnTypeIcon
+                          isPrimaryKey={meta?.isPrimaryKey}
+                          nullable={meta?.nullable}
+                        />
+                      )}
+                      <span className="grid-th-label">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </span>
+                      {onFilterChange && (
+                        <span className="filter-head-wrap" ref={filterBtnRef}>
+                          <button
+                            className={`col-head-btn filter-toggle ${
+                              hasFilter || isFilterOpen ? 'col-head-btn-active' : ''
+                            }`}
+                            title="筛选"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setFilterColumn(isFilterOpen ? null : header.id)
+                            }}
+                          >
+                            <Filter size={14} />
+                          </button>
+                          {isFilterOpen && (
+                            <span
+                              className={`filter-pop filter-pop-${filterAlign}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                className="filter-input"
+                                autoFocus
+                                placeholder={`${header.id} = …`}
+                                defaultValue={filters?.[header.id] ?? ''}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    onFilterChange(header.id, e.currentTarget.value)
+                                    setFilterColumn(null)
+                                  }
+                                  if (e.key === 'Escape') setFilterColumn(null)
+                                }}
+                              />
+                              <button
+                                className="filter-pop-clear"
+                                title="清除"
+                                onClick={() => {
+                                  onFilterChange(header.id, '')
+                                  setFilterColumn(null)
+                                }}
+                              >
+                                <X size={12} />
+                              </button>
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      <span className="grid-th-spacer" />
+                      <button
+                        className={`col-head-btn sort-toggle ${
+                          sortDir ? 'col-head-btn-active' : ''
+                        }`}
+                        title="排序"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          header.column.getToggleSortingHandler()?.(e)
+                        }}
+                      >
+                        {sortDir === 'asc' ? (
+                          <ArrowUp size={14} />
+                        ) : sortDir === 'desc' ? (
+                          <ArrowDown size={14} />
+                        ) : (
+                          <ChevronsUpDown size={14} />
+                        )}
+                      </button>
+                    </span>
                   </th>
                 )
               })}
@@ -343,23 +522,30 @@ export function DataGrid({
                 </td>
                 {row.getVisibleCells().map((cell) => {
                   const isEditing =
-                    editing && editing.row === row.index && editing.col === cell.column.id
+                    editing &&
+                    editing.rowKey === (rowKey as string | number) &&
+                    editing.column === cell.column.id
                   const isCellSelected =
                     !isEditing &&
                     selectedCell?.rowKey === (rowKey as string | number) &&
                     selectedCell?.column === cell.column.id
+                  const isColSelected = effectiveSelectedColumn === cell.column.id
                   const cellValue = cell.getValue()
                   return (
                     <td
                       key={cell.id}
-                      className={`grid-cell ${isEditing ? 'grid-cell-editing' : ''} ${isCellSelected ? 'grid-cell-selected' : ''}`}
-                      onClick={() =>
+                      className={`grid-cell ${isEditing ? 'grid-cell-editing' : ''} ${isCellSelected ? 'grid-cell-selected' : ''} ${isColSelected ? 'grid-col-selected' : ''}`}
+                      onClick={() => {
+                        // 选中单元格时清除列选中，保持两者互斥
+                        if (effectiveSelectedColumn) setSelectedColumnState(null)
                         onSelectCell?.({
                           rowKey: rowKey as string | number,
                           column: cell.column.id,
                         })
+                      }}
+                      onDoubleClick={() =>
+                        handleCellDoubleClick(rowKey as string | number, cell.column.id)
                       }
-                      onDoubleClick={() => handleCellDoubleClick(row.index, cell.column.id)}
                       onContextMenu={(e) => {
                         if (onCellContextMenu)
                           onCellContextMenu(e, rowKey as string | number, cell.column.id, cellValue)

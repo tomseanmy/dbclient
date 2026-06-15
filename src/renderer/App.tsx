@@ -4,10 +4,11 @@
  * 布局：左侧边栏（对象树）+ 右侧主内容区（tab 视图）。
  * 连接管理以 modal 形式浮层展示，不遮挡主视图。
  */
-import { useEffect, useState, useCallback } from 'react'
-import { Settings as SettingsIcon, Plug, Table2, FileText, Bot } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { Settings as SettingsIcon, Plug, Table2, FileText, Bot, X } from 'lucide-react'
 import { api, type ConnectionListItem, type Table } from './api'
 import { useConnectionStore } from './store/connections'
+import { useTabStore } from './store/tabs'
 import { ObjectTree } from './components/ObjectTree'
 import { TableData } from './components/TableData'
 import { DatabaseDetail } from './components/DatabaseDetail'
@@ -16,6 +17,7 @@ import { AiChat } from './components/AiChat'
 import { ConnectionManager } from './pages/ConnectionManager'
 import { Settings } from './pages/Settings'
 import { SqlWorkspace } from './components/SqlWorkspace'
+import { WindowControls } from './components/WindowControls'
 
 /** 主内容区的 tab 类型 */
 interface Tab {
@@ -31,10 +33,16 @@ function getTabLabel(tab: Tab): string {
     const db = tab.conn.database || tab.conn.name
     return db + '@' + tab.conn.name
   }
-  if (tab.kind === 'database') return tab.conn.database || tab.conn.name
+  if (tab.kind === 'database') {
+    const db = tab.conn.database || tab.conn.name
+    return tab.schema ? `${db}@${tab.schema}` : db
+  }
   if (tab.kind === 'chat') return 'AI 对话'
-  if (tab.kind === 'tableDetail') return '设计:' + tab.table
-  return tab.table ?? ''
+  if (tab.kind === 'tableDetail') {
+    return tab.schema ? `设计:${tab.table}@${tab.schema}` : `设计:${tab.table}`
+  }
+  // 表数据：表名@库名（schema 为表所属库，来自点击时的对象树）
+  return tab.schema ? `${tab.table}@${tab.schema}` : (tab.table ?? '')
 }
 
 export default function App() {
@@ -47,6 +55,14 @@ export default function App() {
   } | null>(null)
   const [bootInfo, setBootInfo] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const tabBarRef = useRef<HTMLDivElement>(null)
+
+  // 激活 tab 变化时，把 active tab 滚进可视区（横向滚动条跟随）
+  useEffect(() => {
+    if (!activeTabId || !tabBarRef.current) return
+    const activeEl = tabBarRef.current.querySelector<HTMLDivElement>('.tab-item.active')
+    activeEl?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
+  }, [activeTabId])
 
   useEffect(() => {
     loadConnections()
@@ -57,29 +73,43 @@ export default function App() {
 
   const openTab = useCallback((tab: Tab) => {
     setTabs((prev) => {
-      // 同连接同表/同查询只开一个 tab
-      const existing = prev.find(
-        (t) => t.conn.id === tab.conn.id && t.kind === tab.kind && t.table === tab.table,
-      )
+      // 同连接同类型同 schema/表只开一个 tab（id 已含 conn+schema+table+kind 维度）
+      const existing = prev.find((t) => t.id === tab.id)
       return existing ? prev : [...prev, tab]
     })
     setActiveTabId(tab.id)
   }, [])
 
-  const closeTab = useCallback(
-    (tabId: string) => {
+  const clearDirty = useTabStore((s) => s.clearDirty)
+
+  /** 关闭一批 tab：移除并清理脏标记，重新选择 activeTab */
+  const closeTabs = useCallback(
+    (idsToClose: Set<string>) => {
+      if (idsToClose.size === 0) return
+      idsToClose.forEach((id) => clearDirty(id))
       setTabs((prev) => {
-        const idx = prev.findIndex((t) => t.id === tabId)
-        const next = prev.filter((t) => t.id !== tabId)
-        // 如果关的是当前 tab，切换到相邻 tab
-        if (activeTabId === tabId) {
-          const newActive = next[idx] ?? next[idx - 1] ?? null
-          setActiveTabId(newActive?.id ?? null)
+        const next = prev.filter((t) => !idsToClose.has(t.id))
+        // 若 activeTab 被关，切到剩余列表中相邻位置
+        if (activeTabId && idsToClose.has(activeTabId)) {
+          const prevActiveIdx = prev.findIndex((t) => t.id === activeTabId)
+          // 在剩余列表里找原 active 位置附近第一个存活的 tab
+          const candidate =
+            next.find((_, i) => i >= prevActiveIdx) ??
+            [...next].reverse().find((_, i) => next.length - 1 - i < prevActiveIdx) ??
+            null
+          setActiveTabId(candidate?.id ?? null)
         }
         return next
       })
     },
-    [activeTabId],
+    [activeTabId, clearDirty],
+  )
+
+  const closeTab = useCallback(
+    (tabId: string) => {
+      closeTabs(new Set([tabId]))
+    },
+    [closeTabs],
   )
 
   const handleSelectTable = (
@@ -127,18 +157,58 @@ export default function App() {
     })
   }
 
-  const handleOpenDatabase = (conn: ConnectionListItem) => {
+  const handleOpenDatabase = (conn: ConnectionListItem, schema: string) => {
     openTab({
-      id: `${conn.id}:database`,
+      id: `${conn.id}:${schema}:database`,
       kind: 'database',
       conn,
+      schema,
     })
+  }
+
+  /** Tab 右键菜单 */
+  const [tabMenu, setTabMenu] = useState<{ x: number; y: number; tabId: string } | null>(null)
+  const isTabDirty = useTabStore((s) => s.isDirty)
+
+  // 点击任意处 / 触发其他右键菜单时关闭 Tab 菜单
+  useEffect(() => {
+    if (!tabMenu) return
+    const close = () => setTabMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('contextmenu', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('contextmenu', close)
+    }
+  }, [tabMenu])
+
+  const handleTabContextMenu = (e: React.MouseEvent, tabId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setActiveTabId(tabId)
+    setTabMenu({ x: e.clientX, y: e.clientY, tabId })
+  }
+
+  // —— 6 个关闭操作 ——
+  const closeOthers = (tabId: string) =>
+    closeTabs(new Set(tabs.filter((t) => t.id !== tabId).map((t) => t.id)))
+  const closeAll = () => closeTabs(new Set(tabs.map((t) => t.id)))
+  const closeUnedited = () =>
+    closeTabs(new Set(tabs.filter((t) => !isTabDirty(t.id)).map((t) => t.id)))
+  const closeLeft = (tabId: string) => {
+    const idx = tabs.findIndex((t) => t.id === tabId)
+    closeTabs(new Set(tabs.slice(0, idx).map((t) => t.id)))
+  }
+  const closeRight = (tabId: string) => {
+    const idx = tabs.findIndex((t) => t.id === tabId)
+    closeTabs(new Set(tabs.slice(idx + 1).map((t) => t.id)))
   }
 
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
   return (
     <div className="app-root">
+      <WindowControls />
       <aside className="sidebar">
         <ObjectTree
           selectedTable={
@@ -169,7 +239,7 @@ export default function App() {
         {tabs.length > 0 ? (
           <div className="tab-container">
             {/* Tab 栏 */}
-            <div className="tab-bar">
+            <div className="tab-bar" ref={tabBarRef}>
               {tabs.map((tab) => {
                 const label = getTabLabel(tab)
                 return (
@@ -177,9 +247,17 @@ export default function App() {
                     key={tab.id}
                     className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
                     onClick={() => setActiveTabId(tab.id)}
+                    onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
                   >
-                    <span className="tab-label" data-label={label}>
-                      {label}
+                    <span className="tab-label" data-label={label} title={label}>
+                      {tab.kind === 'tableData' || tab.kind === 'tableDetail' ? (
+                        <>
+                          {tab.table}
+                          {tab.schema && <span className="tab-label-suffix">@{tab.schema}</span>}
+                        </>
+                      ) : (
+                        label
+                      )}
                     </span>
                     <button
                       className="tab-close"
@@ -201,7 +279,12 @@ export default function App() {
                 return (
                   <div key={tab.id} className={`tab-panel ${isActive ? 'tab-panel-active' : ''}`}>
                     {tab.kind === 'tableData' && tab.table && (
-                      <TableData connection={tab.conn} schema={tab.schema} tableName={tab.table} />
+                      <TableData
+                        connection={tab.conn}
+                        schema={tab.schema}
+                        tableName={tab.table}
+                        tabId={tab.id}
+                      />
                     )}
                     {tab.kind === 'tableDetail' && tab.table && (
                       <TableDetail
@@ -210,11 +293,12 @@ export default function App() {
                         table={{ name: tab.table, type: 'table' }}
                       />
                     )}
-                    {tab.kind === 'sql' && <SqlWorkspace connection={tab.conn} />}
+                    {tab.kind === 'sql' && <SqlWorkspace connection={tab.conn} tabId={tab.id} />}
                     {tab.kind === 'chat' && <AiChat connection={tab.conn} />}
                     {tab.kind === 'database' && (
                       <DatabaseDetail
                         connection={tab.conn}
+                        schema={tab.schema}
                         onOpenSql={handleOpenSql}
                         onSelectTable={handleSelectTable}
                         onOpenTableDetail={handleOpenTableDetail}
@@ -279,6 +363,80 @@ export default function App() {
 
       {/* 设置 modal */}
       {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
+
+      {/* Tab 右键菜单 */}
+      {tabMenu && (
+        <div
+          className="context-menu"
+          style={{ left: tabMenu.x, top: tabMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            className="ctx-item"
+            disabled={tabs.length === 0}
+            onClick={() => {
+              closeTab(tabMenu.tabId)
+              setTabMenu(null)
+            }}
+          >
+            <X size={12} /> 关闭当前
+          </button>
+          <div className="ctx-divider" />
+          <button
+            className="ctx-item"
+            disabled={tabs.length <= 1}
+            onClick={() => {
+              closeOthers(tabMenu.tabId)
+              setTabMenu(null)
+            }}
+          >
+            关闭其他
+          </button>
+          <button
+            className="ctx-item"
+            disabled={tabs.every((t) => isTabDirty(t.id)) || tabs.length === 0}
+            onClick={() => {
+              closeUnedited()
+              setTabMenu(null)
+            }}
+          >
+            关闭未编辑
+          </button>
+          <div className="ctx-divider" />
+          <button
+            className="ctx-item"
+            disabled={tabs.findIndex((t) => t.id === tabMenu.tabId) === 0}
+            onClick={() => {
+              closeLeft(tabMenu.tabId)
+              setTabMenu(null)
+            }}
+          >
+            关闭左侧
+          </button>
+          <button
+            className="ctx-item"
+            disabled={tabs.findIndex((t) => t.id === tabMenu.tabId) === tabs.length - 1}
+            onClick={() => {
+              closeRight(tabMenu.tabId)
+              setTabMenu(null)
+            }}
+          >
+            关闭右侧
+          </button>
+          <div className="ctx-divider" />
+          <button
+            className="ctx-item"
+            disabled={tabs.length === 0}
+            onClick={() => {
+              closeAll()
+              setTabMenu(null)
+            }}
+          >
+            全部关闭
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -67,6 +67,9 @@ export class MysqlDriver implements DbDriver {
       connectionLimit: 5,
       supportBigNumbers: true,
       bigNumberStrings: true,
+      // 以字符串形式返回 DATE/DATETIME/TIMESTAMP，避免 Date 对象被
+      // toISOString() 转成 UTC，保留数据库原始字面值
+      dateStrings: true,
     })
     // 验证连接
     const conn = await this.pool.getConnection()
@@ -122,7 +125,7 @@ export class MysqlDriver implements DbDriver {
       `SELECT 
         table_name AS name,
         table_type AS type,
-        table_rows AS rows,
+        table_rows AS \`rows\`,
         table_comment AS comment
        FROM information_schema.tables
        WHERE table_schema = ?
@@ -162,7 +165,7 @@ export class MysqlDriver implements DbDriver {
         character_maximum_length AS length,
         numeric_scale AS scale,
         is_nullable AS nullable,
-        column_key AS key,
+        column_key AS \`key\`,
         extra AS extra,
         column_default AS \`default\`,
         column_comment AS comment
@@ -186,10 +189,8 @@ export class MysqlDriver implements DbDriver {
     }))
 
     // 索引信息
-    const idxRows = await this.query<
-      Array<{ name: string; column: string; non_unique: number; key: string }>
-    >(
-      `SELECT index_name AS name, column_name AS column, non_unique AS non_unique, index_name AS key
+    const idxRows = await this.query<Array<{ name: string; column: string; non_unique: number }>>(
+      `SELECT index_name AS name, column_name AS \`column\`, non_unique AS non_unique
        FROM information_schema.statistics
        WHERE table_schema = ? AND table_name = ?
        ORDER BY index_name, seq_in_index`,
@@ -221,16 +222,16 @@ export class MysqlDriver implements DbDriver {
         on_update: string | null
       }>
     >(
-      `SELECT 
-        constraint_name AS name,
-        column_name AS column,
-        referenced_table_name AS ref_table,
-        referenced_column_name AS ref_column,
-        delete_rule AS on_delete,
-        update_rule AS on_update
+      `SELECT
+        kcu.constraint_name AS name,
+        kcu.column_name AS \`column\`,
+        kcu.referenced_table_name AS ref_table,
+        kcu.referenced_column_name AS ref_column,
+        rc.delete_rule AS on_delete,
+        rc.update_rule AS on_update
        FROM information_schema.key_column_usage kcu
-       JOIN information_schema.referential_constraints rc 
-         ON kcu.constraint_name = rc.constraint_name 
+       JOIN information_schema.referential_constraints rc
+         ON kcu.constraint_name = rc.constraint_name
          AND kcu.table_schema = rc.constraint_schema
        WHERE kcu.table_schema = ? AND kcu.table_name = ?`,
       [schema, table],

@@ -244,6 +244,35 @@ p {
   border-radius: 999px;
   letter-spacing: 0.04em;
   line-height: 1.4;
+  /* hidden until JS confirms a real version from GitHub */
+  opacity: 0;
+  transform: scale(0.85);
+  transform-origin: center;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.brand-version[hidden] {
+  display: none;
+}
+
+.brand-version.is-loaded {
+  opacity: 1;
+  transform: scale(1);
+  animation: version-flash 0.9s ease-out;
+}
+
+@keyframes version-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.5);
+  }
+  40% {
+    box-shadow: 0 0 0 6px rgba(0, 212, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 212, 255, 0);
+  }
 }
 
 .nav-links {
@@ -528,103 +557,28 @@ p {
   transform: translateY(-1px);
 }
 
-/* dropdown */
-.dropdown {
-  position: relative;
-  display: inline-flex;
-}
-
-.btn-dropdown {
-  padding: 12px 16px;
-}
-
-.btn-dropdown svg {
-  transition: transform 0.2s ease;
-}
-
-.btn-dropdown[aria-expanded='true'] svg {
-  transform: rotate(180deg);
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 240px;
-  background: var(--bg-1);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  padding: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-4px);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease,
-    visibility 0.15s;
-  z-index: 10;
-}
-
-.dropdown.open .dropdown-menu {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
-.dropdown-menu li {
-  list-style: none;
-}
-
-.dropdown-menu li.sep {
-  height: 1px;
-  background: var(--line-1);
-  margin: 6px 4px;
-}
-
-.dropdown-menu a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text-1);
-  border-radius: var(--r-sm);
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-  white-space: nowrap;
-}
-
-.dropdown-menu a::before {
+.btn-download::before {
+  /* tiny green pulse dot to indicate "live release" */
   content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
   width: 6px;
   height: 6px;
+  background: #4ade80;
   border-radius: 50%;
-  background: var(--line-3);
-  flex-shrink: 0;
+  box-shadow: 0 0 6px #4ade80;
+  animation: pulse 2s ease-in-out infinite;
 }
 
-.dropdown-menu a[data-platform='mac']::before {
-  background: var(--cyan);
-}
-.dropdown-menu a[data-platform='win']::before {
-  background: var(--violet);
-}
-.dropdown-menu a[data-platform='linux']::before {
-  background: var(--amber);
-}
-.dropdown-menu a[data-platform='all']::before {
-  background: var(--text-3);
-}
-
-.dropdown-menu a:hover {
+.btn-download:hover {
   background: var(--cyan-faint);
   color: var(--cyan);
-}
-
-.dropdown-menu a:hover::before {
-  box-shadow: 0 0 6px currentColor;
+  border-color: var(--cyan);
+  box-shadow:
+    0 0 0 4px var(--cyan-faint),
+    0 0 20px var(--cyan-soft);
+  transform: translateY(-1px);
 }
 
 .hero-bullets {
@@ -1303,7 +1257,7 @@ p {
 
 .stack-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
 }
 
@@ -1343,6 +1297,98 @@ p {
   font-size: 14px;
   line-height: 1.6;
   color: var(--text-2);
+}
+
+/* ============================================================
+   STATUS (current build snapshot)
+   ============================================================ */
+.status {
+  padding: 0 0 var(--section-pad-y);
+}
+
+.status-board {
+  position: relative;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  padding: 28px 32px 24px;
+  box-shadow: var(--shadow-1);
+}
+
+.status-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  font-family: var(--font-mono);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.status-title {
+  font-size: 12px;
+  color: var(--cyan);
+  letter-spacing: 0.15em;
+  font-weight: 600;
+}
+
+.status-sub {
+  font-size: 12px;
+  color: var(--text-2);
+  font-family: var(--font-inter);
+  letter-spacing: 0;
+}
+
+.status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  column-gap: 32px;
+  row-gap: 10px;
+  font-size: 14px;
+  color: var(--text-1);
+  font-family: var(--font-inter);
+}
+
+.status-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.55;
+}
+
+.status-list .ok {
+  color: var(--cyan);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.status-list .wip {
+  color: var(--accent-purple, #a78bfa);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .status-list {
+    grid-template-columns: 1fr;
+  }
+
+  .status-board {
+    padding: 24px 20px;
+  }
 }
 
 /* ============================================================
@@ -1613,10 +1659,6 @@ p {
 
   .hero-cta {
     flex-wrap: wrap;
-  }
-
-  .dropdown-menu {
-    min-width: 220px;
   }
 
   .float-tag {

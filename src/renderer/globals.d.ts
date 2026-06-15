@@ -8,6 +8,8 @@ import type { RendererApi } from '@shared/ipc'
 declare global {
   interface Window {
     api: RendererApi
+    /** 当前操作系统平台（preload 同步暴露：'darwin' | 'win32' | 'linux' 等） */
+    platform: string
   }
 }
 

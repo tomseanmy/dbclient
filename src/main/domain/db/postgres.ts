@@ -17,6 +17,19 @@ import type {
   UnifiedType,
 } from '@shared/types/database'
 
+// 让日期/时间类型以字符串形式返回，避免 Date 对象经 IPC 序列化
+// 时被 toISOString() 转成 UTC，保留数据库原始字面值
+const TEMPORAL_PG_TYPES = [
+  pg.types.builtins.TIMESTAMP,
+  pg.types.builtins.TIMESTAMPTZ,
+  pg.types.builtins.DATE,
+  pg.types.builtins.TIME,
+  pg.types.builtins.TIMETZ,
+]
+for (const oid of TEMPORAL_PG_TYPES) {
+  pg.types.setTypeParser(oid, (val: string | null) => val)
+}
+
 // PostgreSQL 类型 → 统一类型映射
 const TYPE_MAPPINGS: Record<string, UnifiedType> = {
   // 整数

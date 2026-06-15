@@ -80,46 +80,36 @@
     });
   });
 
-  // ---------- Hero download button: detect platform from UA ----------
+  // ---------- Hero download button + version tag: fetch latest from GitHub ----------
+  const REPO = "tomseanmy/dbclient";
+  const LATEST_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
+
+  const versionEls = [
+    document.getElementById("brand-version"),
+    document.getElementById("footer-version"),
+  ].filter(Boolean);
   const dl = document.getElementById("hero-download");
   const dlLabel = document.getElementById("hero-download-label");
-  if (dl && dlLabel) {
-    const ua = navigator.userAgent || "";
-    const plat = /Windows/i.test(ua)
-      ? "win"
-      : /Mac/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua)
-      ? "mac"
-      : /Linux/i.test(ua) && !/Android/i.test(ua)
-      ? "linux"
-      : "all";
-    const labelMap = {
-      win: "下载 v0.1 (Windows)",
-      mac: "下载 v0.1 (macOS)",
-      linux: "下载 v0.1 (Linux)",
-      all: "下载 v0.1",
-    };
-    dl.setAttribute("data-platform", plat);
-    dlLabel.textContent = labelMap[plat];
-  }
 
-  // ---------- Hero platforms dropdown ----------
-  const dropdown = document.getElementById("hero-platforms");
-  if (dropdown) {
-    const trigger = dropdown.querySelector(".btn-dropdown");
-    trigger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const open = dropdown.classList.toggle("open");
-      trigger.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-    document.addEventListener("click", () => {
-      dropdown.classList.remove("open");
-      trigger.setAttribute("aria-expanded", "false");
-    });
-    dropdown.querySelectorAll("a").forEach((a) => {
-      a.addEventListener("click", () => {
-        dropdown.classList.remove("open");
-        trigger.setAttribute("aria-expanded", "false");
+  // elements stay hidden by default; only reveal once we have a real tag
+  fetch(LATEST_URL, { headers: { Accept: "application/vnd.github+json" } })
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then((data) => {
+      const tag = (data && data.tag_name) || "";
+      if (!tag) return;
+      const display = tag.startsWith("v") ? tag : `v${tag}`;
+      versionEls.forEach((el) => {
+        el.textContent = display;
+        el.hidden = false;
+        // restart the reveal animation
+        el.classList.remove("is-loaded");
+        // force reflow so the animation can replay
+        // eslint-disable-next-line no-unused-expressions
+        void el.offsetWidth;
+        el.classList.add("is-loaded");
       });
+    })
+    .catch(() => {
+      // silently keep the version tag hidden; download button still works
     });
-  }
 })();

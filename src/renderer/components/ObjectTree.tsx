@@ -34,7 +34,7 @@ interface ObjectTreeProps {
   onEditConnection: (conn: ConnectionListItem) => void
   onOpenSql: (conn: ConnectionListItem) => void
   onOpenChat: (conn: ConnectionListItem) => void
-  onOpenDatabase: (conn: ConnectionListItem) => void
+  onOpenDatabase: (conn: ConnectionListItem, schema: string) => void
   onOpenTableDetail: (conn: ConnectionListItem, schema: string | undefined, table: string) => void
 }
 
@@ -75,6 +75,7 @@ export function ObjectTree({
   } = useConnectionStore()
   const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
   const [selectedConnId, setSelectedConnId] = useState<string | null>(null)
+  const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set())
   const [refreshingConn, setRefreshingConn] = useState<string | null>(null)
   const [tableCtxMenu, setTableCtxMenu] = useState<TableContextMenu | null>(null)
@@ -104,14 +105,9 @@ export function ObjectTree({
     }
   }, [tableCtxMenu, connCtxMenu])
 
-  /** 单击连接节点：已连接则打开详情页，未连接仅选中样式 */
+  /** 单击连接节点：仅选中（chevron 展开/收折，schema 节点开详情） */
   const handleConnClick = (conn: ConnectionListItem) => {
     setSelectedConnId(conn.id)
-    const state = states[conn.id]
-    if (state?.connected) {
-      onOpenDatabase(conn)
-    }
-    // 未连接时不做反应，只选中
   }
 
   /** 双击连接节点：未连接则连接，已连接则收折 */
@@ -175,7 +171,13 @@ export function ObjectTree({
     await Promise.all(schemas.map((schema) => loadTables(connId, schema)))
   }
 
-  const toggleSchema = async (connId: string, schemaName: string) => {
+  /** schema 节点 chevron：展开/收折（首次展开时加载表） */
+  const handleSchemaChevronClick = async (
+    e: React.MouseEvent,
+    connId: string,
+    schemaName: string,
+  ) => {
+    e.stopPropagation()
     const key = `${connId}:${schemaName}`
     const isOpen = expandedSchemas.has(key)
     if (isOpen) {
@@ -352,12 +354,17 @@ export function ObjectTree({
                       <div
                         className={`tree-node tree-schema tree-level-1 ${
                           isSchemaOpen ? 'expanded' : ''
-                        }`}
-                        onClick={() => toggleSchema(conn.id, schema.name)}
+                        } ${selectedSchemaId === schemaKey ? 'tree-schema-selected' : ''}`}
+                        onClick={() => {
+                          setSelectedSchemaId(schemaKey)
+                          onOpenDatabase(conn, schema.name)
+                        }}
+                        title="单击打开数据库详情"
                       >
                         <ChevronRight
                           size={12}
                           className={`chevron ${isSchemaOpen ? 'rotated' : ''}`}
+                          onClick={(e) => handleSchemaChevronClick(e, conn.id, schema.name)}
                         />
                         <Server size={12} />
                         <span>{schema.name}</span>
@@ -377,15 +384,13 @@ export function ObjectTree({
                               onContextMenu={(e) =>
                                 handleTableContextMenu(e, conn, schema.name, table.name)
                               }
-                              title="左键查看数据 · 右键更多操作"
+                              title={`${table.name}（${schema.name}）`}
                             >
-                              {table.type === 'view' ? <Eye size={12} /> : <Table2 size={12} />}
-                              <span>{table.name}</span>
-                              {table.estimatedRows !== undefined && (
-                                <span className="row-count">
-                                  {table.estimatedRows.toLocaleString()} 行
-                                </span>
-                              )}
+                              <span className="tree-table-chevron-placeholder" />
+                              <span className="tree-table-icon">
+                                {table.type === 'view' ? <Eye size={12} /> : <Table2 size={12} />}
+                              </span>
+                              <span className="tree-table-name">{table.name}</span>
                             </div>
                           ))}
                           {tables.length === 0 && (
@@ -452,15 +457,6 @@ export function ObjectTree({
             }}
           >
             <FileText size={12} /> SQL 查询
-          </button>
-          <button
-            className="ctx-item"
-            onClick={() => {
-              onOpenDatabase(connCtxMenu.conn)
-              setConnCtxMenu(null)
-            }}
-          >
-            <Database size={12} /> 数据库详情
           </button>
           <button
             className="ctx-item"

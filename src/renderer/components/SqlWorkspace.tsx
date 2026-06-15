@@ -8,7 +8,7 @@
  *   3b. confirmRequired → 弹 ConfirmDialog，确认后调 db:confirmExecute
  *   3c. denied → 显示 PermissionNotice（可提权）
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Download, Copy, Check, ChevronDown, Sparkles, Wrench } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult, type SecurityCheckResult } from '../api'
 import type { AssistAction } from '../api'
@@ -19,14 +19,20 @@ import { SqlHistory } from './SqlHistory'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PermissionNotice } from './PermissionNotice'
 import { AiAssistPanel } from './AiAssistPanel'
+import { useTabStore } from '../store/tabs'
+
+/** SQL 编辑器初始模板，偏离即视为「已编辑」 */
+const INITIAL_SQL = '-- 在此输入 SQL\nSELECT * FROM '
 
 interface SqlWorkspaceProps {
   connection: ConnectionListItem
+  /** 所属 tab 的 id，用于上报脏状态（编辑器内容偏离初始模板） */
+  tabId: string
 }
 
-export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
+export function SqlWorkspace({ connection, tabId }: SqlWorkspaceProps) {
   const triggerRefresh = useConnectionStore((s) => s.triggerRefresh)
-  const [sql, setSql] = useState('-- 在此输入 SQL\nSELECT * FROM ')
+  const [sql, setSql] = useState(INITIAL_SQL)
   const [result, setResult] = useState<QueryResult | null>(null)
   const [executing, setExecuting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +46,12 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
     payload: { sql?: string; naturalText?: string; error?: string }
   } | null>(null)
   const [nlInput, setNlInput] = useState('')
+
+  // 上报脏状态到 tab store（编辑器内容偏离初始模板即视为已编辑）
+  const setTabDirty = useTabStore((s) => s.setDirty)
+  useEffect(() => {
+    setTabDirty(tabId, sql !== INITIAL_SQL)
+  }, [tabId, sql, setTabDirty])
 
   const doExecute = useCallback(
     async (sqlToRun: string) => {

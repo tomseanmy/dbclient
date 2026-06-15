@@ -30,13 +30,16 @@ import {
   CircleSlash,
   Filter,
 } from 'lucide-react'
-import { api, type ConnectionListItem, type QueryResult } from '../api'
+import { api, type ConnectionListItem, type QueryResult, type TableMeta } from '../api'
 import { DataGrid } from './DataGrid'
+import { useTabStore } from '../store/tabs'
 
 interface TableDataProps {
   connection: ConnectionListItem
   schema?: string
   tableName: string
+  /** 所属 tab 的 id，用于上报脏状态（未提交修改） */
+  tabId: string
 }
 
 type ChangeType = 'update' | 'insert' | 'delete'
@@ -74,13 +77,19 @@ const AUTO_REFRESH_OPTIONS = [
   { label: '10s', value: 10 },
 ]
 
-export function TableData({ connection, schema, tableName }: TableDataProps) {
+export function TableData({ connection, schema, tableName, tabId }: TableDataProps) {
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [meta, setMeta] = useState<TableMeta | null>(null)
   const [changes, setChanges] = useState<Map<number, Change>>(new Map())
   const [selectedRowKey, setSelectedRowKey] = useState<number | null>(null)
   const [selectedCell, setSelectedCell] = useState<{
+    rowKey: string | number
+    column: string
+  } | null>(null)
+  /** 受控编辑态：双击与右键「编辑」共用，驱动 DataGrid 进入行内编辑 */
+  const [editingCell, setEditingCell] = useState<{
     rowKey: string | number
     column: string
   } | null>(null)
@@ -98,8 +107,12 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const qualifiedName = useMemo(() => {
-    if (connection.type === 'postgres' && schema) return `"${schema}"."${tableName}"`
+    if (connection.type === 'postgres') {
+      return schema ? `"${schema}"."${tableName}"` : `"${tableName}"`
+    }
     if (connection.type === 'sqlite') return `"${tableName}"`
+    // MySQL：schema 可能与默认库不同，需带上 schema 前缀
+    if (connection.type === 'mysql' && schema) return `\`${schema}\`.\`${tableName}\``
     return '`' + tableName + '`'
   }, [connection.type, schema, tableName])
 
@@ -123,6 +136,15 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     return ' WHERE ' + conds.join(' AND ')
   }, [filters, quoteIdentifier])
 
+  /** 列元信息映射（主键/可空），供 DataGrid 列头显示类型 icon */
+  const columnMeta = useMemo(() => {
+    const map: Record<string, { isPrimaryKey?: boolean; nullable?: boolean }> = {}
+    for (const col of meta?.columns ?? []) {
+      map[col.name] = { isPrimaryKey: col.isPrimaryKey, nullable: col.nullable }
+    }
+    return map
+  }, [meta])
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -130,12 +152,14 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     setCommitLog(null)
     setSelectedRowKey(null)
     setSelectedCell(null)
+    setEditingCell(null)
     try {
-      const meta = await api['db:describeTable']({
+      const tableMeta = await api['db:describeTable']({
         connectionId: connection.id,
         schema,
         table: tableName,
       })
+      setMeta(tableMeta)
       const offset = (page - 1) * pageSize
       const sql = `SELECT * FROM ${qualifiedName}${whereClause} LIMIT ${pageSize} OFFSET ${offset}`
       const res = await api['db:executeQuery']({
@@ -146,7 +170,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
       const columns =
         res.columns.length > 0
           ? res.columns
-          : meta.columns.map((col) => ({ name: col.name, dataType: col.dataType }))
+          : tableMeta.columns.map((col) => ({ name: col.name, dataType: col.dataType }))
       const rowsWithKey = res.rows.map((row, i) => ({
         ...row,
         __row_key__: offset + i,
@@ -423,6 +447,12 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     setCellCtxMenu(null)
   }
 
+  /** 列头筛选输入：列名 -> 值（空串清除该列筛选） */
+  const handleHeaderFilter = (column: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [column]: value }))
+    setPage(1)
+  }
+
   /** 提交 */
   const handleCommit = async () => {
     if (changes.size === 0) return
@@ -478,6 +508,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     setChanges(new Map())
     setSelectedRowKey(null)
     setSelectedCell(null)
+    setEditingCell(null)
     setCommitLog(null)
   }
 
@@ -555,6 +586,12 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   const hasChanges = changes.size > 0
   const totalPages = Math.max(1, totalCount !== null ? Math.ceil(totalCount / pageSize) : page + 1)
   const hasFilter = Object.values(filters).some((v) => v !== '')
+
+  // 上报脏状态到 tab store（用于「关闭未编辑 Tab」）
+  const setTabDirty = useTabStore((s) => s.setDirty)
+  useEffect(() => {
+    setTabDirty(tabId, hasChanges)
+  }, [tabId, hasChanges, setTabDirty])
 
   return (
     <div className="table-data-view">
@@ -720,6 +757,11 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
             selectedCell={selectedCell}
             onSelectCell={setSelectedCell}
             onCellContextMenu={handleCellContextMenu}
+            editing={editingCell}
+            onEditingChange={setEditingCell}
+            columnMeta={columnMeta}
+            filters={filters}
+            onFilterChange={handleHeaderFilter}
             bottomPadding={150}
           />
         </div>
@@ -860,11 +902,9 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
           <button
             className="ctx-item"
             onClick={() => {
-              // 编辑 = 选中单元格后双击进入编辑，这里选中后提示双击
-              setSelectedCell({ rowKey: cellCtxMenu.rowKey, column: cellCtxMenu.column })
+              setEditingCell({ rowKey: cellCtxMenu.rowKey, column: cellCtxMenu.column })
               setCellCtxMenu(null)
             }}
-            title="选中后双击单元格编辑"
           >
             <Check size={12} /> 编辑
           </button>

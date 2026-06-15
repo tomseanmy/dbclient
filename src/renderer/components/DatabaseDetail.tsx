@@ -24,6 +24,8 @@ import { api, type ConnectionListItem, type Table } from '../api'
 
 interface DatabaseDetailProps {
   connection: ConnectionListItem
+  /** 详情页对应的 schema（MySQL 库 / PG schema / SQLite main） */
+  schema: string | undefined
   onOpenSql: (conn: ConnectionListItem) => void
   onSelectTable: (conn: ConnectionListItem, schema: string | undefined, table: Table) => void
   onOpenTableDetail: (conn: ConnectionListItem, schema: string | undefined, table: string) => void
@@ -31,6 +33,7 @@ interface DatabaseDetailProps {
 
 export function DatabaseDetail({
   connection,
+  schema,
   onOpenSql,
   onSelectTable,
   onOpenTableDetail,
@@ -43,30 +46,21 @@ export function DatabaseDetail({
   const [exportOpen, setExportOpen] = useState(false)
 
   const loadData = useCallback(async () => {
+    if (!schema) return
     setLoading(true)
     setError(null)
     try {
-      const schemas = await api['db:listSchemas']({ connectionId: connection.id })
-      const allTables: Table[] = []
-      for (const schema of schemas) {
-        const ts = await api['db:listTables']({ connectionId: connection.id, schema: schema.name })
-        for (const t of ts) {
-          allTables.push({ ...t, schema: schema.name })
-        }
-      }
-      // SQLite/MySQL 单 schema 时也可能直接 listTables
-      if (allTables.length === 0) {
-        const ts = await api['db:listTables']({ connectionId: connection.id })
-        allTables.push(...ts)
-      }
-      allTables.sort((a, b) => a.name.localeCompare(b.name))
+      const ts = await api['db:listTables']({ connectionId: connection.id, schema })
+      const allTables = ts
+        .map((t) => ({ ...t, schema }))
+        .sort((a, b) => a.name.localeCompare(b.name))
       setTables(allTables)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [connection.id])
+  }, [connection.id, schema])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 初始加载是合法模式
@@ -81,8 +75,13 @@ export function DatabaseDetail({
     if (!confirm(`确认删除表 ${tableName}？此操作不可恢复。`)) return
     // 通过 SQL 执行 DROP，走安全层
     try {
-      const quote = connection.type === 'postgres' || connection.type === 'sqlite' ? '"' : '`'
-      const sql = `DROP TABLE ${quote}${tableName}${quote}`
+      const qualified =
+        connection.type === 'postgres' && schema
+          ? `"${schema}"."${tableName}"`
+          : connection.type === 'mysql' && schema
+            ? `\`${schema}\`.\`${tableName}\``
+            : `"${tableName}"`
+      const sql = `DROP TABLE ${qualified}`
       await api['db:confirmExecute']({ connectionId: connection.id, sql })
       await loadData()
     } catch (err) {
@@ -181,12 +180,17 @@ export function DatabaseDetail({
               <span className="db-detail-table-icon">
                 {table.type === 'view' ? <Eye size={15} /> : <Table2 size={15} />}
               </span>
-              <span className="db-detail-name">{table.name}</span>
-              {table.schema && <span className="db-detail-schema">{table.schema}</span>}
+              <span className="db-detail-name" title={`${table.name}（${table.schema ?? ''}）`}>
+                {table.name}
+              </span>
               {table.estimatedRows !== undefined && (
                 <span className="db-detail-rows">{table.estimatedRows.toLocaleString()} 行</span>
               )}
-              {table.comment && <span className="db-detail-comment">{table.comment}</span>}
+              {table.comment && (
+                <span className="db-detail-comment" title={table.comment}>
+                  {table.comment}
+                </span>
+              )}
               <div className="toolbar-spacer" />
               <abbr title="查看数据">
                 <button

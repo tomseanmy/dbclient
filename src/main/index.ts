@@ -26,18 +26,20 @@ if (!app.requestSingleInstanceLock()) {
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
+  const isMac = process.platform === 'darwin'
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 13, y: 14 },
+    // mac：hiddenInset 保留红绿灯；win/linux：hidden 去掉原生大标题栏，保留可缩放边框
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    ...(isMac && { trafficLightPosition: { x: 13, y: 14 } }),
     show: false, // ready-to-show 后再显示，避免白屏
     title: 'AI DB Client',
     backgroundColor: '#191a1c', // 暗岩灰 rgb(25,26,28)，防止启动白屏
-    vibrancy: 'under-window', // macOS 毛玻璃：侧栏透出桌面
-    visualEffectState: 'active',
+    // macOS 毛玻璃：侧栏透出桌面（仅 mac 生效）
+    ...(isMac && { vibrancy: 'under-window', visualEffectState: 'active' }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, // 安全：隔离 Node 与渲染上下文

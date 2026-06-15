@@ -55,6 +55,30 @@ textarea {
   user-select: text;
 }
 
+/* ===== 全局滚动条（细根、半透明、始终一致不遮挡）===== */
+/* thumb 任何状态（hover/active）都不改变尺寸，只轻微调亮度。 */
+*::-webkit-scrollbar {
+  width: 2px;
+  height: 2px;
+  -webkit-appearance: none;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.28);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ===== 应用布局 ===== */
 .app-root {
   display: flex;
@@ -116,6 +140,47 @@ select,
 .context-menu,
 .modal-overlay {
   -webkit-app-region: no-drag;
+}
+
+/* ===== 自绘窗口控制按钮（仅 win/linux；mac 不渲染）===== */
+.window-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: stretch;
+  z-index: 1001; /* 高于 modal(100) 与 context-menu(1000) */
+  -webkit-app-region: no-drag;
+}
+
+.wc-btn {
+  width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: default;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.wc-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.wc-close:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* 非 mac：右上自绘按钮条会压住 tab 栏右侧，让出空间避免遮挡 */
+[data-platform='win32'] .tab-bar,
+[data-platform='linux'] .tab-bar {
+  padding-right: 140px;
 }
 
 /* ===== 对象树 ===== */
@@ -226,6 +291,27 @@ select,
 
 .tree-table {
   font-size: 12px;
+}
+
+.tree-table-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 表节点 chevron 占位：与 schema/连接节点的折叠图标等宽，保持三列对齐 */
+.tree-table-chevron-placeholder {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.tree-table-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tree-table.selected {
@@ -357,6 +443,30 @@ select,
   min-height: 0;
   overflow: auto;
   padding: 0;
+}
+
+/* Modal 内的连接表单：主体可滚、底部按钮固定 */
+.connection-form-modal {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.connection-form-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.connection-form-modal-footer {
+  flex-shrink: 0;
+  margin-top: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .form-field {
@@ -979,19 +1089,24 @@ select,
 .grid-head {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
 }
 
 .grid-head th {
   background: var(--bg-elevated);
   border-bottom: 2px solid var(--border-strong);
   border-right: 1px solid var(--border);
-  padding: 6px 10px;
+  padding: 0;
   text-align: left;
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
   user-select: none;
+  /* 列头单元格压在表体序号列之上，避免横向滚动时被序号盖住 */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 32px;
 }
 
 .grid-th {
@@ -1002,9 +1117,146 @@ select,
   background: var(--bg-hover);
 }
 
-.sort-icon {
-  margin-left: 4px;
-  vertical-align: middle;
+/* 列头内部布局：保留 <th> 的 table-cell，用内层 flex 把按钮推到最右 */
+.grid-th-inner {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  height: 32px;
+  padding: 0 2px;
+}
+
+/* 列名：紧贴类型 icon，过长省略 */
+.grid-th-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+/* 弹性占位：把排序按钮推到列头最右 */
+.grid-th-spacer {
+  flex: 1 1 auto;
+}
+
+/* 列头左侧类型 icon */
+.col-type-icon {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 2px 0 4px;
+}
+
+.col-type-pk {
+  color: var(--warning);
+}
+
+.col-type-notnull {
+  color: var(--text);
+}
+
+.col-type-nullable {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* 列头按钮（排序/筛选）：高度填满表头，仅 icon */
+.col-head-btn {
+  flex: 0 0 auto;
+  margin-left: 0;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.col-head-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover-strong);
+}
+
+/* 激活态（已排序/已筛选）：高亮 */
+.col-head-btn-active {
+  color: var(--primary);
+}
+
+/* 列头筛选按钮包裹层（定位锚点 + 撑满高度） */
+.filter-head-wrap {
+  flex: 0 0 auto;
+  align-self: stretch;
+  position: relative;
+  display: inline-flex;
+}
+
+/* 列头筛选弹窗 */
+.filter-pop {
+  position: absolute;
+  top: 100%;
+  margin-top: 2px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* 右侧空间充足：弹窗右边缘对齐按钮 */
+.filter-pop-right {
+  right: 0;
+}
+
+/* 右侧空间不足（如首列）：弹窗左边缘对齐按钮，向右展开 */
+.filter-pop-left {
+  left: 0;
+}
+
+.filter-input {
+  width: 140px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.filter-input:focus {
+  border-color: var(--primary);
+}
+
+.filter-pop-clear {
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-pop-clear:hover {
+  color: var(--text);
+}
+
+/* 选中整列高亮：表头与表体单元格共用，色板与单元格选中保持一致 */
+.grid-th.grid-col-selected {
+  background: rgba(10, 132, 255, 0.14) !important;
+}
+
+.grid-col-selected {
+  background: rgba(10, 132, 255, 0.1) !important;
 }
 
 .grid-row {
@@ -1025,6 +1277,15 @@ select,
   background: var(--bg-elevated);
   border-right: 1px solid var(--border);
   padding: 4px 6px;
+  /* 水平冻结：序号列固定在左边，横向滚动时不随之移动 */
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+/* 表头角落（既是表头又是序号列）：需同时满足上下、左右冻结，叠在最上层 */
+.grid-row-num {
+  z-index: 3;
 }
 
 .grid-cell {
@@ -1035,6 +1296,10 @@ select,
   text-overflow: ellipsis;
   max-width: 300px;
   border-right: 1px solid var(--border);
+  /* 数据网格统一字体来源：只读 span 与编辑 input 均继承，避免编辑时跳动 */
+  font-family: 'SF Mono', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 24px;
 }
 
 .grid-cell-editing {
@@ -1044,10 +1309,15 @@ select,
   box-shadow: inset 0 0 0 2px var(--primary);
 }
 
+/* 单元格内渲染内容不捕获指针事件，确保双击/点击直接命中 <td>，
+   否则双击文本时浏览器原生选词行为会吞掉 dblclick，只能点空白处编辑 */
+.grid-cell:not(.grid-cell-editing) > * {
+  pointer-events: none;
+}
+
 .cell-null {
   color: var(--text-muted);
   font-style: italic;
-  font-size: 11px;
 }
 
 .cell-text {
@@ -1056,8 +1326,6 @@ select,
 
 .cell-number {
   color: #c084fc;
-  font-family: 'SF Mono', monospace;
-  font-size: 11px;
 }
 
 .cell-bool {
@@ -1067,19 +1335,14 @@ select,
 
 .cell-datetime {
   color: #ff8174;
-  font-family: 'SF Mono', monospace;
-  font-size: 11px;
 }
 
 .cell-binary {
   color: var(--text-muted);
-  font-family: 'SF Mono', monospace;
-  font-size: 11px;
 }
 
 .cell-json {
   color: #6db5ff;
-  font-size: 11px;
 }
 
 .cell-json-wrapper {
@@ -1091,7 +1354,6 @@ select,
   border: none;
   cursor: pointer;
   color: #6db5ff;
-  font-size: 11px;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -1465,6 +1727,12 @@ select,
   white-space: nowrap;
 }
 
+.tab-label-suffix {
+  margin-left: 1px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
 /* tab 内容的 abbr tooltip 样式 */
 .tab-item abbr {
   text-decoration: none;
@@ -1580,6 +1848,16 @@ select,
   background: var(--surface-danger);
 }
 
+.ctx-item:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ctx-item:disabled:hover {
+  background: none;
+}
+
 .ctx-divider {
   height: 1px;
   background: var(--border);
@@ -1605,14 +1883,16 @@ select,
 }
 
 .cell-edit-input {
+  display: block;
   width: 100%;
-  height: 31px;
+  height: 24px;
   border: none;
   border-radius: 0;
-  padding: 4px 9px;
-  font-size: 12px;
-  line-height: 22px;
-  font-family: 'SF Mono', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  /* padding/字号/字体均继承只读态，避免进入编辑时内容跳动 */
+  padding: 4px 10px;
+  font-size: inherit;
+  line-height: 24px;
+  font-family: inherit;
   color: var(--text);
   background: transparent;
   outline: none;
@@ -2460,7 +2740,8 @@ select,
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
+  padding: 0 16px;
+  height: 28px;
   cursor: pointer;
   font-size: 13px;
   border-bottom: 1px solid var(--border);
@@ -2485,29 +2766,33 @@ select,
 .db-detail-name {
   font-weight: 500;
   color: var(--text);
-}
-
-.db-detail-schema {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 1px 5px;
-  background: var(--bg-hover);
-  border-radius: 3px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .db-detail-rows {
   font-size: 11px;
   color: var(--text-muted);
   flex-shrink: 0;
+  width: 90px;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .db-detail-comment {
   font-size: 11px;
   color: var(--text-muted);
+  flex-shrink: 0;
+  width: 180px;
+  text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 200px;
 }
 
 .db-detail-action {
@@ -2532,5 +2817,13 @@ select,
 }
 
 .tree-conn-selected:hover {
+  background: rgba(10, 132, 255, 0.18);
+}
+
+.tree-schema-selected {
+  background: rgba(10, 132, 255, 0.12);
+}
+
+.tree-schema-selected:hover {
   background: rgba(10, 132, 255, 0.18);
 }

@@ -39,7 +39,7 @@
           <span class="brand-text">
             <span class="brand-name">AI DB Client</span>
           </span>
-          <span class="brand-version">v0.1</span>
+          <span class="brand-version" id="brand-version" hidden></span>
         </a>
         <nav class="nav-links" aria-label="Primary">
           <a href="#features">核心特性</a>
@@ -90,31 +90,17 @@
                     />
                   </svg>
                 </a>
-                <a class="btn btn-download" id="hero-download" href="https://github.com/tomseanmy/dbclient/releases/latest" data-platform="">
+                <a class="btn btn-download" id="hero-download" href="https://github.com/tomseanmy/dbclient/releases/latest">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
                     <path d="M8 1a.5.5 0 01.5.5v6.793l1.646-1.647a.5.5 0 01.708.708l-2.5 2.5a.5.5 0 01-.708 0l-2.5-2.5a.5.5 0 11.708-.708L7.5 8.293V1.5A.5.5 0 018 1zM2 13.5a.5.5 0 011 0V14a1 1 0 001 1h8a1 1 0 001-1v-.5a.5.5 0 011 0v.5a2 2 0 01-2 2H4a2 2 0 01-2-2v-.5z"/>
                   </svg>
-                  <span id="hero-download-label">下载 v0.1</span>
+                  <span id="hero-download-label">下载</span>
                 </a>
-                <div class="dropdown" id="hero-platforms">
-                  <button class="btn btn-ghost btn-dropdown" type="button" aria-haspopup="true" aria-expanded="false">
-                    <span>其他版本</span>
-                    <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                      <path d="M3 5l3 3 3-3" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                  </button>
-                  <ul class="dropdown-menu" role="menu">
-                    <li role="menuitem"><a href="https://github.com/tomseanmy/dbclient/releases/latest" data-platform="mac">macOS（Apple Silicon / Intel）</a></li>
-                    <li role="menuitem"><a href="https://github.com/tomseanmy/dbclient/releases/latest" data-platform="win">Windows（x64）</a></li>
-                    <li role="menuitem"><a href="https://github.com/tomseanmy/dbclient/releases/latest" data-platform="linux">Linux（.AppImage / .deb）</a></li>
-                    <li role="menuitem" class="sep"></li>
-                    <li role="menuitem"><a href="https://github.com/tomseanmy/dbclient/releases" data-platform="all">所有发布版本 →</a></li>
-                  </ul>
-                </div>
                 <a class="btn btn-ghost" href="#architecture">看架构图 →</a>
               </div>
               <ul class="hero-bullets" role="list">
                 <li><span class="tick">+</span> 支持 MySQL · PostgreSQL · SQLite · Redis</li>
+                <li><span class="tick">+</span> 多连接 · 多 tab 切换查询与浏览</li>
                 <li><span class="tick">+</span> 原生适配 Claude Code / Codex / OpenCode</li>
                 <li><span class="tick">+</span> 默认只发 Schema，绝不上传真实数据行</li>
               </ul>
@@ -309,6 +295,29 @@
         </div>
       </section>
 
+      <!-- ============== STATUS (current build) ============== -->
+      <section class="status" aria-label="Current build status">
+        <div class="container">
+          <div class="status-board">
+            <div class="status-head">
+              <span class="status-dot"></span>
+              <span class="status-title">// 当前开发进度</span>
+              <span class="status-sub">核心领域层已基本成型</span>
+            </div>
+            <ul class="status-list" role="list">
+              <li><span class="ok">✓</span> 连接管理：增删改查、连通性测试、凭据 Keychain 存储</li>
+              <li><span class="ok">✓</span> 对象浏览：库 / 表 / 列 / 类型 / 注释 树形展示</li>
+              <li><span class="ok">✓</span> 数据查看：表格化、分页、行内编辑（进行中）</li>
+              <li><span class="ok">✓</span> SQL 工作台：Monaco 编辑器、格式化、执行、历史记录</li>
+              <li><span class="ok">✓</span> 安全层：node-sql-parser → AST 危险级别 → 环境分级 + 审计</li>
+              <li><span class="ok">✓</span> AI 双模式：OpenAI 兼容网关 · NL2SQL 需用户确认 · token 记录</li>
+              <li><span class="wip">⏳</span> MCP Server：目录已搭骨架，工具待实现</li>
+              <li><span class="wip">⏳</span> 流式输出 / 对话历史持久化 / 样本数据发送（P1）</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <!-- ============== FEATURES ============== -->
       <section id="features" class="features">
         <div class="container">
@@ -385,14 +394,14 @@
               </div>
               <h3 class="feature-title">默认只发 Schema</h3>
               <p class="feature-desc">
-                AI 看到的是表、列、类型、注释 —— <em>永远不是</em>真实的数据行。
+                AI 看到的是表 / 列 / 类型 / 注释 —— <em>永远不是</em>真实的数据行。
                 这条边界清晰可配。想要更聪明的回答？可以按会话临时开启「发送前 N 行样本」，
                 但默认是关闭的。
               </p>
               <ul class="feature-list">
-                <li>默认：只发表结构、列、类型</li>
+                <li>默认：只发 Schema（表结构、列、类型、注释）</li>
                 <li>每个会话可单独开启样本数据</li>
-                <li>支持列级 PII 脱敏（正则规则）</li>
+                <li>列级 PII 脱敏（正则规则 · 规划中）</li>
               </ul>
             </article>
 
@@ -633,7 +642,7 @@
               到完整的 <span class="hl">AI 数据库平台</span>。
             </h2>
             <p class="section-sub">
-              六个里程碑。M0 已交付。其余按顺序推进，每一阶段都独立可用。
+              五个里程碑。核心领域层（GUI / AI / MCP 三条路径共用）已基本成型，MCP 工具正在路上。
             </p>
           </header>
 
@@ -650,75 +659,63 @@
               </div>
             </li>
 
-            <li class="rmap-step current">
+            <li class="rmap-step done">
               <div class="rmap-marker">
                 <span class="rmap-num">M1</span>
-                <span class="rmap-status">进行中</span>
+                <span class="rmap-status">已交付</span>
               </div>
               <div class="rmap-body">
                 <h3 class="rmap-title">连接 &amp; 浏览</h3>
-                <p class="rmap-desc">连通 MySQL / PG / SQLite / Redis，浏览对象树、打开表、执行只读查询。支持多连接、多 tab 切换。</p>
+                <p class="rmap-desc">连通 MySQL / PG / SQLite / Redis，浏览对象树、打开表、执行只读查询。多连接、多 tab 切换。</p>
                 <div class="rmap-modules"><span>连接管理</span><span>对象树</span><span>数据网格</span><span>SQL 编辑器</span></div>
               </div>
             </li>
 
-            <li class="rmap-step">
+            <li class="rmap-step done">
               <div class="rmap-marker">
                 <span class="rmap-num">M2</span>
-                <span class="rmap-status">规划中</span>
+                <span class="rmap-status">已交付</span>
               </div>
               <div class="rmap-body">
-                <h3 class="rmap-title">SQL 编辑器完整化</h3>
-                <p class="rmap-desc">完整 SQL 工作流：格式化、历史、收藏查询、导出、EXPLAIN 执行计划可视化、单元格内联编辑。</p>
-                <div class="rmap-modules"><span>SQL 编辑器</span><span>历史</span><span>导出</span><span>EXPLAIN</span></div>
+                <h3 class="rmap-title">SQL 编辑器 &amp; 安全层</h3>
+                <p class="rmap-desc">Monaco 编辑器、格式化、历史、node-sql-parser AST 解析 → 危险级别 → 环境分级权限矩阵 + 审计日志。</p>
+                <div class="rmap-modules"><span>Monaco</span><span>AST 解析</span><span>权限矩阵</span><span>审计</span></div>
               </div>
             </li>
 
-            <li class="rmap-step">
+            <li class="rmap-step done">
               <div class="rmap-marker">
                 <span class="rmap-num">M3</span>
-                <span class="rmap-status">规划中</span>
-              </div>
-              <div class="rmap-body">
-                <h3 class="rmap-title">权限 &amp; 安全</h3>
-                <p class="rmap-desc">环境标签、危险 SQL 识别、影响行数估算 + 二次确认弹窗、append-only 审计日志。</p>
-                <div class="rmap-modules"><span>环境分级</span><span>DROP 拦截</span><span>审计日志</span><span>二次确认</span></div>
-              </div>
-            </li>
-
-            <li class="rmap-step">
-              <div class="rmap-marker">
-                <span class="rmap-num">M4</span>
-                <span class="rmap-status">规划中</span>
+                <span class="rmap-status">已交付</span>
               </div>
               <div class="rmap-body">
                 <h3 class="rmap-title">AI 双模式</h3>
-                <p class="rmap-desc">自然语言对话生成 SQL + GUI 任意位置的内联 AI 能力。LLM 网关支持 OpenAI 兼容协议（含自托管）。</p>
-                <div class="rmap-modules"><span>对话</span><span>内联 AI</span><span>LLM 网关</span><span>流式输出</span></div>
+                <p class="rmap-desc">OpenAI 兼容 LLM 网关（DeepSeek / Qwen / Moonshot / Ollama），NL2SQL 生成后必须用户确认执行，token 用量记录。</p>
+                <div class="rmap-modules"><span>LLM 网关</span><span>NL2SQL</span><span>token 记录</span><span>Schema-only</span></div>
               </div>
             </li>
 
-            <li class="rmap-step">
+            <li class="rmap-step current">
               <div class="rmap-marker">
-                <span class="rmap-num">M5</span>
-                <span class="rmap-status">规划中</span>
+                <span class="rmap-num">M4</span>
+                <span class="rmap-status">进行中</span>
               </div>
               <div class="rmap-body">
                 <h3 class="rmap-title">MCP Server</h3>
-                <p class="rmap-desc">把数据库层通过 MCP 协议暴露出去，Claude Code、Codex、OpenCode 可通过同一道权限闸门操作数据库。一键生成配置片段。</p>
+                <p class="rmap-desc">把数据库能力通过 MCP 协议暴露给 Claude Code / Codex / OpenCode，共享同一道权限闸门。一键生成配置片段。</p>
                 <div class="rmap-modules"><span>stdio</span><span>SSE</span><span>tools</span><span>配置片段</span></div>
               </div>
             </li>
 
             <li class="rmap-step">
               <div class="rmap-marker">
-                <span class="rmap-num">M6</span>
+                <span class="rmap-num">P1</span>
                 <span class="rmap-status">规划中</span>
               </div>
               <div class="rmap-body">
-                <h3 class="rmap-title">隐私增强 &amp; 打磨</h3>
-                <p class="rmap-desc">列级 PII 脱敏规则、token 用量统计、自托管模型支持，以及长尾体验优化。</p>
-                <div class="rmap-modules"><span>PII 规则</span><span>自托管</span><span>token 统计</span><span>体验打磨</span></div>
+                <h3 class="rmap-title">流式输出 · 对话历史 · 样本数据</h3>
+                <p class="rmap-desc">AI 流式响应、对话历史持久化、可选发送前 N 行样本数据等体验打磨与隐私增强。</p>
+                <div class="rmap-modules"><span>流式输出</span><span>对话历史</span><span>样本数据</span><span>体验打磨</span></div>
               </div>
             </li>
           </ol>
@@ -742,33 +739,43 @@
           <div class="stack-grid">
             <div class="stack-card">
               <div class="stack-tier">外壳</div>
-              <div class="stack-name">Electron 31</div>
+              <div class="stack-name">Electron 42 + electron-vite</div>
               <div class="stack-detail">原生窗口 + Node 后台，跨平台打包开箱即用。</div>
             </div>
             <div class="stack-card">
               <div class="stack-tier">渲染层</div>
-              <div class="stack-name">React 18 · Vite · Monaco</div>
-              <div class="stack-detail">快速 HMR，用的是驱动 VS Code 的同一款编辑器。</div>
+              <div class="stack-name">React 18 · Vite · Zustand</div>
+              <div class="stack-detail">快速 HMR；Monaco Editor + TanStack Table 处理 SQL 与数据网格。</div>
             </div>
             <div class="stack-card">
               <div class="stack-tier">驱动</div>
               <div class="stack-name">mysql2 · pg · better-sqlite3 · ioredis</div>
-              <div class="stack-detail">裸用，不上 ORM。每条 SQL 都归我们自己掌控。</div>
+              <div class="stack-detail">裸用，不上 ORM。每条 SQL 都归我们自己掌控。Redis 支持 single / cluster / sentinel。</div>
+            </div>
+            <div class="stack-card">
+              <div class="stack-tier">SQL 解析</div>
+              <div class="stack-name">node-sql-parser · sql-formatter</div>
+              <div class="stack-detail">AST 解析做安全分析，格式化输出友好可读。</div>
             </div>
             <div class="stack-card">
               <div class="stack-tier">AI</div>
-              <div class="stack-name">OpenAI 兼容网关</div>
-              <div class="stack-detail">支持自托管模型，数据始终留在本机。</div>
+              <div class="stack-name">OpenAI 兼容 LLM 网关</div>
+              <div class="stack-detail">DeepSeek · Qwen · Moonshot · Ollama，Schema-only 默认上下文，token 用量记录。</div>
             </div>
             <div class="stack-card">
               <div class="stack-tier">MCP</div>
               <div class="stack-name">@modelcontextprotocol/sdk</div>
-              <div class="stack-detail">官方 TS SDK，同时支持 stdio 与 SSE 传输。</div>
+              <div class="stack-detail">官方 TS SDK，stdio / SSE 传输，复用同一道权限层。</div>
             </div>
             <div class="stack-card">
               <div class="stack-tier">凭据</div>
-              <div class="stack-name">Keychain · Credential Vault · 主密码</div>
+              <div class="stack-name">keytar（macOS Keychain / Win Vault）</div>
               <div class="stack-detail">密码 / API Key 永远不以明文落盘。</div>
+            </div>
+            <div class="stack-card">
+              <div class="stack-tier">架构</div>
+              <div class="stack-name">核心领域层零 Electron 依赖</div>
+              <div class="stack-detail">GUI / AI / MCP 三条执行路径共享同一套业务逻辑与权限闸门。</div>
             </div>
           </div>
         </div>
@@ -829,7 +836,7 @@
             <div class="brand">
               <span class="brand-text">
                 <span class="brand-name">AI DB Client</span>
-                <span class="brand-version">v0.1</span>
+                <span class="brand-version" id="footer-version" hidden></span>
               </span>
             </div>
             <p class="footer-tag">
@@ -848,13 +855,14 @@
             <div class="footer-h">路线图</div>
             <a href="#roadmap">M0 — 工程骨架</a>
             <a href="#roadmap">M1 — 连接 &amp; 浏览</a>
-            <a href="#roadmap">M3 — 权限 &amp; 安全</a>
-            <a href="#roadmap">M5 — MCP Server</a>
+            <a href="#roadmap">M2 — SQL 编辑器 &amp; 安全层</a>
+            <a href="#roadmap">M3 — AI 双模式</a>
+            <a href="#roadmap">M4 — MCP Server</a>
           </div>
           <div class="footer-col">
             <div class="footer-h">技术栈</div>
-            <span>Electron 31</span>
-            <span>React 18 · Vite</span>
+            <span>Electron 42</span>
+            <span>React 18 · Vite · Zustand</span>
             <span>TypeScript strict</span>
             <span>Node 20+</span>
           </div>

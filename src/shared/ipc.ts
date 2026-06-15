@@ -210,6 +210,24 @@ export interface IpcContracts {
     req: import('./types/llm').AiAssistRequest
     res: import('./types/llm').AiChatResponse
   }
+
+  // ----- 窗口控制（win/linux 自绘标题栏按钮使用）-----
+  'window:minimize': {
+    req: void
+    res: void
+  }
+  'window:maximizeToggle': {
+    req: void
+    res: void
+  }
+  'window:close': {
+    req: void
+    res: void
+  }
+  'window:isMaximized': {
+    req: void
+    res: boolean
+  }
 }
 
 // ===== 派生类型 =====

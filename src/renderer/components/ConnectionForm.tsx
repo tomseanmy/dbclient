@@ -125,122 +125,130 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
   const isSqlite = type === 'sqlite'
 
   return (
-    <div className="connection-form">
-      <div className="form-field">
-        <label>类型</label>
-        <div className="type-selector">
-          {DB_TYPES.map((t) => (
-            <button
-              key={t}
-              className={`type-btn ${type === t ? 'active' : ''}`}
-              onClick={() => setType(t)}
-              type="button"
-            >
-              {DB_LABELS[t]}
-            </button>
-          ))}
+    <div className="connection-form-modal">
+      <div className="connection-form-modal-body">
+        <div className="form-field">
+          <label>类型</label>
+          <div className="type-selector">
+            {DB_TYPES.map((t) => (
+              <button
+                key={t}
+                className={`type-btn ${type === t ? 'active' : ''}`}
+                onClick={() => setType(t)}
+                type="button"
+              >
+                {DB_LABELS[t]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="form-field">
-        <label>名称 *</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="我的数据库" />
-      </div>
-
-      <div className="form-field">
-        <label>环境</label>
-        <div className="env-selector">
-          {ENVIRONMENTS.map((env) => (
-            <button
-              key={env}
-              className={`env-btn ${environment === env ? 'active' : ''}`}
-              style={
-                environment === env ? { borderColor: ENV_COLORS[env], color: ENV_COLORS[env] } : {}
-              }
-              onClick={() => setEnvironment(env)}
-              type="button"
-            >
-              {ENV_LABELS[env]}
-            </button>
-          ))}
+        <div className="form-field">
+          <label>名称 *</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="我的数据库" />
         </div>
-      </div>
 
-      {!isSqlite && (
-        <>
-          <div className="form-row">
+        <div className="form-field">
+          <label>环境</label>
+          <div className="env-selector">
+            {ENVIRONMENTS.map((env) => (
+              <button
+                key={env}
+                className={`env-btn ${environment === env ? 'active' : ''}`}
+                style={
+                  environment === env
+                    ? { borderColor: ENV_COLORS[env], color: ENV_COLORS[env] }
+                    : {}
+                }
+                onClick={() => setEnvironment(env)}
+                type="button"
+              >
+                {ENV_LABELS[env]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!isSqlite && (
+          <>
+            <div className="form-row">
+              <div className="form-field">
+                <label>主机</label>
+                <input
+                  value={host}
+                  onChange={(e) => setHost(e.target.value)}
+                  placeholder="localhost"
+                />
+              </div>
+              <div className="form-field form-field-port">
+                <label>端口</label>
+                <input
+                  type="number"
+                  value={port}
+                  onChange={(e) => setPort(Number(e.target.value))}
+                />
+              </div>
+            </div>
+
             <div className="form-field">
-              <label>主机</label>
+              <label>用户名</label>
               <input
-                value={host}
-                onChange={(e) => setHost(e.target.value)}
-                placeholder="localhost"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="root"
               />
             </div>
-            <div className="form-field form-field-port">
-              <label>端口</label>
-              <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value))} />
+
+            <div className="form-field">
+              <label>密码 {initial && <span className="hint">（留空保持不变）</span>}</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
             </div>
-          </div>
+          </>
+        )}
 
-          <div className="form-field">
-            <label>用户名</label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="root"
-            />
-          </div>
-
-          <div className="form-field">
-            <label>密码 {initial && <span className="hint">（留空保持不变）</span>}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
-        </>
-      )}
-
-      <div className="form-field">
-        <label>{isSqlite ? '数据库文件路径' : type === 'redis' ? 'DB Index' : '数据库名'}</label>
-        <input
-          value={database}
-          onChange={(e) => setDatabase(e.target.value)}
-          placeholder={isSqlite ? '/path/to/database.db' : type === 'redis' ? '0' : 'mydb'}
-        />
-      </div>
-
-      <div className="form-field">
-        <label>颜色标记（可选）</label>
-        <input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#3b82f6" />
-      </div>
-
-      {error && <div className="form-error">{error}</div>}
-      {testResult && (
-        <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
-          {testResult.success ? (
-            <CheckCircle size={12} style={{ display: 'inline' }} />
-          ) : (
-            <XCircle size={12} style={{ display: 'inline' }} />
-          )}
-          {testResult.message}
-          {testResult.fileNotFound && (
-            <button
-              className="btn btn-primary btn-sm"
-              style={{ marginLeft: 8 }}
-              onClick={() => handleTest({ createFile: true })}
-              disabled={testing}
-            >
-              创建并测试
-            </button>
-          )}
+        <div className="form-field">
+          <label>{isSqlite ? '数据库文件路径' : type === 'redis' ? 'DB Index' : '数据库名'}</label>
+          <input
+            value={database}
+            onChange={(e) => setDatabase(e.target.value)}
+            placeholder={isSqlite ? '/path/to/database.db' : type === 'redis' ? '0' : 'mydb'}
+          />
         </div>
-      )}
 
-      <div className="form-actions">
+        <div className="form-field">
+          <label>颜色标记（可选）</label>
+          <input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#3b82f6" />
+        </div>
+
+        {error && <div className="form-error">{error}</div>}
+        {testResult && (
+          <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
+            {testResult.success ? (
+              <CheckCircle size={12} style={{ display: 'inline' }} />
+            ) : (
+              <XCircle size={12} style={{ display: 'inline' }} />
+            )}
+            {testResult.message}
+            {testResult.fileNotFound && (
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ marginLeft: 8 }}
+                onClick={() => handleTest({ createFile: true })}
+                disabled={testing}
+              >
+                创建并测试
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="form-actions connection-form-modal-footer">
         <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>
           取消
         </button>

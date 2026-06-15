@@ -32,6 +32,7 @@ export async function registerAllHandlers(): Promise<void> {
   const { registerSecurityHandlers } = await import('./security')
   const { registerLlmHandlers } = await import('./llm')
   const { registerAiHandlers } = await import('./ai')
+  const { registerWindowHandlers } = await import('./window')
   registerAppHandlers()
   registerConnectionHandlers()
   registerDatabaseHandlers()
@@ -39,4 +40,5 @@ export async function registerAllHandlers(): Promise<void> {
   registerSecurityHandlers()
   registerLlmHandlers()
   registerAiHandlers()
+  registerWindowHandlers()
 }
