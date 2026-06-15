@@ -17,6 +17,10 @@ import {
   Copy,
   ArrowDownToLine,
   Plus,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult } from '../api'
 import { DataGrid } from './DataGrid'
@@ -56,6 +60,9 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   const [committing, setCommitting] = useState(false)
   const [commitLog, setCommitLog] = useState<string | null>(null)
   const [ctxMenu, setCtxMenu] = useState<RowContextMenu | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
 
   const qualifiedName = useMemo(() => {
     if (connection.type === 'postgres' && schema) return `"${schema}"."${tableName}"`
@@ -85,25 +92,52 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
         schema,
         table: tableName,
       })
-      const sql = `SELECT * FROM ${qualifiedName} LIMIT 100`
-      const res = await api['db:executeQuery']({ connectionId: connection.id, sql, limit: 100 })
+      const offset = (page - 1) * pageSize
+      const sql = `SELECT * FROM ${qualifiedName} LIMIT ${pageSize} OFFSET ${offset}`
+      const res = await api['db:executeQuery']({
+        connectionId: connection.id,
+        sql,
+        limit: pageSize,
+      })
       const columns =
         res.columns.length > 0
           ? res.columns
           : meta.columns.map((col) => ({ name: col.name, dataType: col.dataType }))
-      const rowsWithKey = res.rows.map((row, i) => ({ ...row, __row_key__: i }))
+      const rowsWithKey = res.rows.map((row, i) => ({
+        ...row,
+        __row_key__: offset + i,
+      }))
       setResult({ ...res, columns, rows: rowsWithKey })
+
+      // 获取总行数（用于分页信息）
+      try {
+        const countRes = await api['db:executeQuery']({
+          connectionId: connection.id,
+          sql: `SELECT COUNT(*) AS cnt FROM ${qualifiedName}`,
+          limit: 1,
+        })
+        const cnt = countRes.rows[0]?.['cnt']
+        setTotalCount(typeof cnt === 'number' ? cnt : Number(cnt) || null)
+      } catch {
+        setTotalCount(null)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [connection.id, qualifiedName, schema, tableName])
+  }, [connection.id, qualifiedName, schema, tableName, page, pageSize])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时加载数据
     loadData()
   }, [loadData])
+
+  // 切换表时重置到第一页
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时重置分页
+    setPage(1)
+  }, [qualifiedName])
 
   // 关闭右键菜单
   useEffect(() => {
@@ -366,6 +400,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   }, [result, changes])
 
   const hasChanges = changes.size > 0
+  const totalPages = Math.max(1, totalCount !== null ? Math.ceil(totalCount / pageSize) : page + 1)
 
   return (
     <div className="table-data-view">
@@ -423,10 +458,84 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
             onSelectRow={(k) => setSelectedRowKey(typeof k === 'number' ? k : Number(k))}
             onRowContextMenu={handleRowContextMenu}
           />
-          <div className="table-data-footer">
-            {result?.rowCount ?? 0} 行（最多显示 100 行）
-            {result && result.durationMs > 0 && ` · ${result.durationMs}ms`}
-            {hasChanges && <span className="changes-badge">{changes.size} 个未提交变更</span>}
+        </div>
+      )}
+
+      {/* 底部悬浮分页工具条（DataGrip 风格灵动岛） */}
+      {displayResult && !loading && !error && (
+        <div className="pagination-bar">
+          <div className="pagination-info">
+            {hasChanges && <span className="changes-badge">{changes.size} 变更</span>}
+            <span className="pagination-count">
+              {totalCount !== null
+                ? `共 ${totalCount.toLocaleString()} 行`
+                : `${result?.rowCount ?? 0} 行`}
+              {result && result.durationMs > 0 && ` · ${result.durationMs}ms`}
+            </span>
+          </div>
+          <div className="pagination-controls">
+            <label className="pagination-size">
+              每页
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setPage(1)
+                }}
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+                <option value={1000}>1000</option>
+              </select>
+            </label>
+            <button
+              className="pagination-btn"
+              onClick={() => setPage(1)}
+              disabled={page <= 1}
+              title="第一页"
+            >
+              <ChevronsLeft size={14} />
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              title="上一页"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="pagination-page">
+              <input
+                className="pagination-page-input"
+                type="number"
+                value={page}
+                min={1}
+                max={totalPages}
+                onChange={(e) => {
+                  const p = Number(e.target.value)
+                  if (p >= 1 && p <= totalPages) setPage(p)
+                }}
+              />
+              / {totalPages}
+            </span>
+            <button
+              className="pagination-btn"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              title="下一页"
+            >
+              <ChevronRight size={14} />
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => setPage(totalPages)}
+              disabled={page >= totalPages}
+              title="最后一页"
+            >
+              <ChevronsRight size={14} />
+            </button>
           </div>
         </div>
       )}

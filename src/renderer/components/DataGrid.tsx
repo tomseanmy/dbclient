@@ -263,6 +263,7 @@ export function DataGrid({
     setEditing({ row: rowIndex, col: colName })
   }
 
+  // 单个 table + sticky thead：表头与表体共享 colgroup，列宽天然对齐
   return (
     <div className="data-grid-container" ref={containerRef}>
       <table className="data-grid-table">
@@ -293,76 +294,60 @@ export function DataGrid({
             </tr>
           ))}
         </thead>
-      </table>
-      <div className="grid-body">
-        <table className="data-grid-table">
-          <colgroup>
-            <col style={{ width: 32 }} />
-            {table.getAllLeafColumns().map((column) => (
-              <col key={column.id} style={{ width: column.getSize() }} />
-            ))}
-          </colgroup>
-          <tbody>
-            {topSpacerHeight > 0 && (
-              <tr aria-hidden="true">
+        <tbody>
+          {topSpacerHeight > 0 && (
+            <tr aria-hidden="true" style={{ height: topSpacerHeight }}>
+              <td colSpan={result.columns.length + 1} style={{ padding: 0, border: 'none' }} />
+            </tr>
+          )}
+          {visibleRows.map((row, i) => {
+            const rowKey =
+              (row.original as Record<string, unknown>)['__row_key__'] ?? visibleRange.start + i
+            const isDirty = dirtyRowKeys?.has(rowKey as string | number)
+            const isSelected = selectedRowKey === rowKey
+            return (
+              <tr
+                key={row.id}
+                className={`grid-row ${isDirty ? 'grid-row-dirty' : ''} ${isSelected ? 'grid-row-selected' : ''}`}
+                style={{ height: rowHeight }}
+                onClick={() => onSelectRow?.(rowKey as string | number)}
+              >
                 <td
-                  colSpan={result.columns.length + 1}
-                  style={{ height: topSpacerHeight, padding: 0 }}
-                />
-              </tr>
-            )}
-            {visibleRows.map((row, i) => {
-              const rowKey =
-                (row.original as Record<string, unknown>)['__row_key__'] ?? visibleRange.start + i
-              const isDirty = dirtyRowKeys?.has(rowKey as string | number)
-              const isSelected = selectedRowKey === rowKey
-              return (
-                <tr
-                  key={row.id}
-                  className={`grid-row ${isDirty ? 'grid-row-dirty' : ''} ${isSelected ? 'grid-row-selected' : ''}`}
-                  style={{ height: rowHeight }}
-                  onClick={() => onSelectRow?.(rowKey as string | number)}
+                  className="grid-row-num-cell grid-row-selectable"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSelectRow?.(rowKey as string | number)
+                  }}
+                  onContextMenu={(e) => {
+                    if (onRowContextMenu) onRowContextMenu(e, rowKey as number)
+                  }}
+                  title="点击选中行 · 右键更多操作"
                 >
+                  {visibleRange.start + i + 1}
+                </td>
+                {row.getVisibleCells().map((cell) => (
                   <td
-                    className="grid-row-num-cell grid-row-selectable"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelectRow?.(rowKey as string | number)
-                    }}
-                    onContextMenu={(e) => {
-                      if (onRowContextMenu) onRowContextMenu(e, rowKey as number)
-                    }}
-                    title="点击选中行 · 右键更多操作"
+                    key={cell.id}
+                    className={`grid-cell ${
+                      editing && editing.row === row.index && editing.col === cell.column.id
+                        ? 'grid-cell-editing'
+                        : ''
+                    }`}
+                    onDoubleClick={() => handleCellDoubleClick(row.index, cell.column.id)}
                   >
-                    {visibleRange.start + i + 1}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
-                  {row.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      className={`grid-cell ${
-                        editing && editing.row === row.index && editing.col === cell.column.id
-                          ? 'grid-cell-editing'
-                          : ''
-                      }`}
-                      onDoubleClick={() => handleCellDoubleClick(row.index, cell.column.id)}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              )
-            })}
-            {bottomSpacerHeight > 0 && (
-              <tr aria-hidden="true">
-                <td
-                  colSpan={result.columns.length + 1}
-                  style={{ height: bottomSpacerHeight, padding: 0 }}
-                />
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            )
+          })}
+          {bottomSpacerHeight > 0 && (
+            <tr aria-hidden="true" style={{ height: bottomSpacerHeight }}>
+              <td colSpan={result.columns.length + 1} style={{ padding: 0, border: 'none' }} />
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }
