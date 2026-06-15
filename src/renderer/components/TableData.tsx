@@ -1,12 +1,13 @@
 /**
  * 表数据浏览与编辑组件（Excel 风格）
  *
- * - 双击单元格直接编辑（无需「编辑」按钮）
- * - 顶部工具栏：提交(N)/撤回/刷新，未修改时提交撤回禁用
- * - 第一列序号：点击选中整行，右键菜单（删除/复制/插入）
+ * - 单击单元格选中（蓝色高亮），双击进入编辑
+ * - 单元格右键：编辑/复制/粘贴/设为NULL/添加到筛选
+ * - 序号列右键：复制行/插入行/删除行
+ * - 工具栏：刷新/自动更新/分隔线/添加行/删除行/撤销/提交 | 导入/导出
  * - 脏行黄色高亮
  */
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   RefreshCw,
   Loader2,
@@ -17,10 +18,17 @@ import {
   Copy,
   ArrowDownToLine,
   Plus,
+  Minus,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Clock,
+  Download,
+  Upload,
+  ClipboardPaste,
+  CircleSlash,
+  Filter,
 } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult } from '../api'
 import { DataGrid } from './DataGrid'
@@ -42,14 +50,29 @@ interface Change {
   afterRowIndex?: number
 }
 
-/** 右键菜单 */
+/** 行右键菜单 */
 interface RowContextMenu {
   x: number
   y: number
   rowKey: number
-  rowIndex: number
   isInsertRow: boolean
 }
+
+/** 单元格右键菜单 */
+interface CellContextMenu {
+  x: number
+  y: number
+  rowKey: number
+  column: string
+  value: unknown
+  isInsertRow: boolean
+}
+
+const AUTO_REFRESH_OPTIONS = [
+  { label: '关闭', value: 0 },
+  { label: '5s', value: 5 },
+  { label: '10s', value: 10 },
+]
 
 export function TableData({ connection, schema, tableName }: TableDataProps) {
   const [result, setResult] = useState<QueryResult | null>(null)
@@ -57,12 +80,22 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   const [error, setError] = useState<string | null>(null)
   const [changes, setChanges] = useState<Map<number, Change>>(new Map())
   const [selectedRowKey, setSelectedRowKey] = useState<number | null>(null)
+  const [selectedCell, setSelectedCell] = useState<{
+    rowKey: string | number
+    column: string
+  } | null>(null)
   const [committing, setCommitting] = useState(false)
   const [commitLog, setCommitLog] = useState<string | null>(null)
   const [ctxMenu, setCtxMenu] = useState<RowContextMenu | null>(null)
+  const [cellCtxMenu, setCellCtxMenu] = useState<CellContextMenu | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
   const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [filters, setFilters] = useState<Record<string, string>>({})
+  const [autoRefresh, setAutoRefresh] = useState(0)
+  const [autoRefreshOpen, setAutoRefreshOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const qualifiedName = useMemo(() => {
     if (connection.type === 'postgres' && schema) return `"${schema}"."${tableName}"`
@@ -80,12 +113,23 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     [connection.type],
   )
 
+  // 构建 WHERE 子句（来自列筛选）
+  const whereClause = useMemo(() => {
+    const entries = Object.entries(filters).filter(([, v]) => v !== '')
+    if (entries.length === 0) return ''
+    const conds = entries.map(([col, val]) => {
+      return `${quoteIdentifier(col)} = ${escapeSqlValue(val)}`
+    })
+    return ' WHERE ' + conds.join(' AND ')
+  }, [filters, quoteIdentifier])
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
     setChanges(new Map())
     setCommitLog(null)
     setSelectedRowKey(null)
+    setSelectedCell(null)
     try {
       const meta = await api['db:describeTable']({
         connectionId: connection.id,
@@ -93,7 +137,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
         table: tableName,
       })
       const offset = (page - 1) * pageSize
-      const sql = `SELECT * FROM ${qualifiedName} LIMIT ${pageSize} OFFSET ${offset}`
+      const sql = `SELECT * FROM ${qualifiedName}${whereClause} LIMIT ${pageSize} OFFSET ${offset}`
       const res = await api['db:executeQuery']({
         connectionId: connection.id,
         sql,
@@ -113,7 +157,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
       try {
         const countRes = await api['db:executeQuery']({
           connectionId: connection.id,
-          sql: `SELECT COUNT(*) AS cnt FROM ${qualifiedName}`,
+          sql: `SELECT COUNT(*) AS cnt FROM ${qualifiedName}${whereClause}`,
           limit: 1,
         })
         const cnt = countRes.rows[0]?.['cnt']
@@ -126,32 +170,45 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     } finally {
       setLoading(false)
     }
-  }, [connection.id, qualifiedName, schema, tableName, page, pageSize])
+  }, [connection.id, qualifiedName, schema, tableName, page, pageSize, whereClause])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时加载数据
     loadData()
   }, [loadData])
 
-  // 切换表时重置到第一页
+  // 切换表时重置到第一页 + 清除筛选
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时重置分页
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时重置
     setPage(1)
+    setFilters({})
   }, [qualifiedName])
 
-  // 关闭右键菜单
+  // 自动刷新
   useEffect(() => {
-    if (!ctxMenu) return
-    const close = () => setCtxMenu(null)
+    if (autoRefresh <= 0) return
+    const timer = setInterval(() => {
+      loadData()
+    }, autoRefresh * 1000)
+    return () => clearInterval(timer)
+  }, [autoRefresh, loadData])
+
+  // 关闭右键菜单（行 + 单元格）
+  useEffect(() => {
+    if (!ctxMenu && !cellCtxMenu) return
+    const close = () => {
+      setCtxMenu(null)
+      setCellCtxMenu(null)
+    }
     window.addEventListener('click', close)
     window.addEventListener('contextmenu', close)
     return () => {
       window.removeEventListener('click', close)
       window.removeEventListener('contextmenu', close)
     }
-  }, [ctxMenu])
+  }, [ctxMenu, cellCtxMenu])
 
-  /** 双击编辑回调 */
+  /** 单元格编辑回调 */
   const handleCellChange = (rowKey: string | number, column: string, value: string) => {
     const rowKeyNumber = Number(rowKey)
     if (Number.isNaN(rowKeyNumber)) return
@@ -229,6 +286,13 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     })
   }
 
+  /** 删除行（工具栏按钮：优先删选中单元格所在行，否则删选中行） */
+  const handleDeleteRow = () => {
+    const targetKey = selectedCell ? Number(selectedCell.rowKey) : selectedRowKey
+    if (targetKey === null || Number.isNaN(targetKey)) return
+    deleteRow(targetKey)
+  }
+
   /** 删除行 */
   const deleteRow = (rowKey: number) => {
     // insert 行直接移除
@@ -289,13 +353,74 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     e.preventDefault()
     e.stopPropagation()
     setSelectedRowKey(rowKey)
+    setCellCtxMenu(null)
     setCtxMenu({
       x: e.clientX,
       y: e.clientY,
       rowKey,
-      rowIndex: rowKey,
       isInsertRow: rowKey < 0,
     })
+  }
+
+  /** 单元格右键菜单 */
+  const handleCellContextMenu = (
+    e: React.MouseEvent,
+    rowKey: string | number,
+    column: string,
+    value: unknown,
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setSelectedCell({ rowKey, column })
+    setCtxMenu(null)
+    setCellCtxMenu({
+      x: e.clientX,
+      y: e.clientY,
+      rowKey: Number(rowKey),
+      column,
+      value,
+      isInsertRow: Number(rowKey) < 0,
+    })
+  }
+
+  /** 单元格右键：设为 NULL */
+  const handleSetNull = () => {
+    if (!cellCtxMenu) return
+    handleCellChange(cellCtxMenu.rowKey, cellCtxMenu.column, 'NULL')
+    setCellCtxMenu(null)
+  }
+
+  /** 单元格右键：粘贴 */
+  const handlePasteCell = async () => {
+    if (!cellCtxMenu) return
+    try {
+      const text = await navigator.clipboard.readText()
+      handleCellChange(cellCtxMenu.rowKey, cellCtxMenu.column, text)
+    } catch {
+      // 剪贴板读取失败忽略
+    }
+    setCellCtxMenu(null)
+  }
+
+  /** 单元格右键：复制值 */
+  const handleCopyValue = () => {
+    if (!cellCtxMenu) return
+    const v = cellCtxMenu.value
+    const text =
+      v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCellCtxMenu(null)
+  }
+
+  /** 单元格右键：添加到筛选 */
+  const handleAddFilter = () => {
+    if (!cellCtxMenu) return
+    const v = cellCtxMenu.value
+    const text =
+      v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
+    setFilters((prev) => ({ ...prev, [cellCtxMenu.column]: text }))
+    setPage(1)
+    setCellCtxMenu(null)
   }
 
   /** 提交 */
@@ -352,12 +477,40 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   const handleRollback = () => {
     setChanges(new Map())
     setSelectedRowKey(null)
+    setSelectedCell(null)
     setCommitLog(null)
+  }
+
+  /** 导出 CSV */
+  const exportCsv = () => {
+    if (!result) return
+    const headers = result.columns.map((c) => c.name).join(',')
+    const lines = result.rows.map((row) =>
+      result.columns
+        .map((c) => {
+          const v = row[c.name]
+          if (v === null) return ''
+          const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
+          return s.includes(',') || s.includes('"') || s.includes('\n')
+            ? '"' + s.replace(/"/g, '""') + '"'
+            : s
+        })
+        .join(','),
+    )
+    download(tableName + '.csv', [headers, ...lines].join('\n'), 'text/csv')
+    setExportOpen(false)
+  }
+
+  /** 导出 JSON */
+  const exportJson = () => {
+    if (!result) return
+    download(tableName + '.json', JSON.stringify(result.rows, null, 2), 'application/json')
+    setExportOpen(false)
   }
 
   const dirtyRowKeys = useMemo(() => new Set(changes.keys()), [changes])
 
-  // 合并未提交变更到显示数据：update 立即覆盖显示值，insert 按 afterRowIndex 就近显示。
+  // 合并未提交变更到显示数据
   const displayResult = useMemo(() => {
     if (!result) return null
     if (changes.size === 0) return result
@@ -401,11 +554,77 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
 
   const hasChanges = changes.size > 0
   const totalPages = Math.max(1, totalCount !== null ? Math.ceil(totalCount / pageSize) : page + 1)
+  const hasFilter = Object.values(filters).some((v) => v !== '')
 
   return (
     <div className="table-data-view">
-      {/* 工具栏（无标题） */}
+      {/* 工具栏 */}
       <div className="table-data-toolbar-bar">
+        {/* 刷新 */}
+        <abbr title="刷新数据">
+          <button className="icon-btn" onClick={loadData} disabled={loading}>
+            {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+          </button>
+        </abbr>
+
+        {/* 自动更新 */}
+        <div className="auto-refresh-wrapper">
+          <abbr title="自动刷新">
+            <button
+              className={`icon-btn ${autoRefresh > 0 ? 'icon-btn-active' : ''}`}
+              onClick={() => setAutoRefreshOpen((v) => !v)}
+            >
+              <Clock size={14} />
+              {autoRefresh > 0 && <span className="auto-refresh-label">{autoRefresh}s</span>}
+            </button>
+          </abbr>
+          {autoRefreshOpen && (
+            <div className="auto-refresh-menu" onClick={(e) => e.stopPropagation()}>
+              {AUTO_REFRESH_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`ctx-item ${autoRefresh === opt.value ? 'ctx-item-active' : ''}`}
+                  onClick={() => {
+                    setAutoRefresh(opt.value)
+                    setAutoRefreshOpen(false)
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 竖分隔线 */}
+        <div className="toolbar-divider" />
+
+        {/* 添加行 */}
+        <abbr title="添加行">
+          <button className="icon-btn" onClick={handleAddRow}>
+            <Plus size={14} />
+          </button>
+        </abbr>
+
+        {/* 删除行 */}
+        <abbr title="删除选中行">
+          <button
+            className="icon-btn"
+            onClick={handleDeleteRow}
+            disabled={selectedRowKey === null && selectedCell === null}
+          >
+            <Minus size={14} />
+          </button>
+        </abbr>
+
+        {/* 撤销修改 */}
+        <abbr title="撤销所有修改">
+          <button className="icon-btn" onClick={handleRollback} disabled={!hasChanges}>
+            <Undo2 size={14} />
+          </button>
+        </abbr>
+
+        {/* 提交 */}
         <abbr title={hasChanges ? '提交 ' + changes.size + ' 个变更' : '无变更可提交'}>
           <button
             className="icon-btn"
@@ -416,23 +635,64 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
             {committing ? <Loader2 size={14} className="spin" /> : <Check size={14} />}
           </button>
         </abbr>
-        <abbr title="撤回所有变更">
-          <button className="icon-btn" onClick={handleRollback} disabled={!hasChanges}>
-            <Undo2 size={14} />
-          </button>
-        </abbr>
-        <abbr title="新增空行">
-          <button className="icon-btn" onClick={handleAddRow}>
-            <Plus size={14} />
-          </button>
-        </abbr>
+
         <div className="toolbar-spacer" />
-        <abbr title="刷新数据">
-          <button className="icon-btn" onClick={loadData} disabled={loading}>
-            {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+
+        {/* 导入（占位） */}
+        <abbr title="导入数据">
+          <button className="icon-btn" onClick={() => fileInputRef.current?.click()}>
+            <Upload size={14} />
           </button>
         </abbr>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.json"
+          style={{ display: 'none' }}
+          onChange={() => {
+            // 导入暂未实现
+          }}
+        />
+
+        {/* 导出 */}
+        <div className="export-wrapper">
+          <abbr title="导出数据">
+            <button className="icon-btn" onClick={() => setExportOpen((v) => !v)}>
+              <Download size={14} />
+            </button>
+          </abbr>
+          {exportOpen && (
+            <div className="export-menu" onClick={(e) => e.stopPropagation()}>
+              <button onClick={exportCsv}>CSV</button>
+              <button onClick={exportJson}>JSON</button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* 筛选标记条 */}
+      {hasFilter && (
+        <div className="filter-bar">
+          <Filter size={12} />
+          <span>已筛选：</span>
+          {Object.entries(filters)
+            .filter(([, v]) => v !== '')
+            .map(([col, val]) => (
+              <span key={col} className="filter-chip">
+                {col} = {val}
+                <button
+                  className="filter-chip-remove"
+                  onClick={() => setFilters((prev) => ({ ...prev, [col]: '' }))}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          <button className="filter-clear" onClick={() => setFilters({})}>
+            清除全部
+          </button>
+        </div>
+      )}
 
       {loading && (
         <div className="detail-loading">
@@ -457,11 +717,14 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
             selectedRowKey={selectedRowKey}
             onSelectRow={(k) => setSelectedRowKey(typeof k === 'number' ? k : Number(k))}
             onRowContextMenu={handleRowContextMenu}
+            selectedCell={selectedCell}
+            onSelectCell={setSelectedCell}
+            onCellContextMenu={handleCellContextMenu}
           />
         </div>
       )}
 
-      {/* 底部悬浮分页工具条（DataGrip 风格灵动岛） */}
+      {/* 底部悬浮分页工具条 */}
       {displayResult && !loading && !error && (
         <div className="pagination-bar">
           <div className="pagination-info">
@@ -584,6 +847,45 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
           </button>
         </div>
       )}
+
+      {/* 单元格右键菜单 */}
+      {cellCtxMenu && (
+        <div
+          className="context-menu"
+          style={{ left: cellCtxMenu.x, top: cellCtxMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            className="ctx-item"
+            onClick={() => {
+              // 编辑 = 选中单元格后双击进入编辑，这里选中后提示双击
+              setSelectedCell({ rowKey: cellCtxMenu.rowKey, column: cellCtxMenu.column })
+              setCellCtxMenu(null)
+            }}
+            title="选中后双击单元格编辑"
+          >
+            <Check size={12} /> 编辑
+          </button>
+          <button className="ctx-item" onClick={handleCopyValue}>
+            <Copy size={12} /> 复制值
+          </button>
+          <button className="ctx-item" onClick={handlePasteCell}>
+            <ClipboardPaste size={12} /> 粘贴
+          </button>
+          <button className="ctx-item" onClick={handleSetNull}>
+            <CircleSlash size={12} /> 设为 NULL
+          </button>
+          {!cellCtxMenu.isInsertRow && (
+            <>
+              <div className="ctx-divider" />
+              <button className="ctx-item" onClick={handleAddFilter}>
+                <Filter size={12} /> 添加到筛选
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -605,4 +907,14 @@ function buildWhereClause(
       return quoteIdentifier(k) + ' = ' + sv
     })
   return conds.length > 0 ? conds.join(' AND ') : '1=1'
+}
+
+function download(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }

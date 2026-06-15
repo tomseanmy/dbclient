@@ -40,6 +40,16 @@ export interface DataGridProps {
   onSelectRow?: (rowKey: string | number) => void
   /** 序号列右键菜单回调 */
   onRowContextMenu?: (e: React.MouseEvent, rowKey: number) => void
+  /** 单元格选中状态（高亮单个单元格） */
+  selectedCell?: { rowKey: string | number; column: string } | null
+  onSelectCell?: (cell: { rowKey: string | number; column: string } | null) => void
+  /** 数据单元格右键菜单回调 */
+  onCellContextMenu?: (
+    e: React.MouseEvent,
+    rowKey: string | number,
+    column: string,
+    value: unknown,
+  ) => void
 }
 
 /** 渲染单个单元格值（只读模式） */
@@ -174,6 +184,9 @@ export function DataGrid({
   selectedRowKey,
   onSelectRow,
   onRowContextMenu,
+  selectedCell,
+  onSelectCell,
+  onCellContextMenu,
 }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -325,19 +338,34 @@ export function DataGrid({
                 >
                   {visibleRange.start + i + 1}
                 </td>
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className={`grid-cell ${
-                      editing && editing.row === row.index && editing.col === cell.column.id
-                        ? 'grid-cell-editing'
-                        : ''
-                    }`}
-                    onDoubleClick={() => handleCellDoubleClick(row.index, cell.column.id)}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const isEditing =
+                    editing && editing.row === row.index && editing.col === cell.column.id
+                  const isCellSelected =
+                    !isEditing &&
+                    selectedCell?.rowKey === (rowKey as string | number) &&
+                    selectedCell?.column === cell.column.id
+                  const cellValue = cell.getValue()
+                  return (
+                    <td
+                      key={cell.id}
+                      className={`grid-cell ${isEditing ? 'grid-cell-editing' : ''} ${isCellSelected ? 'grid-cell-selected' : ''}`}
+                      onClick={() =>
+                        onSelectCell?.({
+                          rowKey: rowKey as string | number,
+                          column: cell.column.id,
+                        })
+                      }
+                      onDoubleClick={() => handleCellDoubleClick(row.index, cell.column.id)}
+                      onContextMenu={(e) => {
+                        if (onCellContextMenu)
+                          onCellContextMenu(e, rowKey as string | number, cell.column.id, cellValue)
+                      }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  )
+                })}
               </tr>
             )
           })}

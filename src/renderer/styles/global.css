@@ -1644,34 +1644,133 @@ select,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border-strong);
+  gap: 2px;
+  border: none;
   border-radius: 6px;
-  background: var(--bg-elevated);
+  background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   font-family: inherit;
+  font-size: 11px;
   transition:
     background 0.12s,
-    border-color 0.12s,
-    color 0.12s,
-    box-shadow 0.12s;
+    color 0.12s;
 }
 
 .icon-btn:hover:not(:disabled) {
   background: var(--bg-hover);
-  border-color: var(--border-strong);
   color: var(--text);
+}
+
+.icon-btn-active {
+  background: var(--surface-info);
+  color: var(--primary);
 }
 
 .icon-btn:focus-visible {
   outline: none;
-  border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.25);
 }
 
 .icon-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* 工具栏竖分隔线 */
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-strong);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* 自动更新下拉 */
+.auto-refresh-wrapper {
+  position: relative;
+}
+
+.auto-refresh-label {
+  font-weight: 600;
+  margin-left: 1px;
+}
+
+.auto-refresh-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  min-width: 80px;
+  padding: 4px 0;
+}
+
+.ctx-item-active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* 单元格选中样式 */
+.grid-cell-selected {
+  box-shadow: inset 0 0 0 2px var(--primary);
+  background: rgba(10, 132, 255, 0.08) !important;
+}
+
+/* 筛选标记条 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--surface-info);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.filter-chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+}
+
+.filter-chip-remove:hover {
+  color: var(--danger);
+}
+
+.filter-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.filter-clear:hover {
+  text-decoration: underline;
 }
 
 /* 序号列可点击选中 */
