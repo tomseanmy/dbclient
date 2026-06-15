@@ -277,7 +277,6 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
             setAiPanel(null)
           }}
           onExecuteSql={(s) => {
-            setAiPanel(null)
             handleExecute(s)
           }}
         />

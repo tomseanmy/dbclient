@@ -63,7 +63,9 @@ export async function buildSchemaContext(
   for (const t of tablesToDescribe) {
     let meta: TableMeta
     try {
-      meta = await driver.describeTable({ schema: opts.schema, table: t.name })
+      // 优先用表自身的 schema（listTables 返回的），再回退 opts.schema
+      const tableSchema = t.schema ?? opts.schema
+      meta = await driver.describeTable({ schema: tableSchema, table: t.name })
     } catch {
       // describe 失败则跳过该表，不中断整体构建
       continue
