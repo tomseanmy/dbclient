@@ -200,6 +200,16 @@ export interface IpcContracts {
     req: void
     res: { success: boolean }
   }
+
+  // ----- AI 对话与辅助 -----
+  'ai:chat': {
+    req: import('./types/llm').AiChatRequest
+    res: import('./types/llm').AiChatResponse
+  }
+  'ai:assist': {
+    req: import('./types/llm').AiAssistRequest
+    res: import('./types/llm').AiChatResponse
+  }
 }
 
 // ===== 派生类型 =====

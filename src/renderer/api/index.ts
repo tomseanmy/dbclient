@@ -31,3 +31,18 @@ export type {
   ConnectionStatus,
   UnifiedType,
 } from '@shared/types/database'
+export type {
+  LlmProvider,
+  LlmProviderInput,
+  ChatMessage,
+  ChatRequest,
+  ChatResponse,
+  TokenUsage,
+  ProviderTestResult,
+  DataFlowNotice,
+  AiChatRequest,
+  AiChatResponse,
+  AiAssistRequest,
+  AssistAction,
+  UsageSummary,
+} from '@shared/types/llm'

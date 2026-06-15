@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Pencil,
   Search,
+  MessageCircle,
 } from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import type { ConnectionListItem, Table } from '../api'
@@ -28,6 +29,7 @@ interface ObjectTreeProps {
   onCreateConnection: () => void
   onEditConnection: (conn: ConnectionListItem) => void
   onOpenSql: (conn: ConnectionListItem) => void
+  onOpenChat: (conn: ConnectionListItem) => void
   onOpenTableDetail: (conn: ConnectionListItem, schema: string | undefined, table: string) => void
 }
 
@@ -52,6 +54,7 @@ export function ObjectTree({
   onCreateConnection,
   onEditConnection,
   onOpenSql,
+  onOpenChat,
   onOpenTableDetail,
 }: ObjectTreeProps) {
   const {
@@ -384,6 +387,15 @@ export function ObjectTree({
             }}
           >
             <Search size={12} /> SQL 查询
+          </button>
+          <button
+            className="ctx-item"
+            onClick={() => {
+              onOpenChat(connCtxMenu.conn)
+              setConnCtxMenu(null)
+            }}
+          >
+            <MessageCircle size={12} /> AI 对话
           </button>
         </div>
       )}

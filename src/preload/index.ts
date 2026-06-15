@@ -73,6 +73,10 @@ const api: RendererApi = {
   'llm:testProvider': (req) => invoke('llm:testProvider', req),
   'llm:getUsage': () => invoke('llm:getUsage'),
   'llm:clearUsage': () => invoke('llm:clearUsage'),
+
+  // ----- AI 对话与辅助 -----
+  'ai:chat': (req) => invoke('ai:chat', req),
+  'ai:assist': (req) => invoke('ai:assist', req),
 }
 
 contextBridge.exposeInMainWorld('api', api)

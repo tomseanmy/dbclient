@@ -10,13 +10,14 @@ import { useConnectionStore } from './store/connections'
 import { ObjectTree } from './components/ObjectTree'
 import { TableData } from './components/TableData'
 import { TableDetail } from './components/TableDetail'
+import { AiChat } from './components/AiChat'
 import { ConnectionManager } from './pages/ConnectionManager'
 import { SqlWorkspace } from './components/SqlWorkspace'
 
 /** 主内容区的 tab 类型 */
 interface Tab {
   id: string
-  kind: 'tableData' | 'tableDetail' | 'sql'
+  kind: 'tableData' | 'tableDetail' | 'sql' | 'chat'
   conn: ConnectionListItem
   schema?: string
   table?: string
@@ -24,6 +25,7 @@ interface Tab {
 
 function getTabLabel(tab: Tab): string {
   if (tab.kind === 'sql') return 'SQL查询'
+  if (tab.kind === 'chat') return 'AI 对话'
   if (tab.kind === 'tableDetail') return '设计:' + tab.table
   return tab.table ?? ''
 }
@@ -109,6 +111,14 @@ export default function App() {
     })
   }
 
+  const handleOpenChat = (conn: ConnectionListItem) => {
+    openTab({
+      id: `${conn.id}:chat:${Date.now()}`,
+      kind: 'chat',
+      conn,
+    })
+  }
+
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
   return (
@@ -126,6 +136,7 @@ export default function App() {
           onCreateConnection={() => setConnectionModal({ mode: 'create' })}
           onEditConnection={(connection) => setConnectionModal({ mode: 'edit', connection })}
           onOpenSql={handleOpenSql}
+          onOpenChat={handleOpenChat}
           onOpenTableDetail={handleOpenTableDetail}
         />
       </aside>
@@ -176,6 +187,7 @@ export default function App() {
                 />
               )}
               {activeTab?.kind === 'sql' && <SqlWorkspace connection={activeTab.conn} />}
+              {activeTab?.kind === 'chat' && <AiChat connection={activeTab.conn} />}
             </div>
           </div>
         ) : (
