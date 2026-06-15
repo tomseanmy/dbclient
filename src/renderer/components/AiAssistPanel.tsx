@@ -4,7 +4,7 @@
  * 在 SqlWorkspace 内展示 AI 对「解释/优化/NL2SQL/修复」的回复。
  * 包含回复文本 + SQL 卡片（复制/插入编辑器/执行）。
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../api'
 import type { ConnectionListItem, AiChatResponse, AssistAction } from '../api'
 import { Loader2, X } from 'lucide-react'
@@ -42,17 +42,28 @@ export function AiAssistPanel({
   const [result, setResult] = useState<AiChatResponse | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
-  // 首次渲染即触发调用
-  useState(() => {
+  // 挂载即触发 AI 调用
+  useEffect(() => {
+    let cancelled = false
     api['ai:assist']({
       connectionId: connection.id,
       action,
       payload,
     })
-      .then((res) => setResult(res))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false))
-  })
+      .then((res) => {
+        if (!cancelled) setResult(res)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时调用一次
+  }, [])
 
   const handleCopy = (sql: string) => {
     navigator.clipboard.writeText(sql)

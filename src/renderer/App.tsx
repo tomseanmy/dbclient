@@ -5,6 +5,7 @@
  * 连接管理以 modal 形式浮层展示，不遮挡主视图。
  */
 import { useEffect, useState, useCallback } from 'react'
+import { Settings as SettingsIcon } from 'lucide-react'
 import { api, type ConnectionListItem, type Table } from './api'
 import { useConnectionStore } from './store/connections'
 import { ObjectTree } from './components/ObjectTree'
@@ -12,6 +13,7 @@ import { TableData } from './components/TableData'
 import { TableDetail } from './components/TableDetail'
 import { AiChat } from './components/AiChat'
 import { ConnectionManager } from './pages/ConnectionManager'
+import { Settings } from './pages/Settings'
 import { SqlWorkspace } from './components/SqlWorkspace'
 
 /** 主内容区的 tab 类型 */
@@ -39,6 +41,7 @@ export default function App() {
     connection?: ConnectionListItem
   } | null>(null)
   const [bootInfo, setBootInfo] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     loadConnections()
@@ -127,6 +130,13 @@ export default function App() {
         <div className="sidebar-brand">
           <span className="brand-name">AI DB Client</span>
           {bootInfo && <span className="brand-version">{bootInfo}</span>}
+          <button
+            className="btn-icon sidebar-settings-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="设置"
+          >
+            <SettingsIcon size={15} />
+          </button>
         </div>
         <ObjectTree
           selectedTable={
@@ -233,6 +243,9 @@ export default function App() {
           }}
         />
       )}
+
+      {/* 设置 modal */}
+      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

@@ -2041,3 +2041,129 @@ select,
   word-break: break-word;
   margin-bottom: 10px;
 }
+
+/* ===== 设置页 ===== */
+.sidebar-settings-btn {
+  margin-left: auto;
+}
+
+.settings-modal,
+.settings-form-modal {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  width: min(720px, 92vw);
+  max-height: 88vh;
+  overflow: hidden;
+}
+
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.settings-section-header h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.provider-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.provider-name {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.provider-default {
+  font-size: 10px;
+  color: var(--warning);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.provider-url {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', monospace;
+}
+
+.provider-models {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.provider-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* 用量统计 */
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.usage-stat {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.usage-stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.usage-stat-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* form-field 内的 hint 段落 */
+.form-field .hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 400;
+}

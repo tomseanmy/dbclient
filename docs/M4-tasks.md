@@ -309,24 +309,56 @@ CREATE TABLE IF NOT EXISTS llm_usage (
 
 （待批次完成后填写）
 
+## 7. 实施记录
+
 ### 7.1 交付物清单
 
-_待填充_
+**批次 A — LLM 网关**
+
+- 迁移 `002_llm_providers.sql`：llm_providers 表（API Key 存 Keychain，不落库）
+- `shared/types/llm.ts`：Provider/ChatRequest/ChatResponse/Usage 等全套类型
+- `domain/llm/client.ts`：OpenAI 兼容 `/v1/chat/completions` 直调（Node fetch，无 SDK）+ ping 连通性测试
+- `domain/llm/gateway.ts`：provider 解析 + apiKey 取用 + 用量记录门面
+- `domain/llm/extract-sql.ts`：从回复提取 sql 围栏代码块
+- `llm-provider-dao.ts` / `llm-usage-dao.ts`：配置 CRUD + token 用量汇总
+
+**批次 B — Schema 上下文 + Prompt**
+
+- `domain/privacy/schema-context.ts`：复用 describeTable 构建 Markdown 结构文本，Schema-only，含 token 裁剪
+- `domain/privacy/prompt.ts`：按 action 产出 system prompt，统一注入方言+Schema
+- `db/manager`：新增 `getConfig()` 暴露活跃连接配置
+
+**批次 C — AI Chat 工作区**
+
+- `ipc/ai.ts`：`ai:chat` + `ai:assist` handler，注入 Schema → 调网关 → 提取 SQL → 返回数据流向
+- `AiChat.tsx`：对话气泡 + provider 下拉 + SQL 卡片（复制/执行）+ 数据流向提示
+- 执行 SQL 走 `db:confirmExecute`（M3 安全层），不绕过权限
+
+**批次 D — GUI AI 辅助**
+
+- `AiAssistPanel.tsx`：可复用 AI 回复面板（SQL 卡片：复制/插入/执行）
+- SqlEditor 工具栏：「✨ 解释」「⚡ 优化」按钮
+- SqlWorkspace：NL2SQL 输入栏 + 报错「让 AI 修复」按钮
+
+**批次 E — 设置页 + 测试**
+
+- `pages/Settings.tsx`：Provider 管理 + Token 用量统计
+- `extract-sql.test.ts`：8 个单测
 
 ### 7.2 验收状态
 
-| 项                               | 状态 |
-| -------------------------------- | ---- |
-| D1 多 provider 配置 + 连通性测试 | ⏳   |
-| D2 默认 + 临时切换               | ⏳   |
-| D3 OpenAI 兼容协议               | ⏳   |
-| D4 API Key 走 Keychain           | ⏳   |
-| D5 NL2SQL 确认执行               | ⏳   |
-| D6 Schema 注入                   | ⏳   |
-| D7 SQL 解释                      | ⏳   |
-| D8 优化建议                      | ⏳   |
-| D9 GUI 右键辅助                  | ⏳   |
-| D10 Token 用量记录               | ⏳   |
-| D11 数据流向提示                 | ⏳   |
-| D12 AI 不绕过安全层              | ⏳   |
-| D13 typecheck/lint/test          | ⏳   |
+| 项                               | 状态       |
+| -------------------------------- | ---------- |
+| D1 多 provider 配置 + 连通性测试 | ✅         |
+| D2 默认 + 临时切换               | ✅         |
+| D3 OpenAI 兼容协议               | ✅         |
+| D4 API Key 走 Keychain           | ✅         |
+| D5 NL2SQL 确认执行               | ✅         |
+| D6 Schema 注入                   | ✅         |
+| D7 SQL 解释                      | ✅         |
+| D8 优化建议                      | ✅         |
+| D9 GUI 右键辅助                  | ✅         |
+| D10 Token 用量记录               | ✅         |
+| D11 数据流向提示                 | ✅         |
+| D12 AI 不绕过安全层              | ✅         |
+| D13 typecheck/lint/test          | ✅ 44 单测 |
