@@ -1957,3 +1957,87 @@ select,
 .ai-chat-send {
   align-self: stretch;
 }
+
+/* ===== NL2SQL 输入栏 ===== */
+.nl2sql-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.nl2sql-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.nl2sql-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ===== 执行错误头部（含 AI 修复按钮）===== */
+.result-error-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.result-error-head .btn {
+  font-size: 11px;
+}
+
+/* ===== AI 辅助面板 ===== */
+.ai-assist-panel {
+  margin: 0 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.ai-assist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(10, 132, 255, 0.1);
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-assist-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.ai-assist-body {
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ai-assist-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.ai-assist-reply {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 10px;
+}

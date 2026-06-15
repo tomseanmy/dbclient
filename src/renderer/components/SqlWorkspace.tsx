@@ -9,14 +9,16 @@
  *   3c. denied → 显示 PermissionNotice（可提权）
  */
 import { useState, useCallback } from 'react'
-import { Download, Copy, Check, ChevronDown } from 'lucide-react'
+import { Download, Copy, Check, ChevronDown, Sparkles, Wrench } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult, type SecurityCheckResult } from '../api'
+import type { AssistAction } from '../api'
 import { useConnectionStore } from '../store/connections'
 import { SqlEditor } from './SqlEditor'
 import { DataGrid } from './DataGrid'
 import { SqlHistory } from './SqlHistory'
 import { ConfirmDialog } from './ConfirmDialog'
 import { PermissionNotice } from './PermissionNotice'
+import { AiAssistPanel } from './AiAssistPanel'
 
 interface SqlWorkspaceProps {
   connection: ConnectionListItem
@@ -33,6 +35,11 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
   const [confirmCheck, setConfirmCheck] = useState<SecurityCheckResult | null>(null)
   const [confirmSql, setConfirmSql] = useState('')
   const [deniedCheck, setDeniedCheck] = useState<SecurityCheckResult | null>(null)
+  const [aiPanel, setAiPanel] = useState<{
+    action: AssistAction
+    payload: { sql?: string; naturalText?: string; error?: string }
+  } | null>(null)
+  const [nlInput, setNlInput] = useState('')
 
   const doExecute = useCallback(
     async (sqlToRun: string) => {
@@ -158,6 +165,27 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
     setExportOpen(false)
   }
 
+  // ===== AI 辅助 =====
+  const handleAiExplain = useCallback((sqlText: string) => {
+    setAiPanel({ action: 'explain', payload: { sql: sqlText } })
+  }, [])
+
+  const handleAiOptimize = useCallback((sqlText: string) => {
+    setAiPanel({ action: 'optimize', payload: { sql: sqlText } })
+  }, [])
+
+  const handleNl2Sql = useCallback(() => {
+    const text = nlInput.trim()
+    if (!text) return
+    setAiPanel({ action: 'nl2sql', payload: { naturalText: text } })
+    setNlInput('')
+  }, [nlInput])
+
+  const handleAiFixError = useCallback(() => {
+    if (!error) return
+    setAiPanel({ action: 'fixError', payload: { sql, error } })
+  }, [error, sql])
+
   const dialect =
     connection.type === 'postgres'
       ? 'postgresql'
@@ -180,7 +208,30 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
         onExecute={handleExecute}
         executing={executing}
         dialect={dialect}
+        onAiExplain={handleAiExplain}
+        onAiOptimize={handleAiOptimize}
       />
+
+      {/* 自然语言转 SQL 输入框 */}
+      <div className="nl2sql-bar">
+        <Sparkles size={12} />
+        <input
+          className="nl2sql-input"
+          value={nlInput}
+          onChange={(e) => setNlInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleNl2Sql()
+          }}
+          placeholder="用自然语言描述需求，AI 帮你写 SQL…"
+        />
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={handleNl2Sql}
+          disabled={!nlInput.trim()}
+        >
+          生成 SQL
+        </button>
+      </div>
 
       {deniedCheck && (
         <PermissionNotice
@@ -205,9 +256,31 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
 
       {error && (
         <div className="result-error">
-          <strong>执行错误</strong>
+          <div className="result-error-head">
+            <strong>执行错误</strong>
+            <button className="btn btn-sm btn-warning" onClick={handleAiFixError}>
+              <Wrench size={12} /> 让 AI 修复
+            </button>
+          </div>
           <pre>{error}</pre>
         </div>
+      )}
+
+      {aiPanel && (
+        <AiAssistPanel
+          connection={connection}
+          action={aiPanel.action}
+          payload={aiPanel.payload}
+          onClose={() => setAiPanel(null)}
+          onInsertSql={(s) => {
+            setSql(s)
+            setAiPanel(null)
+          }}
+          onExecuteSql={(s) => {
+            setAiPanel(null)
+            handleExecute(s)
+          }}
+        />
       )}
 
       {result && (

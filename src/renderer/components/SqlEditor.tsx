@@ -8,7 +8,7 @@ import { useRef, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { KeyMod, KeyCode } from 'monaco-editor'
-import { Play, Wand2, Loader2 } from 'lucide-react'
+import { Play, Wand2, Loader2, Sparkles, Zap } from 'lucide-react'
 import { format as formatSql } from 'sql-formatter'
 
 interface SqlEditorProps {
@@ -18,9 +18,20 @@ interface SqlEditorProps {
   executing: boolean
   /** 数据库方言，用于格式化 */
   dialect?: 'mysql' | 'postgresql' | 'sqlite'
+  /** AI 辅助回调：获取选中或全部 SQL 后触发 */
+  onAiExplain?: (sql: string) => void
+  onAiOptimize?: (sql: string) => void
 }
 
-export function SqlEditor({ value, onChange, onExecute, executing, dialect }: SqlEditorProps) {
+export function SqlEditor({
+  value,
+  onChange,
+  onExecute,
+  executing,
+  dialect,
+  onAiExplain,
+  onAiOptimize,
+}: SqlEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
   const handleEditorMount = (ed: editor.IStandaloneCodeEditor) => {
@@ -78,6 +89,24 @@ export function SqlEditor({ value, onChange, onExecute, executing, dialect }: Sq
         <button className="btn-icon btn-text" onClick={handleFormat} title="格式化 SQL">
           <Wand2 size={12} /> 格式化
         </button>
+        {onAiExplain && (
+          <button
+            className="btn-icon btn-text"
+            onClick={() => onAiExplain(getSelectedOrAll())}
+            title="AI 解释这条 SQL"
+          >
+            <Sparkles size={12} /> 解释
+          </button>
+        )}
+        {onAiOptimize && (
+          <button
+            className="btn-icon btn-text"
+            onClick={() => onAiOptimize(getSelectedOrAll())}
+            title="AI 优化建议"
+          >
+            <Zap size={12} /> 优化
+          </button>
+        )}
       </div>
       <div className="monaco-wrapper">
         <Editor
