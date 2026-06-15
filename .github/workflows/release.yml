@@ -69,6 +69,7 @@ jobs:
           name: release-${{ matrix.name }}
           # 只上传可分发的安装包 + 自动更新元数据，排除 win-unpacked/、
           # 构建日志、sqlite3.h 等 native 编译中间产物，避免污染 GitHub Release。
+          # 注意：这些 glob 只匹配 release/ 顶层（非递归），win-unpacked/ 整目录被排除。
           path: |
             release/*.exe
             release/*.msi
@@ -80,6 +81,8 @@ jobs:
             release/*.snap
             release/latest*.yml
           if-no-files-found: error
+          # 不上传 node_modules 等依赖，进一步收紧体积
+          include-node-modules: false
 
   release:
     name: Publish GitHub Release
@@ -101,5 +104,15 @@ jobs:
         with:
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # 显式、非递归的扩展名清单：只上传真正的安装包 + latest*.yml，
+          # 绝不把 win-unpacked/、node_modules/、构建中间产物放上去。
           files: |
-            release/**
+            release/*.exe
+            release/*.msi
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.snap
+            release/latest*.yml
