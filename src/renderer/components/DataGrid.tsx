@@ -262,10 +262,9 @@ export function DataGrid({
   }, [rows.length])
 
   const scrollBottomPad = bottomPadding
-  const totalHeight = rows.length * rowHeight + scrollBottomPad
   const visibleRows = rows.slice(visibleRange.start, visibleRange.end)
   const topSpacerHeight = visibleRange.start * rowHeight
-  const bottomSpacerHeight = Math.max(0, totalHeight - visibleRange.end * rowHeight)
+  const bottomSpacerHeight = Math.max(0, rows.length * rowHeight - visibleRange.end * rowHeight)
 
   if (result.rows.length === 0 && result.message) {
     return (
