@@ -1,0 +1,55 @@
+name: Pages
+
+# 与 CI 一致：push 到 main 或 PR 到 main 时触发。
+# 但部署只在 push 到 main 时进行（PR 上部署 Pages 无意义且会失败）。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+
+# 部署到 GitHub Pages 需要的权限。
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只允许一个部署，并取消进行中的旧部署。
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build pages artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # website/ 是纯静态站点（index.html + assets/），无需构建。
+      # 直接把 website/ 目录打包成 Pages artifact（内容会作为站点根）。
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    # 仅 push 到 main 时部署；PR 触发的构建不部署。
+    if: github.event_name == 'push'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
