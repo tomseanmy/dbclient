@@ -1225,3 +1225,147 @@ textarea {
   color: var(--text-muted);
   font-size: 12px;
 }
+
+/* ===== M3: 安全相关 ===== */
+.env-warning {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #fef3c7;
+  color: var(--warning);
+  border-radius: 4px;
+  margin-left: 8px;
+  font-weight: 500;
+}
+
+.btn-warning {
+  background: var(--warning);
+  color: white;
+  border: none;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #b45309;
+}
+
+/* 确认弹窗 */
+.confirm-modal {
+  max-width: 560px;
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.confirm-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.confirm-reason {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.confirm-analysis {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.confirm-reason-item {
+  color: var(--text-muted);
+  margin: 2px 0;
+}
+
+.confirm-tables {
+  margin-top: 6px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.confirm-sql {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: 'SF Mono', monospace;
+  font-size: 12px;
+  max-height: 200px;
+  overflow: auto;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+
+.confirm-keyword-section {
+  margin-bottom: 16px;
+}
+
+.confirm-keyword-section label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: var(--danger);
+}
+
+.confirm-keyword-section code {
+  background: #fef2f2;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.confirm-keyword-section input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid var(--danger);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: 'SF Mono', monospace;
+}
+
+/* 权限提示 */
+.perm-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.perm-denied {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: var(--danger);
+}
+
+.perm-elevated {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: var(--success);
+}
+
+.perm-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.perm-content strong {
+  font-size: 13px;
+}
+
+.perm-content span {
+  font-size: 12px;
+  opacity: 0.8;
+}

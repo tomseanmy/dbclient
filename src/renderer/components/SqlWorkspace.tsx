@@ -1,15 +1,21 @@
 /**
- * SQL 工作区
+ * SQL 工作区（M3 版本）
  *
- * 整合：SQL 编辑器 + 执行结果网格 + 状态栏 + 导出。
- * 一个连接对应一个工作区。
+ * 执行流程：
+ *   1. 用户点执行
+ *   2. 先调 db:checkSql 预检
+ *   3a. allowed → 直接执行 db:executeQuery
+ *   3b. confirmRequired → 弹 ConfirmDialog，确认后调 db:confirmExecute
+ *   3c. denied → 显示 PermissionNotice（可提权）
  */
 import { useState, useCallback } from 'react'
 import { Download, Copy, Check, ChevronDown } from 'lucide-react'
-import { api, type ConnectionListItem, type QueryResult } from '../api'
+import { api, type ConnectionListItem, type QueryResult, type SecurityCheckResult } from '../api'
 import { SqlEditor } from './SqlEditor'
-import { SqlHistory } from './SqlHistory'
 import { DataGrid } from './DataGrid'
+import { SqlHistory } from './SqlHistory'
+import { ConfirmDialog } from './ConfirmDialog'
+import { PermissionNotice } from './PermissionNotice'
 
 interface SqlWorkspaceProps {
   connection: ConnectionListItem
@@ -22,10 +28,12 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
   const [error, setError] = useState<string | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [confirmCheck, setConfirmCheck] = useState<SecurityCheckResult | null>(null)
+  const [confirmSql, setConfirmSql] = useState('')
+  const [deniedCheck, setDeniedCheck] = useState<SecurityCheckResult | null>(null)
 
-  const handleExecute = useCallback(
+  const doExecute = useCallback(
     async (sqlToRun: string) => {
-      if (!sqlToRun.trim()) return
       setExecuting(true)
       setError(null)
       setResult(null)
@@ -44,41 +52,96 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
     [connection.id],
   )
 
+  const handleExecute = useCallback(
+    async (sqlToRun: string) => {
+      if (!sqlToRun.trim()) return
+      setExecuting(true)
+      setError(null)
+      setResult(null)
+      setDeniedCheck(null)
+
+      try {
+        // 先预检
+        const check = await api['db:checkSql']({
+          connectionId: connection.id,
+          sql: sqlToRun,
+        })
+
+        if (check.denied) {
+          setDeniedCheck(check)
+          setExecuting(false)
+          return
+        }
+
+        if (check.confirmRequired) {
+          setConfirmCheck(check)
+          setConfirmSql(sqlToRun)
+          setExecuting(false)
+          return
+        }
+
+        // 直接执行
+        await doExecute(sqlToRun)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err))
+        setExecuting(false)
+      }
+    },
+    [connection.id, doExecute],
+  )
+
+  const handleConfirm = async (keyword?: string) => {
+    setConfirmCheck(null)
+    setExecuting(true)
+    try {
+      const res = await api['db:confirmExecute']({
+        connectionId: connection.id,
+        sql: confirmSql,
+        confirmedKeyword: keyword,
+      })
+      setResult(res)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setExecuting(false)
+    }
+  }
+
   const exportCsv = () => {
     if (!result) return
-    const headers = result.columns.map((c: { name: string; dataType: string }) => c.name).join(',')
-    const lines = result.rows.map((row: Record<string, unknown>) =>
+    const headers = result.columns.map((c) => c.name).join(',')
+    const lines = result.rows.map((row) =>
       result.columns
         .map((c) => {
           const v = row[c.name]
           if (v === null) return ''
           const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
           return s.includes(',') || s.includes('"') || s.includes('\n')
-            ? `"${s.replace(/"/g, '""')}"`
+            ? '"' + s.replace(/"/g, '""') + '"'
             : s
         })
         .join(','),
     )
-    const csv = [headers, ...lines].join('\n')
-    download(`${connection.name}-query.csv`, csv, 'text/csv')
+    download(connection.name + '-query.csv', [headers, ...lines].join('\n'), 'text/csv')
     setExportOpen(false)
   }
 
   const exportJson = () => {
     if (!result) return
-    const json = JSON.stringify(result.rows, null, 2)
-    download(`${connection.name}-query.json`, json, 'application/json')
+    download(
+      connection.name + '-query.json',
+      JSON.stringify(result.rows, null, 2),
+      'application/json',
+    )
     setExportOpen(false)
   }
 
   const copyResult = async () => {
     if (!result) return
-    const headers = result.columns.map((c: { name: string; dataType: string }) => c.name).join('\t')
-    const lines = result.rows.map((row: Record<string, unknown>) =>
+    const headers = result.columns.map((c) => c.name).join('\t')
+    const lines = result.rows.map((row) =>
       result.columns
-        .map((c: { name: string; dataType: string }) =>
-          (row[c.name] === null ? '' : String(row[c.name])).replace(/\t/g, ' '),
-        )
+        .map((c) => (row[c.name] === null ? '' : String(row[c.name])).replace(/\t/g, ' '))
         .join('\t'),
     )
     await navigator.clipboard.writeText([headers, ...lines].join('\n'))
@@ -98,6 +161,9 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
     <div className="sql-workspace">
       <div className="workspace-header">
         <h2>📝 SQL 查询 · {connection.name}</h2>
+        {connection.environment === 'prod' && (
+          <span className="env-warning">⚠️ Prod 环境（默认只读）</span>
+        )}
       </div>
 
       <SqlEditor
@@ -107,6 +173,27 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
         executing={executing}
         dialect={dialect}
       />
+
+      {deniedCheck && (
+        <PermissionNotice
+          check={deniedCheck}
+          connectionId={connection.id}
+          onElevated={() => {
+            setDeniedCheck(null)
+            handleExecute(confirmSql || sql)
+          }}
+          onDismiss={() => setDeniedCheck(null)}
+        />
+      )}
+
+      {confirmCheck && (
+        <ConfirmDialog
+          check={confirmCheck}
+          sql={confirmSql}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirmCheck(null)}
+        />
+      )}
 
       {error && (
         <div className="result-error">
@@ -119,7 +206,7 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
         <div className="result-section">
           <div className="result-toolbar">
             <span className="result-info">
-              {result.rowCount} 行{result.durationMs > 0 && ` · ${result.durationMs}ms`}
+              {result.rowCount} 行{result.durationMs > 0 && ' · ' + result.durationMs + 'ms'}
               {result.truncated && <span className="truncated-warn">（已截断）</span>}
               {result.message && <span className="result-message">{result.message}</span>}
             </span>
@@ -144,13 +231,13 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
         </div>
       )}
 
-      <SqlHistory connectionId={connection.id} onPick={(sql) => setSql(sql)} />
-
-      {!result && !error && !executing && (
+      {!result && !error && !executing && !deniedCheck && (
         <div className="result-placeholder">
           <p>执行查询后结果将显示在这里</p>
         </div>
       )}
+
+      <SqlHistory connectionId={connection.id} onPick={(s) => setSql(s)} />
     </div>
   )
 }

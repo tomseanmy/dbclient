@@ -7,6 +7,8 @@
 export const api = window.api
 
 // 重新导出类型，方便组件使用
+export type { SecurityCheckResult, ElevationStatus, AuditLogItem } from '@shared/types/security'
+
 export type {
   ConnectionConfig,
   ConnectionInput,

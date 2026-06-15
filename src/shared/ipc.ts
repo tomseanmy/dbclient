@@ -131,6 +131,42 @@ export interface IpcContracts {
     req: { connectionId?: string }
     res: { success: boolean }
   }
+
+  // ----- 安全与权限 -----
+  'db:checkSql': {
+    req: { connectionId: string; sql: string }
+    res: import('./types/security').SecurityCheckResult
+  }
+  'db:confirmExecute': {
+    req: { connectionId: string; sql: string; confirmedKeyword?: string }
+    res: import('./types/database').QueryResult
+  }
+  'connection:elevate': {
+    req: { connectionId: string }
+    res: import('./types/security').ElevationStatus
+  }
+  'connection:revokeElevation': {
+    req: { connectionId: string }
+    res: { success: boolean }
+  }
+  'connection:getElevation': {
+    req: { connectionId: string }
+    res: import('./types/security').ElevationStatus
+  }
+
+  // ----- 审计日志 -----
+  'audit:list': {
+    req: { connectionId?: string; limit?: number }
+    res: import('./types/security').AuditLogItem[]
+  }
+  'audit:search': {
+    req: { keyword: string; limit?: number }
+    res: import('./types/security').AuditLogItem[]
+  }
+  'audit:clear': {
+    req: { connectionId?: string }
+    res: { success: boolean }
+  }
 }
 
 // ===== 派生类型 =====

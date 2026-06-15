@@ -52,6 +52,17 @@ const api: RendererApi = {
   'sqlHistory:list': (req) => invoke('sqlHistory:list', req),
   'sqlHistory:search': (req) => invoke('sqlHistory:search', req),
   'sqlHistory:clear': (req) => invoke('sqlHistory:clear', req),
+  // ----- 安全与权限 -----
+  'db:checkSql': (req) => invoke('db:checkSql', req),
+  'db:confirmExecute': (req) => invoke('db:confirmExecute', req),
+  'connection:elevate': (req) => invoke('connection:elevate', req),
+  'connection:revokeElevation': (req) => invoke('connection:revokeElevation', req),
+  'connection:getElevation': (req) => invoke('connection:getElevation', req),
+
+  // ----- 审计日志 -----
+  'audit:list': (req) => invoke('audit:list', req),
+  'audit:search': (req) => invoke('audit:search', req),
+  'audit:clear': (req) => invoke('audit:clear', req),
 }
 
 contextBridge.exposeInMainWorld('api', api)
