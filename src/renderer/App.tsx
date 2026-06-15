@@ -131,9 +131,6 @@ export default function App() {
                   className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
                   onClick={() => setActiveTabId(tab.id)}
                 >
-                  <span className="tab-icon">
-                    {tab.kind === 'sql' ? '📝' : tab.kind === 'tableDetail' ? '📋' : '📊'}
-                  </span>
                   <span className="tab-label">
                     {tab.kind === 'sql'
                       ? 'SQL查询'

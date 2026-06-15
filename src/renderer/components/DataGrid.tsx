@@ -1,8 +1,9 @@
 /**
  * 数据网格组件
  *
- * TanStack Table v8 + 虚拟滚动，只读浏览。
- * 支持：列排序、JSON 美化、布尔/二进制/null 特殊渲染、导出。
+ * TanStack Table v8 + 虚拟滚动。
+ * 支持：列排序、类型渲染、双击行内编辑、选中行。
+ * 编辑通过 onChange 回调通知父组件（待提交队列在父组件管理）。
  */
 import { useMemo, useRef, useState, useEffect } from 'react'
 import {
@@ -26,19 +27,27 @@ interface JsonValue {
 }
 type RichValue = CellValue | BinaryValue | JsonValue
 
-interface DataGridProps {
+export interface DataGridProps {
   result: QueryResult
+  /** 是否可编辑 */
+  editable?: boolean
+  /** 当前行变更（脏行）的 rowKey 集合，用于高亮 */
+  dirtyRowKeys?: Set<string | number>
+  /** 当前行编辑回调 */
+  onCellChange?: (rowIndex: number, column: string, value: string) => void
+  /** 选中行变化回调 */
+  selectedRowKey?: string | number | null
+  onSelectRow?: (rowKey: string | number) => void
 }
 
-/** 渲染单个单元格值 */
+/** 渲染单个单元格值（只读模式） */
 function CellRenderer({ value }: { value: RichValue }) {
   const [expanded, setExpanded] = useState(false)
 
-  if (value === null) {
+  if (value === null || value === undefined) {
     return <span className="cell-null">NULL</span>
   }
 
-  // 二进制
   if (typeof value === 'object' && value !== null && '__binary' in value) {
     const bv = value as BinaryValue
     return (
@@ -49,7 +58,6 @@ function CellRenderer({ value }: { value: RichValue }) {
     )
   }
 
-  // JSON
   if (typeof value === 'object' && value !== null && '__json' in value) {
     const jv = value as JsonValue
     const text = JSON.stringify(jv.data, null, 2)
@@ -74,14 +82,11 @@ function CellRenderer({ value }: { value: RichValue }) {
     )
   }
 
-  // 布尔
   if (typeof value === 'boolean') {
     return <span className="cell-bool">{value ? '✓' : '✗'}</span>
   }
 
-  // 字符串
   if (typeof value === 'string') {
-    // 检测 datetime（ISO 格式）
     if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(value)) {
       return (
         <span className="cell-datetime" title={value}>
@@ -99,7 +104,6 @@ function CellRenderer({ value }: { value: RichValue }) {
     return <span className="cell-text">{value}</span>
   }
 
-  // 数字
   if (typeof value === 'number') {
     return <span className="cell-number">{value.toLocaleString()}</span>
   }
@@ -107,9 +111,18 @@ function CellRenderer({ value }: { value: RichValue }) {
   return <span>{String(value)}</span>
 }
 
-export function DataGrid({ result }: DataGridProps) {
+export function DataGrid({
+  result,
+  editable = false,
+  dirtyRowKeys,
+  onCellChange,
+  selectedRowKey,
+  onSelectRow,
+}: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const [editing, setEditing] = useState<{ row: number; col: string } | null>(null)
+  const [editValue, setEditValue] = useState('')
 
   const columns = useMemo<ColumnDef<Record<string, RichValue>>[]>(
     () =>
@@ -117,12 +130,37 @@ export function DataGrid({ result }: DataGridProps) {
         id: col.name,
         accessorKey: col.name,
         header: col.name,
-        cell: ({ getValue }: { getValue: () => unknown }) => (
-          <CellRenderer value={getValue() as RichValue} />
-        ),
+        cell: ({ getValue, row }: { getValue: () => unknown; row: { index: number } }) => {
+          const v = getValue() as RichValue
+          // 编辑模式
+          if (editing && editing.row === row.index && editing.col === col.name) {
+            return (
+              <input
+                className="cell-edit-input"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={() => {
+                  onCellChange?.(row.index, col.name, editValue)
+                  setEditing(null)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onCellChange?.(row.index, col.name, editValue)
+                    setEditing(null)
+                  }
+                  if (e.key === 'Escape') {
+                    setEditing(null)
+                  }
+                }}
+                autoFocus
+              />
+            )
+          }
+          return <CellRenderer value={v} />
+        },
         size: 150,
       })),
-    [result.columns],
+    [result.columns, editing, editValue, onCellChange],
   )
 
   const data = useMemo(() => result.rows as Record<string, RichValue>[], [result.rows])
@@ -139,7 +177,6 @@ export function DataGrid({ result }: DataGridProps) {
 
   const { rows } = table.getRowModel()
 
-  // 虚拟滚动
   const rowHeight = 32
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 100 })
 
@@ -167,6 +204,18 @@ export function DataGrid({ result }: DataGridProps) {
         <span className="grid-message">{result.message}</span>
       </div>
     )
+  }
+
+  const handleCellDoubleClick = (rowIndex: number, colName: string, currentValue: unknown) => {
+    if (!editable) return
+    const str =
+      currentValue === null || currentValue === undefined
+        ? ''
+        : typeof currentValue === 'object'
+          ? JSON.stringify(currentValue)
+          : String(currentValue)
+    setEditValue(str)
+    setEditing({ row: rowIndex, col: colName })
   }
 
   return (
@@ -198,26 +247,40 @@ export function DataGrid({ result }: DataGridProps) {
       <div className="grid-body" style={{ height: totalHeight, position: 'relative' }}>
         <table className="data-grid-table">
           <tbody>
-            {visibleRows.map((row, i) => (
-              <tr
-                key={row.id}
-                className="grid-row"
-                style={{
-                  height: rowHeight,
-                  position: 'absolute',
-                  top: (visibleRange.start + i) * rowHeight,
-                  left: 0,
-                  right: 0,
-                }}
-              >
-                <td className="grid-row-num-cell">{visibleRange.start + i + 1}</td>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="grid-cell" style={{ width: cell.column.getSize() }}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {visibleRows.map((row, i) => {
+              const rowKey =
+                (row.original as Record<string, unknown>)['__row_key__'] ?? visibleRange.start + i
+              const isDirty = dirtyRowKeys?.has(rowKey as string | number)
+              const isSelected = selectedRowKey === rowKey
+              return (
+                <tr
+                  key={row.id}
+                  className={`grid-row ${isDirty ? 'grid-row-dirty' : ''} ${isSelected ? 'grid-row-selected' : ''}`}
+                  style={{
+                    height: rowHeight,
+                    position: 'absolute',
+                    top: (visibleRange.start + i) * rowHeight,
+                    left: 0,
+                    right: 0,
+                  }}
+                  onClick={() => onSelectRow?.(rowKey as string | number)}
+                >
+                  <td className="grid-row-num-cell">{visibleRange.start + i + 1}</td>
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="grid-cell"
+                      style={{ width: cell.column.getSize() }}
+                      onDoubleClick={() =>
+                        handleCellDoubleClick(row.index, cell.column.id, cell.getValue())
+                      }
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
