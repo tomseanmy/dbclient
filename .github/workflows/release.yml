@@ -16,20 +16,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macos-arm64
-            os: macos-14
-            dist_cmd: dist:mac
-          - name: macos-x64
-            os: macos-13
-            dist_cmd: dist:mac
+          # macOS / Linux 构建暂时关闭，仅保留 Windows 验证整条 release 流程。
+          # 恢复时取消下方注释即可（macos-arm64 用 macos-14，x64 用 macos-13）。
+          # - name: macos-arm64
+          #   os: macos-14
+          #   dist_cmd: dist:mac
           # windows-2022 而非 windows-latest：后者自 2026-06-08 起默认 VS 2026
           # (MSBuild 18)，node-gyp/better-sqlite3 暂无法识别，会回退源码编译失败。
           - name: windows-x64
             os: windows-2022
             dist_cmd: dist:win
-          - name: linux-x64
-            os: ubuntu-latest
-            dist_cmd: dist:linux
+          # - name: linux-x64
+          #   os: ubuntu-latest
+          #   dist_cmd: dist:linux
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -60,13 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.name }}
-          path: |
-            release/*.dmg
-            release/*.zip
-            release/*.exe
-            release/*.AppImage
-            release/*.deb
-            release/latest*.yml
+          path: release/*
           if-no-files-found: error
 
   release:
