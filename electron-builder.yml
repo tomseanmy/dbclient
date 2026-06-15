@@ -67,7 +67,7 @@ linux:
     - deb
   maintainer: tomsean <tom_sean@outlook.com>
 
-AppImage:
+appImage:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 deb:
