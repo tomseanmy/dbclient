@@ -22,8 +22,10 @@ jobs:
           - name: macos-x64
             os: macos-13
             dist_cmd: dist:mac
+          # windows-2022 而非 windows-latest：后者自 2026-06-08 起默认 VS 2026
+          # (MSBuild 18)，node-gyp/better-sqlite3 暂无法识别，会回退源码编译失败。
           - name: windows-x64
-            os: windows-latest
+            os: windows-2022
             dist_cmd: dist:win
           - name: linux-x64
             os: ubuntu-latest
