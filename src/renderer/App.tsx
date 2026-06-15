@@ -31,6 +31,7 @@ function getTabLabel(tab: Tab): string {
     const db = tab.conn.database || tab.conn.name
     return db + '@' + tab.conn.name
   }
+  if (tab.kind === 'database') return tab.conn.database || tab.conn.name
   if (tab.kind === 'chat') return 'AI 对话'
   if (tab.kind === 'tableDetail') return '设计:' + tab.table
   return tab.table ?? ''
