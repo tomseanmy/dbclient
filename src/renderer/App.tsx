@@ -10,6 +10,7 @@ import { api, type ConnectionListItem, type Table } from './api'
 import { useConnectionStore } from './store/connections'
 import { ObjectTree } from './components/ObjectTree'
 import { TableData } from './components/TableData'
+import { DatabaseDetail } from './components/DatabaseDetail'
 import { TableDetail } from './components/TableDetail'
 import { AiChat } from './components/AiChat'
 import { ConnectionManager } from './pages/ConnectionManager'
@@ -19,7 +20,7 @@ import { SqlWorkspace } from './components/SqlWorkspace'
 /** 主内容区的 tab 类型 */
 interface Tab {
   id: string
-  kind: 'tableData' | 'tableDetail' | 'sql' | 'chat'
+  kind: 'tableData' | 'tableDetail' | 'sql' | 'chat' | 'database'
   conn: ConnectionListItem
   schema?: string
   table?: string
@@ -125,6 +126,14 @@ export default function App() {
     })
   }
 
+  const handleOpenDatabase = (conn: ConnectionListItem) => {
+    openTab({
+      id: `${conn.id}:database`,
+      kind: 'database',
+      conn,
+    })
+  }
+
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
   return (
@@ -150,6 +159,7 @@ export default function App() {
           onEditConnection={(connection) => setConnectionModal({ mode: 'edit', connection })}
           onOpenSql={handleOpenSql}
           onOpenChat={handleOpenChat}
+          onOpenDatabase={handleOpenDatabase}
           onOpenTableDetail={handleOpenTableDetail}
         />
       </aside>
@@ -201,6 +211,14 @@ export default function App() {
                     )}
                     {tab.kind === 'sql' && <SqlWorkspace connection={tab.conn} />}
                     {tab.kind === 'chat' && <AiChat connection={tab.conn} />}
+                    {tab.kind === 'database' && (
+                      <DatabaseDetail
+                        connection={tab.conn}
+                        onOpenSql={handleOpenSql}
+                        onSelectTable={handleSelectTable}
+                        onOpenTableDetail={handleOpenTableDetail}
+                      />
+                    )}
                   </div>
                 )
               })}

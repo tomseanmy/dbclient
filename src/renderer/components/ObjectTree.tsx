@@ -17,7 +17,6 @@ import {
   AlertCircle,
   RefreshCw,
   Pencil,
-  Search,
   MessageCircle,
   FileText,
   ClipboardCopy,
@@ -33,6 +32,7 @@ interface ObjectTreeProps {
   onEditConnection: (conn: ConnectionListItem) => void
   onOpenSql: (conn: ConnectionListItem) => void
   onOpenChat: (conn: ConnectionListItem) => void
+  onOpenDatabase: (conn: ConnectionListItem) => void
   onOpenTableDetail: (conn: ConnectionListItem, schema: string | undefined, table: string) => void
 }
 
@@ -58,6 +58,7 @@ export function ObjectTree({
   onEditConnection,
   onOpenSql,
   onOpenChat,
+  onOpenDatabase,
   onOpenTableDetail,
 }: ObjectTreeProps) {
   const {
@@ -276,16 +277,6 @@ export function ObjectTree({
                   <RefreshCw size={11} className={isRefreshing ? 'spin' : ''} />
                 </button>
               )}
-              <button
-                className="conn-query-btn"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpenSql(conn)
-                }}
-                title="打开 SQL 查询"
-              >
-                <FileText size={12} />
-              </button>
             </div>
 
             {isOpen && isConnecting && (
@@ -389,7 +380,16 @@ export function ObjectTree({
               setConnCtxMenu(null)
             }}
           >
-            <Search size={12} /> SQL 查询
+            <FileText size={12} /> SQL 查询
+          </button>
+          <button
+            className="ctx-item"
+            onClick={() => {
+              onOpenDatabase(connCtxMenu.conn)
+              setConnCtxMenu(null)
+            }}
+          >
+            <Database size={12} /> 数据库详情
           </button>
           <button
             className="ctx-item"
