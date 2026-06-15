@@ -21,6 +21,8 @@ import {
   FileText,
   ClipboardCopy,
   Trash2 as TrashIcon,
+  Plug,
+  PlugZap,
 } from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import type { ConnectionListItem, Table } from '../api'
@@ -101,26 +103,49 @@ export function ObjectTree({
     }
   }, [tableCtxMenu, connCtxMenu])
 
-  const toggleConn = async (conn: ConnectionListItem) => {
+  /** 单击：仅展开/收折（未连接时不做反应） */
+  const handleConnClick = (conn: ConnectionListItem) => {
     const key = conn.id
     const isOpen = expandedConns.has(key)
     if (isOpen) {
       setExpandedConns((prev) => new Set([...prev].filter((k) => k !== key)))
-      await disconnectDb(conn.id)
-    } else {
-      setExpandedConns((prev) => new Set(prev).add(key))
-      const state = states[key]
-      if (!state?.connected) {
-        const ok = await connectDb(conn.id)
-        if (ok) {
-          await loadSchemas(conn.id)
-          await reloadExpandedTables(conn.id)
-        }
-      } else {
+    }
+    // 未连接时单击不展开（等双击连接）
+  }
+
+  /** 双击：连接并展开 */
+  const handleConnDoubleClick = async (conn: ConnectionListItem) => {
+    const key = conn.id
+    setExpandedConns((prev) => new Set(prev).add(key))
+    const state = states[key]
+    if (!state?.connected) {
+      const ok = await connectDb(conn.id)
+      if (ok) {
         await loadSchemas(conn.id)
         await reloadExpandedTables(conn.id)
       }
+    } else {
+      await loadSchemas(conn.id)
+      await reloadExpandedTables(conn.id)
     }
+  }
+
+  /** 右键菜单：连接 */
+  const handleConnect = async (conn: ConnectionListItem) => {
+    const state = states[conn.id]
+    if (state?.connected) return
+    setExpandedConns((prev) => new Set(prev).add(conn.id))
+    const ok = await connectDb(conn.id)
+    if (ok) {
+      await loadSchemas(conn.id)
+      await reloadExpandedTables(conn.id)
+    }
+  }
+
+  /** 右键菜单：断开 */
+  const handleDisconnect = async (conn: ConnectionListItem) => {
+    await disconnectDb(conn.id)
+    setExpandedConns((prev) => new Set([...prev].filter((k) => k !== conn.id)))
   }
 
   const reloadExpandedTables = async (connId: string) => {
@@ -246,7 +271,8 @@ export function ObjectTree({
           <div key={conn.id} className="tree-node-group">
             <div
               className={`tree-node tree-conn tree-level-0 ${isOpen ? 'expanded' : ''}`}
-              onClick={() => toggleConn(conn)}
+              onClick={() => handleConnClick(conn)}
+              onDoubleClick={() => handleConnDoubleClick(conn)}
               onContextMenu={(e) => handleConnectionContextMenu(e, conn)}
             >
               <ChevronRight size={14} className={`chevron ${isOpen ? 'rotated' : ''}`} />
@@ -364,6 +390,28 @@ export function ObjectTree({
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
+          {!states[connCtxMenu.conn.id]?.connected ? (
+            <button
+              className="ctx-item"
+              onClick={() => {
+                handleConnect(connCtxMenu.conn)
+                setConnCtxMenu(null)
+              }}
+            >
+              <Plug size={12} /> 连接
+            </button>
+          ) : (
+            <button
+              className="ctx-item"
+              onClick={() => {
+                handleDisconnect(connCtxMenu.conn)
+                setConnCtxMenu(null)
+              }}
+            >
+              <PlugZap size={12} /> 断开
+            </button>
+          )}
+          <div className="ctx-divider" />
           <button
             className="ctx-item"
             onClick={() => {
