@@ -963,6 +963,7 @@ select,
 .grid-head th {
   background: var(--bg-elevated);
   border-bottom: 2px solid var(--border-strong);
+  border-right: 1px solid var(--border);
   padding: 6px 10px;
   text-align: left;
   font-weight: 600;
@@ -1011,6 +1012,7 @@ select,
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 300px;
+  border-right: 1px solid var(--border);
 }
 
 .grid-cell-editing {
@@ -1467,7 +1469,19 @@ select,
 
 .tab-content {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
+  position: relative;
+}
+
+/* tab 面板：非激活时隐藏（保持挂载不销毁状态） */
+.tab-panel {
+  display: none;
+  height: 100%;
+}
+
+.tab-panel-active {
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== TableData 视图 ===== */

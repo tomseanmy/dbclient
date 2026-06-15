@@ -180,24 +180,27 @@ export default function App() {
                 )
               })}
             </div>
-            {/* Tab 内容 */}
+            {/* Tab 内容：保持所有 tab 挂载，切换时用 CSS 隐藏（不销毁状态） */}
             <div className="tab-content">
-              {activeTab?.kind === 'tableData' && activeTab.table && (
-                <TableData
-                  connection={activeTab.conn}
-                  schema={activeTab.schema}
-                  tableName={activeTab.table}
-                />
-              )}
-              {activeTab?.kind === 'tableDetail' && activeTab.table && (
-                <TableDetail
-                  connection={activeTab.conn}
-                  schema={activeTab.schema}
-                  table={{ name: activeTab.table, type: 'table' }}
-                />
-              )}
-              {activeTab?.kind === 'sql' && <SqlWorkspace connection={activeTab.conn} />}
-              {activeTab?.kind === 'chat' && <AiChat connection={activeTab.conn} />}
+              {tabs.map((tab) => {
+                const isActive = tab.id === activeTabId
+                return (
+                  <div key={tab.id} className={`tab-panel ${isActive ? 'tab-panel-active' : ''}`}>
+                    {tab.kind === 'tableData' && tab.table && (
+                      <TableData connection={tab.conn} schema={tab.schema} tableName={tab.table} />
+                    )}
+                    {tab.kind === 'tableDetail' && tab.table && (
+                      <TableDetail
+                        connection={tab.conn}
+                        schema={tab.schema}
+                        table={{ name: tab.table, type: 'table' }}
+                      />
+                    )}
+                    {tab.kind === 'sql' && <SqlWorkspace connection={tab.conn} />}
+                    {tab.kind === 'chat' && <AiChat connection={tab.conn} />}
+                  </div>
+                )
+              })}
             </div>
           </div>
         ) : (
