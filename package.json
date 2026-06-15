@@ -1,6 +1,6 @@
 {
   "name": "ai-db-client",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Open-source AI-native database client with MCP server support",
   "license": "MIT",
   "author": "tomsean <tom_sean@outlook.com>",
