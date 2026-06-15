@@ -41,6 +41,11 @@ export function registerConnectionHandlers(): void {
     logger.info('测试连接', { type: input.type, host: input.host })
     try {
       const driver = createDriver(input.type)
+      // 密码：留空时回退取已存密码（编辑场景），新建场景则确实为空
+      let password = input.password
+      if (!password && input.id) {
+        password = (await connectionsDao.getCredential(input.id)) ?? undefined
+      }
       // 构造临时 config（测试不落库，用占位值）
       const tempConfig = {
         id: 'test',
@@ -58,7 +63,7 @@ export function registerConnectionHandlers(): void {
       }
       const result = await driver.testConnection({
         config: tempConfig,
-        password: input.password,
+        password,
       })
       return { success: true, message: '连接成功', serverInfo: result.serverInfo }
     } catch (err) {

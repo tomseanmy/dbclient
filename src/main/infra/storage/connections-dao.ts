@@ -73,6 +73,11 @@ export const connectionsDao = {
     return row ? rowToConfig(row) : null
   },
 
+  /** 获取连接已存的密码（从 CredentialStore） */
+  async getCredential(id: string): Promise<string | null> {
+    return getCredentialStore().getPassword(id)
+  },
+
   /** 新建连接（密码单独存入 CredentialStore） */
   async create(input: ConnectionInput): Promise<ConnectionConfig> {
     const db = getDb()

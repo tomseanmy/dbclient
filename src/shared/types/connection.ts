@@ -108,7 +108,10 @@ export interface ConnectionInput {
 export type ConnectionTestInput = Omit<
   ConnectionInput,
   'name' | 'environment' | 'groupId' | 'color' | 'sortOrder'
->
+> & {
+  /** 编辑场景传入：密码留空时回退取该连接已存密码测试 */
+  id?: string
+}
 
 /** 测试连接的结果 */
 export interface ConnectionTestResult {

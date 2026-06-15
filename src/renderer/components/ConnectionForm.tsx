@@ -77,7 +77,11 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
       if (opts?.createFile) {
         input.options = { ...input.options, extra: { createIfNotExist: true } }
       }
-      const result = await api['connection:test'](input)
+      // 编辑场景带上 id：密码留空时后端回退取已存密码测试
+      const result = await api['connection:test']({
+        ...input,
+        id: initial?.id,
+      })
       setTestResult(result)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
