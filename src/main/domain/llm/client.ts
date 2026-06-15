@@ -107,21 +107,51 @@ function joinUrl(base: string, path: string): string {
 
 /**
  * 连通性测试：发一个极短的 ping 请求，验证 base URL + apiKey + model 可用。
- * 用 max_tokens=1 降低消耗。
+ *
+ * 只关心 API 是否可达 + 认证是否通过，不要求返回实际内容
+ * （某些 provider 用 max_tokens=1 时返回空 content 是正常的）。
  */
 export async function ping(
   baseUrl: string,
   apiKey: string,
   model: string,
 ): Promise<{ success: boolean; message: string }> {
+  const url = joinUrl(baseUrl, '/chat/completions')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15_000)
+
   try {
-    const result = await chat(baseUrl, apiKey, model, [{ role: 'user', content: 'hi' }], {
-      maxTokens: 1,
-      timeoutMs: 15_000,
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 1,
+      }),
+      signal: controller.signal,
     })
-    return { success: true, message: `连接成功（模型 ${result.model}）` }
+
+    const body = (await resp.json().catch(() => null)) as OpenAiResponse | null
+
+    if (!resp.ok || body?.error) {
+      const msg = body?.error?.message ?? `HTTP ${resp.status}`
+      return { success: false, message: msg }
+    }
+
+    // HTTP 200 且无 error 字段即视为连通成功
+    const respModel = body?.model ?? model
+    return { success: true, message: `连接成功（模型 ${respModel}）` }
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { success: false, message: '请求超时（15s）' }
+    }
     const msg = err instanceof Error ? err.message : String(err)
     return { success: false, message: msg }
+  } finally {
+    clearTimeout(timer)
   }
 }
