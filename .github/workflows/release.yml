@@ -67,7 +67,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.name }}
-          path: release/*
+          # 只上传可分发的安装包 + 自动更新元数据，排除 win-unpacked/、
+          # 构建日志、sqlite3.h 等 native 编译中间产物，避免污染 GitHub Release。
+          path: |
+            release/*.exe
+            release/*.msi
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.snap
+            release/latest*.yml
           if-no-files-found: error
 
   release:
