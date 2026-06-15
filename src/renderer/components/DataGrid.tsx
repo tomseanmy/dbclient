@@ -38,6 +38,8 @@ export interface DataGridProps {
   /** 选中行变化回调 */
   selectedRowKey?: string | number | null
   onSelectRow?: (rowKey: string | number) => void
+  /** 序号列右键菜单回调 */
+  onRowContextMenu?: (e: React.MouseEvent, rowKey: number) => void
 }
 
 /** 渲染单个单元格值（只读模式） */
@@ -118,6 +120,7 @@ export function DataGrid({
   onCellChange,
   selectedRowKey,
   onSelectRow,
+  onRowContextMenu,
 }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -265,7 +268,19 @@ export function DataGrid({
                   }}
                   onClick={() => onSelectRow?.(rowKey as string | number)}
                 >
-                  <td className="grid-row-num-cell">{visibleRange.start + i + 1}</td>
+                  <td
+                    className="grid-row-num-cell grid-row-selectable"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelectRow?.(rowKey as string | number)
+                    }}
+                    onContextMenu={(e) => {
+                      if (onRowContextMenu) onRowContextMenu(e, rowKey as number)
+                    }}
+                    title="点击选中行 · 右键更多操作"
+                  >
+                    {visibleRange.start + i + 1}
+                  </td>
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}

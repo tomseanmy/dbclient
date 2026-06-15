@@ -1636,3 +1636,29 @@ textarea {
   margin: 0;
   white-space: pre-wrap;
 }
+
+/* ===== TableData 工具栏（无标题） ===== */
+.table-data-toolbar-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: #f9fafb;
+  flex-shrink: 0;
+}
+
+/* 序号列可点击选中 */
+.grid-row-selectable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.grid-row-selectable:hover {
+  background: #e0e7ff !important;
+  color: var(--primary);
+}
+
+.grid-row-num-cell.grid-row-selectable:active {
+  background: #c7d2fe !important;
+}
