@@ -45,6 +45,15 @@ export function getDriver(connectionId: string): DbDriver {
   return entry.driver
 }
 
+/** 获取活跃连接的配置（不存在则抛错） */
+export function getConfig(connectionId: string): ConnectionConfig {
+  const entry = pool.get(connectionId)
+  if (!entry) {
+    throw new Error(`连接 ${connectionId} 未建立，请先调用 connect`)
+  }
+  return entry.config
+}
+
 /** 获取 Redis driver（带类型断言，仅 Redis 连接可用） */
 export function getRedisDriver(connectionId: string): RedisDriver {
   const driver = getDriver(connectionId)
