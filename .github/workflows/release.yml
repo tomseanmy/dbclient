@@ -35,6 +35,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 固定 Python 3.11：@electron/rebuild@3.6.1 自带的 node-gyp@9.4.1
+      # 依赖 distutils，而 distutils 在 Python 3.12+ 已移除（runner 默认 3.14），
+      # 否则 better-sqlite3 的 Electron 原生编译会报 ModuleNotFoundError: distutils。
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
