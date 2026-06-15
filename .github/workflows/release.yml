@@ -103,7 +103,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          fail_on_unmatched_files: true
+          # fail_on_unmatched_files 按 glob 逐条判断：当前只开 Windows，
+          # .msi/.dmg/*.deb 等 glob 必然空匹配会整步失败，故关闭。
+          # 放开为 false 后空 glob 被静默跳过，有产物的正常上传。
+          fail_on_unmatched_files: false
           # 显式、非递归的扩展名清单：只上传真正的安装包 + latest*.yml，
           # 绝不把 win-unpacked/、node_modules/、构建中间产物放上去。
           files: |
