@@ -5,7 +5,7 @@
  * 连接管理以 modal 形式浮层展示，不遮挡主视图。
  */
 import { useEffect, useState, useCallback } from 'react'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { Settings as SettingsIcon, Plug, Table2, FileText, Bot } from 'lucide-react'
 import { api, type ConnectionListItem, type Table } from './api'
 import { useConnectionStore } from './store/connections'
 import { ObjectTree } from './components/ObjectTree'
@@ -210,26 +210,34 @@ export default function App() {
               <p className="welcome-subtitle">开源的 AI 原生数据库工具</p>
               <div className="welcome-features">
                 <div className="feature">
-                  <span className="feature-icon">🔌</span>
+                  <span className="feature-icon">
+                    <Plug size={20} />
+                  </span>
                   <span>多数据库连接（MySQL / PostgreSQL / SQLite / Redis）</span>
                 </div>
                 <div className="feature">
-                  <span className="feature-icon">📊</span>
+                  <span className="feature-icon">
+                    <Table2 size={20} />
+                  </span>
                   <span>点击表名查看数据，右键查看设计/DDL</span>
                 </div>
                 <div className="feature">
-                  <span className="feature-icon">📝</span>
+                  <span className="feature-icon">
+                    <FileText size={20} />
+                  </span>
                   <span>SQL 编辑器 + 数据网格</span>
                 </div>
                 <div className="feature muted-feature">
-                  <span className="feature-icon">🤖</span>
+                  <span className="feature-icon">
+                    <Bot size={20} />
+                  </span>
                   <span>AI 对话 + MCP Server（开发中）</span>
                 </div>
               </div>
               <p className="welcome-hint">
                 {connections.length === 0
                   ? '点击左侧「+」创建你的第一个连接'
-                  : '点击左侧连接开始浏览，或点 📝 打开 SQL 查询'}
+                  : '点击左侧连接开始浏览，右键打开 SQL 查询'}
               </p>
             </div>
           </div>

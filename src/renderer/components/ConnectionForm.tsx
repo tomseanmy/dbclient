@@ -4,6 +4,7 @@
  * 根据数据库类型动态显示字段。
  */
 import { useState, useEffect } from 'react'
+import { CheckCircle, XCircle } from 'lucide-react'
 import {
   api,
   type ConnectionInput,
@@ -220,7 +221,11 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
       {error && <div className="form-error">{error}</div>}
       {testResult && (
         <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
-          {testResult.success ? '✅ ' : '❅ '}
+          {testResult.success ? (
+            <CheckCircle size={12} style={{ display: 'inline' }} />
+          ) : (
+            <XCircle size={12} style={{ display: 'inline' }} />
+          )}
           {testResult.message}
           {testResult.fileNotFound && (
             <button

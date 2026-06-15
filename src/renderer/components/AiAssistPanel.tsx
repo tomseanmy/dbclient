@@ -7,7 +7,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 import type { ConnectionListItem, AiChatResponse, AssistAction } from '../api'
-import { Loader2, X } from 'lucide-react'
+import { Loader2, X, Sparkles, Zap, MessageCircle, Wrench, Lock } from 'lucide-react'
 
 interface AiAssistPanelProps {
   connection: ConnectionListItem
@@ -22,11 +22,18 @@ interface AiAssistPanelProps {
   onExecuteSql?: (sql: string) => void
 }
 
-const ACTION_LABEL: Record<AssistAction, string> = {
-  explain: '✨ 解释 SQL',
-  optimize: '⚡ 优化建议',
-  nl2sql: '💬 自然语言转 SQL',
-  fixError: '🔧 修复建议',
+const ACTION_ICON: Record<AssistAction, React.ReactNode> = {
+  explain: <Sparkles size={13} />,
+  optimize: <Zap size={13} />,
+  nl2sql: <MessageCircle size={13} />,
+  fixError: <Wrench size={13} />,
+}
+
+const ACTION_TEXT: Record<AssistAction, string> = {
+  explain: '解释 SQL',
+  optimize: '优化建议',
+  nl2sql: '自然语言转 SQL',
+  fixError: '修复建议',
 }
 
 export function AiAssistPanel({
@@ -74,7 +81,9 @@ export function AiAssistPanel({
   return (
     <div className="ai-assist-panel">
       <div className="ai-assist-header">
-        <span className="ai-assist-title">{ACTION_LABEL[action]}</span>
+        <span className="ai-assist-title">
+          {ACTION_ICON[action]} {ACTION_TEXT[action]}
+        </span>
         <button className="btn-icon" onClick={onClose}>
           <X size={14} />
         </button>
@@ -136,7 +145,10 @@ export function AiAssistPanel({
             )}
 
             {result.dataFlow && (
-              <div className="ai-chat-dataflow">🔒 {result.dataFlow.summary}</div>
+              <div className="ai-chat-dataflow">
+                <Lock size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
+                {result.dataFlow.summary}
+              </div>
             )}
           </>
         )}

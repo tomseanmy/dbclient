@@ -19,6 +19,9 @@ import {
   Pencil,
   Search,
   MessageCircle,
+  FileText,
+  ClipboardCopy,
+  Trash2 as TrashIcon,
 } from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import type { ConnectionListItem, Table } from '../api'
@@ -281,7 +284,7 @@ export function ObjectTree({
                 }}
                 title="打开 SQL 查询"
               >
-                📝
+                <FileText size={12} />
               </button>
             </div>
 
@@ -418,11 +421,11 @@ export function ObjectTree({
           </button>
           <div className="ctx-divider" />
           <button className="ctx-item" onClick={() => handleCtxAction('copyName')}>
-            📋 复制表名
+            <ClipboardCopy size={12} /> 复制表名
           </button>
           <div className="ctx-divider" />
           <button className="ctx-item ctx-danger" onClick={() => handleCtxAction('drop')}>
-            🗑 删除表
+            <TrashIcon size={12} /> 删除表
           </button>
         </div>
       )}

@@ -4,7 +4,16 @@
  * 以 modal 形式打开。Provider 列表/新增/编辑/删除/设默认/连通性测试。
  */
 import { useState, useEffect, useCallback } from 'react'
-import { X, Plus, Trash2, Star, Loader2 } from 'lucide-react'
+import {
+  X,
+  Plus,
+  Trash2,
+  Star,
+  Loader2,
+  Settings as SettingsCog,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react'
 import { api, type LlmProvider, type LlmProviderInput, type UsageSummary } from '../api'
 
 interface SettingsProps {
@@ -42,7 +51,9 @@ export function Settings({ onClose }: SettingsProps) {
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="page-connection-manager">
           <div className="page-header">
-            <h1>⚙️ 设置</h1>
+            <h1>
+              <SettingsCog size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> 设置
+            </h1>
             <button className="btn-icon" onClick={onClose} title="关闭">
               <X size={16} />
             </button>
@@ -297,7 +308,11 @@ function ProviderForm({
 
             {testResult && (
               <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
-                {testResult.success ? '✅ ' : '❌ '}
+                {testResult.success ? (
+                  <CheckCircle size={12} style={{ display: 'inline' }} />
+                ) : (
+                  <XCircle size={12} style={{ display: 'inline' }} />
+                )}
                 {testResult.message}
               </div>
             )}

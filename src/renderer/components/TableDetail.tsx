@@ -5,7 +5,7 @@
  * 对于 Redis 连接，展示 key 概览。
  */
 import { useEffect, useState } from 'react'
-import { Copy, Loader2 } from 'lucide-react'
+import { Copy, Loader2, Eye, KeyRound } from 'lucide-react'
 import {
   api,
   type ConnectionListItem,
@@ -138,7 +138,12 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
       <div className="detail-header">
         <div>
           <h2>
-            {table.type === 'view' ? '👁' : '📋'} {schema ? `${schema}.` : ''}
+            {table.type === 'view' ? (
+              <Eye size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
+            ) : (
+              <Copy size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
+            )}{' '}
+            {schema ? `${schema}.` : ''}
             {table.name}
           </h2>
           {table.comment && <p className="table-comment">{table.comment}</p>}
@@ -206,7 +211,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
                     <td className="col-name">
                       {col.isPrimaryKey && (
                         <span className="pk-badge" title="主键">
-                          🔑
+                          <KeyRound size={10} style={{ display: 'inline' }} />
                         </span>
                       )}
                       {col.name}
@@ -249,7 +254,11 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
                 {meta.indexes.map((idx) => (
                   <tr key={idx.name}>
                     <td className="col-name">
-                      {idx.isPrimaryKey && <span className="pk-badge">🔑</span>}
+                      {idx.isPrimaryKey && (
+                        <span className="pk-badge">
+                          <KeyRound size={10} style={{ display: 'inline' }} />
+                        </span>
+                      )}
                       {idx.name}
                     </td>
                     <td>{idx.columns.join(', ')}</td>

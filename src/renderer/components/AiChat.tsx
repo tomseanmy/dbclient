@@ -5,6 +5,7 @@
  * 用户确认后执行 SQL（走 M3 安全层 db:confirmExecute）。
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { MessageCircle, User, Bot, Lock, AlertTriangle } from 'lucide-react'
 import { api } from '../api'
 import type { ConnectionListItem, LlmProvider, ChatMessage, AiChatResponse } from '../api'
 
@@ -102,7 +103,7 @@ export function AiChat({ connection }: AiChatProps) {
           ...prev,
           {
             role: 'assistant',
-            content: `✅ 执行成功，返回 ${rowCount} 行。`,
+            content: `执行成功，返回 ${rowCount} 行。`,
           },
         ])
       } catch (err) {
@@ -145,7 +146,10 @@ export function AiChat({ connection }: AiChatProps) {
       <div className="ai-chat-messages" ref={scrollRef}>
         {turns.length === 0 && (
           <div className="ai-chat-empty">
-            <p>💬 AI 对话已就绪</p>
+            <p className="ai-chat-ready-title">
+              <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> AI
+              对话已就绪
+            </p>
             <p className="muted">
               用自然语言描述你的需求，例如：
               <br />
@@ -153,12 +157,19 @@ export function AiChat({ connection }: AiChatProps) {
               <br />
               「统计每个分类下的商品数量」
             </p>
-            {!hasProvider && <p className="ai-chat-warn">⚠️ 请先在设置中配置 LLM Provider</p>}
+            {!hasProvider && (
+              <p className="ai-chat-warn">
+                <AlertTriangle size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
+                请先在设置中配置 LLM Provider
+              </p>
+            )}
           </div>
         )}
         {turns.map((turn, i) => (
           <div key={i} className={`ai-chat-turn ai-chat-turn-${turn.role}`}>
-            <div className="ai-chat-avatar">{turn.role === 'user' ? '👤' : '🤖'}</div>
+            <div className="ai-chat-avatar">
+              {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
+            </div>
             <div className="ai-chat-bubble">
               <div className="ai-chat-content">{turn.content}</div>
               {/* SQL 卡片 */}
@@ -176,13 +187,20 @@ export function AiChat({ connection }: AiChatProps) {
                 </div>
               )}
               {/* 数据流向提示 */}
-              {turn.dataFlow && <div className="ai-chat-dataflow">🔒 {turn.dataFlow.summary}</div>}
+              {turn.dataFlow && (
+                <div className="ai-chat-dataflow">
+                  <Lock size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
+                  {turn.dataFlow.summary}
+                </div>
+              )}
             </div>
           </div>
         ))}
         {loading && (
           <div className="ai-chat-turn ai-chat-turn-assistant">
-            <div className="ai-chat-avatar">🤖</div>
+            <div className="ai-chat-avatar">
+              <Bot size={14} />
+            </div>
             <div className="ai-chat-bubble">
               <div className="ai-chat-typing">
                 <span /> <span /> <span />
@@ -250,7 +268,7 @@ function SqlCard({
         <span className="sql-card-label">SQL {index + 1}</span>
         <div className="sql-card-actions">
           <button className="btn btn-sm btn-secondary" onClick={handleCopy} disabled={executing}>
-            {copied ? '✓ 已复制' : '复制'}
+            {copied ? '已复制' : '复制'}
           </button>
           <button className="btn btn-sm btn-primary" onClick={onExecute} disabled={executing}>
             {executing ? '执行中…' : '▶ 执行'}
