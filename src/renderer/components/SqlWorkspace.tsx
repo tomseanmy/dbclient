@@ -9,16 +9,7 @@
  *   3c. denied → 显示 PermissionNotice（可提权）
  */
 import { useState, useCallback } from 'react'
-import {
-  Download,
-  Copy,
-  Check,
-  ChevronDown,
-  Sparkles,
-  Wrench,
-  FileText,
-  AlertTriangle,
-} from 'lucide-react'
+import { Download, Copy, Check, ChevronDown, Sparkles, Wrench } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult, type SecurityCheckResult } from '../api'
 import type { AssistAction } from '../api'
 import { useConnectionStore } from '../store/connections'
@@ -204,19 +195,6 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
 
   return (
     <div className="sql-workspace">
-      <div className="workspace-header">
-        <h2>
-          <FileText size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> SQL 查询 ·{' '}
-          {connection.name}
-        </h2>
-        {connection.environment === 'prod' && (
-          <span className="env-warning">
-            <AlertTriangle size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> Prod
-            环境（默认只读）
-          </span>
-        )}
-      </div>
-
       <SqlEditor
         value={sql}
         onChange={setSql}
@@ -225,6 +203,7 @@ export function SqlWorkspace({ connection }: SqlWorkspaceProps) {
         dialect={dialect}
         onAiExplain={handleAiExplain}
         onAiOptimize={handleAiOptimize}
+        database={connection.database || connection.name}
       />
 
       {/* 自然语言转 SQL 输入框 */}

@@ -8,7 +8,7 @@ import { useRef, useCallback } from 'react'
 import Editor from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { KeyMod, KeyCode } from 'monaco-editor'
-import { Play, Wand2, Loader2, Sparkles, Zap } from 'lucide-react'
+import { Play, Wand2, Loader2, Sparkles, Zap, Database } from 'lucide-react'
 import { format as formatSql } from 'sql-formatter'
 
 interface SqlEditorProps {
@@ -21,6 +21,8 @@ interface SqlEditorProps {
   /** AI 辅助回调：获取选中或全部 SQL 后触发 */
   onAiExplain?: (sql: string) => void
   onAiOptimize?: (sql: string) => void
+  /** 当前数据库名（右侧下拉显示） */
+  database?: string
 }
 
 export function SqlEditor({
@@ -31,6 +33,7 @@ export function SqlEditor({
   dialect,
   onAiExplain,
   onAiOptimize,
+  database,
 }: SqlEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
@@ -76,36 +79,41 @@ export function SqlEditor({
   return (
     <div className="sql-editor-container">
       <div className="sql-toolbar">
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={handleExecute}
-          disabled={executing || !value.trim()}
-        >
-          {executing ? <Loader2 size={12} className="spin" /> : <Play size={12} />}
-          {executing ? '执行中…' : '执行'}
-        </button>
-        <span className="toolbar-hint">⌘+Enter 执行全部 · ⌘+⇧+Enter 执行选中</span>
-        <div className="toolbar-spacer" />
-        <button className="btn-icon btn-text" onClick={handleFormat} title="格式化 SQL">
-          <Wand2 size={12} /> 格式化
-        </button>
-        {onAiExplain && (
+        <abbr title="执行 SQL（⌘+Enter 全部 · ⌘+⇧+Enter 选中）">
           <button
-            className="btn-icon btn-text"
-            onClick={() => onAiExplain(getSelectedOrAll())}
-            title="AI 解释这条 SQL"
+            className="icon-btn"
+            onClick={handleExecute}
+            disabled={executing || !value.trim()}
+            style={executing ? {} : { color: 'var(--success)' }}
           >
-            <Sparkles size={12} /> 解释
+            {executing ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
           </button>
+        </abbr>
+        <abbr title="格式化 SQL">
+          <button className="icon-btn" onClick={handleFormat}>
+            <Wand2 size={14} />
+          </button>
+        </abbr>
+        {onAiExplain && (
+          <abbr title="AI 解释这条 SQL">
+            <button className="icon-btn" onClick={() => onAiExplain(getSelectedOrAll())}>
+              <Sparkles size={14} />
+            </button>
+          </abbr>
         )}
         {onAiOptimize && (
-          <button
-            className="btn-icon btn-text"
-            onClick={() => onAiOptimize(getSelectedOrAll())}
-            title="AI 优化建议"
-          >
-            <Zap size={12} /> 优化
-          </button>
+          <abbr title="AI 优化建议">
+            <button className="icon-btn" onClick={() => onAiOptimize(getSelectedOrAll())}>
+              <Zap size={14} />
+            </button>
+          </abbr>
+        )}
+        <div className="toolbar-spacer" />
+        {database && (
+          <span className="sql-db-selector">
+            <Database size={12} />
+            <span className="sql-db-name">{database}</span>
+          </span>
         )}
       </div>
       <div className="monaco-wrapper">
