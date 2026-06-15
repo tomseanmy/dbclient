@@ -2,8 +2,8 @@
 
 > 开源的 AI 原生数据库工具 —— 可视化操作 + 自然语言对话双模式，内置 MCP Server 供外部 Agent 调用。
 
-[![CI](https://github.com/tomsean/ai-db-client/actions/workflows/ci.yml/badge.svg)](https://github.com/tomsean/ai-db-client/actions/workflows/ci.yml)
-[![Release](https://github.com/tomsean/ai-db-client/actions/workflows/release.yml/badge.svg)](https://github.com/tomsean/ai-db-client/actions/workflows/release.yml)
+[![CI](https://github.com/tomseanmy/dbclient/actions/workflows/ci.yml/badge.svg)](https://github.com/tomseanmy/dbclient/actions/workflows/ci.yml)
+[![Release](https://github.com/tomseanmy/dbclient/actions/workflows/release.yml/badge.svg)](https://github.com/tomseanmy/dbclient/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ## ✨ 核心特性
