@@ -140,17 +140,6 @@ export default function App() {
   return (
     <div className="app-root">
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <span className="brand-name">AI DB Client</span>
-          {bootInfo && <span className="brand-version">{bootInfo}</span>}
-          <button
-            className="btn-icon sidebar-settings-btn"
-            onClick={() => setSettingsOpen(true)}
-            title="设置"
-          >
-            <SettingsIcon size={15} />
-          </button>
-        </div>
         <ObjectTree
           selectedTable={
             activeTab?.table ? { connectionId: activeTab.conn.id, table: activeTab.table } : null
@@ -163,6 +152,17 @@ export default function App() {
           onOpenDatabase={handleOpenDatabase}
           onOpenTableDetail={handleOpenTableDetail}
         />
+        <div className="sidebar-brand">
+          <span className="brand-name">AI DB Client</span>
+          {bootInfo && <span className="brand-version">{bootInfo}</span>}
+          <button
+            className="btn-icon sidebar-settings-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="设置"
+          >
+            <SettingsIcon size={15} />
+          </button>
+        </div>
       </aside>
 
       <main className="main-content">

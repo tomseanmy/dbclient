@@ -76,10 +76,12 @@ textarea {
 }
 
 .sidebar-brand {
-  padding: 0 16px 12px;
+  margin-top: auto;
+  padding: 10px 16px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .brand-name {
