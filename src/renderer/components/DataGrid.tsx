@@ -50,6 +50,8 @@ export interface DataGridProps {
     column: string,
     value: unknown,
   ) => void
+  /** 底部额外滚动空间（px），让悬浮工具条不遮挡最后一行 */
+  bottomPadding?: number
 }
 
 /** 渲染单个单元格值（只读模式） */
@@ -187,6 +189,7 @@ export function DataGrid({
   selectedCell,
   onSelectCell,
   onCellContextMenu,
+  bottomPadding = 0,
 }: DataGridProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
@@ -258,7 +261,8 @@ export function DataGrid({
     return () => container.removeEventListener('scroll', handleScroll)
   }, [rows.length])
 
-  const totalHeight = rows.length * rowHeight
+  const scrollBottomPad = bottomPadding
+  const totalHeight = rows.length * rowHeight + scrollBottomPad
   const visibleRows = rows.slice(visibleRange.start, visibleRange.end)
   const topSpacerHeight = visibleRange.start * rowHeight
   const bottomSpacerHeight = Math.max(0, totalHeight - visibleRange.end * rowHeight)
@@ -371,6 +375,11 @@ export function DataGrid({
           })}
           {bottomSpacerHeight > 0 && (
             <tr aria-hidden="true" style={{ height: bottomSpacerHeight }}>
+              <td colSpan={result.columns.length + 1} style={{ padding: 0, border: 'none' }} />
+            </tr>
+          )}
+          {scrollBottomPad > 0 && (
+            <tr aria-hidden="true" style={{ height: scrollBottomPad }}>
               <td colSpan={result.columns.length + 1} style={{ padding: 0, border: 'none' }} />
             </tr>
           )}

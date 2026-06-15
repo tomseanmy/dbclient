@@ -1641,8 +1641,7 @@ select,
 .table-data-toolbar-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  padding: 6px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
   flex-shrink: 0;
@@ -2390,5 +2389,4 @@ select,
   display: flex;
   flex-direction: column;
   position: relative;
-  padding-bottom: 50px;
 }

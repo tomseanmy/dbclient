@@ -720,6 +720,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
             selectedCell={selectedCell}
             onSelectCell={setSelectedCell}
             onCellContextMenu={handleCellContextMenu}
+            bottomPadding={150}
           />
         </div>
       )}
