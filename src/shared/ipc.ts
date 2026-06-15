@@ -166,6 +166,40 @@ export interface IpcContracts {
     req: { connectionId?: string }
     res: { success: boolean }
   }
+
+  // ----- LLM Provider 管理 -----
+  'llm:listProviders': {
+    req: void
+    res: import('./types/llm').LlmProvider[]
+  }
+  'llm:createProvider': {
+    req: import('./types/llm').LlmProviderInput
+    res: import('./types/llm').LlmProvider
+  }
+  'llm:updateProvider': {
+    req: { id: string; input: import('./types/llm').LlmProviderInput }
+    res: import('./types/llm').LlmProvider
+  }
+  'llm:deleteProvider': {
+    req: { id: string }
+    res: { success: boolean }
+  }
+  'llm:setDefaultProvider': {
+    req: { id: string }
+    res: { success: boolean }
+  }
+  'llm:testProvider': {
+    req: import('./types/llm').LlmProviderInput
+    res: import('./types/llm').ProviderTestResult
+  }
+  'llm:getUsage': {
+    req: void
+    res: import('./types/llm').UsageSummary
+  }
+  'llm:clearUsage': {
+    req: void
+    res: { success: boolean }
+  }
 }
 
 // ===== 派生类型 =====

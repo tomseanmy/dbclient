@@ -63,6 +63,16 @@ const api: RendererApi = {
   'audit:list': (req) => invoke('audit:list', req),
   'audit:search': (req) => invoke('audit:search', req),
   'audit:clear': (req) => invoke('audit:clear', req),
+
+  // ----- LLM Provider 管理 -----
+  'llm:listProviders': () => invoke('llm:listProviders'),
+  'llm:createProvider': (req) => invoke('llm:createProvider', req),
+  'llm:updateProvider': (req) => invoke('llm:updateProvider', req),
+  'llm:deleteProvider': (req) => invoke('llm:deleteProvider', req),
+  'llm:setDefaultProvider': (req) => invoke('llm:setDefaultProvider', req),
+  'llm:testProvider': (req) => invoke('llm:testProvider', req),
+  'llm:getUsage': () => invoke('llm:getUsage'),
+  'llm:clearUsage': () => invoke('llm:clearUsage'),
 }
 
 contextBridge.exposeInMainWorld('api', api)

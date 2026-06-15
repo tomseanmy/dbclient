@@ -30,9 +30,11 @@ export async function registerAllHandlers(): Promise<void> {
   const { registerDatabaseHandlers } = await import('./database')
   const { registerSqlHistoryHandlers } = await import('./sql-history')
   const { registerSecurityHandlers } = await import('./security')
+  const { registerLlmHandlers } = await import('./llm')
   registerAppHandlers()
   registerConnectionHandlers()
   registerDatabaseHandlers()
   registerSqlHistoryHandlers()
   registerSecurityHandlers()
+  registerLlmHandlers()
 }
