@@ -74,6 +74,7 @@ export function ObjectTree({
     refreshTick,
   } = useConnectionStore()
   const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
+  const [selectedConnId, setSelectedConnId] = useState<string | null>(null)
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set())
   const [refreshingConn, setRefreshingConn] = useState<string | null>(null)
   const [tableCtxMenu, setTableCtxMenu] = useState<TableContextMenu | null>(null)
@@ -103,30 +104,48 @@ export function ObjectTree({
     }
   }, [tableCtxMenu, connCtxMenu])
 
-  /** 单击：仅展开/收折（未连接时不做反应） */
+  /** 单击连接节点：已连接则打开详情页，未连接仅选中样式 */
   const handleConnClick = (conn: ConnectionListItem) => {
-    const key = conn.id
-    const isOpen = expandedConns.has(key)
-    if (isOpen) {
-      setExpandedConns((prev) => new Set([...prev].filter((k) => k !== key)))
+    setSelectedConnId(conn.id)
+    const state = states[conn.id]
+    if (state?.connected) {
+      onOpenDatabase(conn)
     }
-    // 未连接时单击不展开（等双击连接）
+    // 未连接时不做反应，只选中
   }
 
-  /** 双击：连接并展开 */
+  /** 双击连接节点：未连接则连接，已连接则收折 */
   const handleConnDoubleClick = async (conn: ConnectionListItem) => {
     const key = conn.id
-    setExpandedConns((prev) => new Set(prev).add(key))
     const state = states[key]
-    if (!state?.connected) {
+    if (state?.connected) {
+      // 已连接：切换展开/收折
+      const isOpen = expandedConns.has(key)
+      if (isOpen) {
+        setExpandedConns((prev) => new Set([...prev].filter((k) => k !== key)))
+      } else {
+        setExpandedConns((prev) => new Set(prev).add(key))
+      }
+    } else {
+      // 未连接：连接并展开
+      setExpandedConns((prev) => new Set(prev).add(key))
       const ok = await connectDb(conn.id)
       if (ok) {
         await loadSchemas(conn.id)
         await reloadExpandedTables(conn.id)
       }
+    }
+  }
+
+  /** 点击 chevron：仅展开/收折 */
+  const handleChevronClick = (e: React.MouseEvent, conn: ConnectionListItem) => {
+    e.stopPropagation()
+    const key = conn.id
+    const isOpen = expandedConns.has(key)
+    if (isOpen) {
+      setExpandedConns((prev) => new Set([...prev].filter((k) => k !== key)))
     } else {
-      await loadSchemas(conn.id)
-      await reloadExpandedTables(conn.id)
+      setExpandedConns((prev) => new Set(prev).add(key))
     }
   }
 
@@ -270,12 +289,16 @@ export function ObjectTree({
         return (
           <div key={conn.id} className="tree-node-group">
             <div
-              className={`tree-node tree-conn tree-level-0 ${isOpen ? 'expanded' : ''}`}
+              className={`tree-node tree-conn tree-level-0 ${isOpen ? 'expanded' : ''} ${selectedConnId === conn.id ? 'tree-conn-selected' : ''}`}
               onClick={() => handleConnClick(conn)}
               onDoubleClick={() => handleConnDoubleClick(conn)}
               onContextMenu={(e) => handleConnectionContextMenu(e, conn)}
             >
-              <ChevronRight size={14} className={`chevron ${isOpen ? 'rotated' : ''}`} />
+              <ChevronRight
+                size={14}
+                className={`chevron ${isOpen ? 'rotated' : ''}`}
+                onClick={(e) => handleChevronClick(e, conn)}
+              />
               <span
                 className="conn-dot"
                 style={{ background: state?.connected ? '#16a34a' : '#9ca3af' }}

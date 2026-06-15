@@ -2523,3 +2523,12 @@ select,
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* 选中的连接节点高亮 */
+.tree-conn-selected {
+  background: rgba(10, 132, 255, 0.12);
+}
+
+.tree-conn-selected:hover {
+  background: rgba(10, 132, 255, 0.18);
+}
