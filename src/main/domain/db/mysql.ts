@@ -1,7 +1,7 @@
 /**
  * MySQL 驱动实现（基于 mysql2）
  */
-import mysql, { type Pool, type RowDataPacket } from 'mysql2/promise'
+import mysql, { type FieldPacket, type Pool, type RowDataPacket } from 'mysql2/promise'
 import type { DriverContext, DescribeOptions } from './driver'
 import { mapUnifiedType } from './driver'
 import type { DbDriver } from './driver'
@@ -277,10 +277,13 @@ export class MysqlDriver implements DbDriver {
     const limit = opts?.limit ?? 1000
     const start = Date.now()
     if (!this.pool) throw new Error('MySQL 未连接')
-    const [result] = await this.pool.query(sql)
+    const [result, fields] = await this.pool.query(sql)
     const rows = Array.isArray(result) ? (result as import('mysql2').RowDataPacket[]) : []
-    let columns: { name: string; dataType: string }[] = []
-    if (rows.length > 0) {
+    let columns: { name: string; dataType: string }[] = (fields as FieldPacket[]).map((field) => ({
+      name: field.name,
+      dataType: field.typeName ?? String(field.columnType ?? 'unknown'),
+    }))
+    if (columns.length === 0 && rows.length > 0) {
       columns = Object.keys(rows[0]!).map((name) => ({
         name,
         dataType: typeof rows[0]![name],

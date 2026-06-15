@@ -37,7 +37,6 @@ export interface IpcContracts {
       userDataPath: string
     }
   }
-
   // ----- 连接管理 -----
   'connection:list': {
     req: void

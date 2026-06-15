@@ -22,11 +22,20 @@ interface Tab {
   table?: string
 }
 
+function getTabLabel(tab: Tab): string {
+  if (tab.kind === 'sql') return 'SQL查询'
+  if (tab.kind === 'tableDetail') return '设计:' + tab.table
+  return tab.table ?? ''
+}
+
 export default function App() {
   const { connections, loadConnections } = useConnectionStore()
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
-  const [showConnManager, setShowConnManager] = useState(false)
+  const [connectionModal, setConnectionModal] = useState<{
+    mode: 'create' | 'edit'
+    connection?: ConnectionListItem
+  } | null>(null)
   const [bootInfo, setBootInfo] = useState<string | null>(null)
 
   useEffect(() => {
@@ -114,7 +123,8 @@ export default function App() {
             activeTab?.table ? { connectionId: activeTab.conn.id, table: activeTab.table } : null
           }
           onSelectTable={handleSelectTable}
-          onManageConnections={() => setShowConnManager(true)}
+          onCreateConnection={() => setConnectionModal({ mode: 'create' })}
+          onEditConnection={(connection) => setConnectionModal({ mode: 'edit', connection })}
           onOpenSql={handleOpenSql}
           onOpenTableDetail={handleOpenTableDetail}
         />
@@ -125,30 +135,29 @@ export default function App() {
           <div className="tab-container">
             {/* Tab 栏 */}
             <div className="tab-bar">
-              {tabs.map((tab) => (
-                <div
-                  key={tab.id}
-                  className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
-                  onClick={() => setActiveTabId(tab.id)}
-                >
-                  <span className="tab-label">
-                    {tab.kind === 'sql'
-                      ? 'SQL查询'
-                      : tab.kind === 'tableDetail'
-                        ? '设计:' + tab.table
-                        : tab.table}
-                  </span>
-                  <button
-                    className="tab-close"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      closeTab(tab.id)
-                    }}
+              {tabs.map((tab) => {
+                const label = getTabLabel(tab)
+                return (
+                  <div
+                    key={tab.id}
+                    className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
+                    onClick={() => setActiveTabId(tab.id)}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <span className="tab-label" data-label={label}>
+                      {label}
+                    </span>
+                    <button
+                      className="tab-close"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        closeTab(tab.id)
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
             </div>
             {/* Tab 内容 */}
             <div className="tab-content">
@@ -203,10 +212,11 @@ export default function App() {
       </main>
 
       {/* 连接管理 modal */}
-      {showConnManager && (
+      {connectionModal && (
         <ConnectionManager
+          initial={connectionModal.connection ?? null}
           onClose={() => {
-            setShowConnManager(false)
+            setConnectionModal(null)
             loadConnections()
           }}
         />

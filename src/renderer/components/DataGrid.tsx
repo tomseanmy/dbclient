@@ -34,7 +34,7 @@ export interface DataGridProps {
   /** 当前行变更（脏行）的 rowKey 集合，用于高亮 */
   dirtyRowKeys?: Set<string | number>
   /** 当前行编辑回调 */
-  onCellChange?: (rowIndex: number, column: string, value: string) => void
+  onCellChange?: (rowKey: string | number, column: string, value: string) => void
   /** 选中行变化回调 */
   selectedRowKey?: string | number | null
   onSelectRow?: (rowKey: string | number) => void
@@ -113,6 +113,59 @@ function CellRenderer({ value }: { value: RichValue }) {
   return <span>{String(value)}</span>
 }
 
+function stringifyEditValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+function CellEditor({
+  initialValue,
+  rowKey,
+  column,
+  onCommit,
+  onCancel,
+}: {
+  initialValue: unknown
+  rowKey: string | number
+  column: string
+  onCommit?: (rowKey: string | number, column: string, value: string) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = useState(() => stringifyEditValue(initialValue))
+  const composingRef = useRef(false)
+
+  const commit = () => {
+    onCommit?.(rowKey, column, value)
+    onCancel()
+  }
+
+  return (
+    <input
+      className="cell-edit-input"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onCompositionStart={() => {
+        composingRef.current = true
+      }}
+      onCompositionEnd={(e) => {
+        composingRef.current = false
+        setValue(e.currentTarget.value)
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !composingRef.current && !e.nativeEvent.isComposing) {
+          commit()
+        }
+        if (e.key === 'Escape') {
+          onCancel()
+        }
+      }}
+      autoFocus
+    />
+  )
+}
+
 export function DataGrid({
   result,
   editable = false,
@@ -125,7 +178,6 @@ export function DataGrid({
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
   const [editing, setEditing] = useState<{ row: number; col: string } | null>(null)
-  const [editValue, setEditValue] = useState('')
 
   const columns = useMemo<ColumnDef<Record<string, RichValue>>[]>(
     () =>
@@ -135,27 +187,22 @@ export function DataGrid({
         header: col.name,
         cell: ({ getValue, row }: { getValue: () => unknown; row: { index: number } }) => {
           const v = getValue() as RichValue
+          const originalRowKey = (row as { original?: Record<string, unknown> }).original?.[
+            '__row_key__'
+          ]
+          const rowKey =
+            typeof originalRowKey === 'string' || typeof originalRowKey === 'number'
+              ? originalRowKey
+              : row.index
           // 编辑模式
           if (editing && editing.row === row.index && editing.col === col.name) {
             return (
-              <input
-                className="cell-edit-input"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={() => {
-                  onCellChange?.(row.index, col.name, editValue)
-                  setEditing(null)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    onCellChange?.(row.index, col.name, editValue)
-                    setEditing(null)
-                  }
-                  if (e.key === 'Escape') {
-                    setEditing(null)
-                  }
-                }}
-                autoFocus
+              <CellEditor
+                initialValue={v}
+                rowKey={rowKey}
+                column={col.name}
+                onCommit={onCellChange}
+                onCancel={() => setEditing(null)}
               />
             )
           }
@@ -163,7 +210,7 @@ export function DataGrid({
         },
         size: 150,
       })),
-    [result.columns, editing, editValue, onCellChange],
+    [result.columns, editing, onCellChange],
   )
 
   const data = useMemo(() => result.rows as Record<string, RichValue>[], [result.rows])
@@ -200,6 +247,8 @@ export function DataGrid({
 
   const totalHeight = rows.length * rowHeight
   const visibleRows = rows.slice(visibleRange.start, visibleRange.end)
+  const topSpacerHeight = visibleRange.start * rowHeight
+  const bottomSpacerHeight = Math.max(0, totalHeight - visibleRange.end * rowHeight)
 
   if (result.rows.length === 0 && result.message) {
     return (
@@ -209,21 +258,20 @@ export function DataGrid({
     )
   }
 
-  const handleCellDoubleClick = (rowIndex: number, colName: string, currentValue: unknown) => {
+  const handleCellDoubleClick = (rowIndex: number, colName: string) => {
     if (!editable) return
-    const str =
-      currentValue === null || currentValue === undefined
-        ? ''
-        : typeof currentValue === 'object'
-          ? JSON.stringify(currentValue)
-          : String(currentValue)
-    setEditValue(str)
     setEditing({ row: rowIndex, col: colName })
   }
 
   return (
     <div className="data-grid-container" ref={containerRef}>
       <table className="data-grid-table">
+        <colgroup>
+          <col style={{ width: 32 }} />
+          {table.getAllLeafColumns().map((column) => (
+            <col key={column.id} style={{ width: column.getSize() }} />
+          ))}
+        </colgroup>
         <thead className="grid-head">
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
@@ -235,7 +283,6 @@ export function DataGrid({
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
                     className="grid-th"
-                    style={{ width: header.getSize() }}
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                     {sortDir === 'asc' && <ArrowUp size={10} className="sort-icon" />}
@@ -247,9 +294,23 @@ export function DataGrid({
           ))}
         </thead>
       </table>
-      <div className="grid-body" style={{ height: totalHeight, position: 'relative' }}>
+      <div className="grid-body">
         <table className="data-grid-table">
+          <colgroup>
+            <col style={{ width: 32 }} />
+            {table.getAllLeafColumns().map((column) => (
+              <col key={column.id} style={{ width: column.getSize() }} />
+            ))}
+          </colgroup>
           <tbody>
+            {topSpacerHeight > 0 && (
+              <tr aria-hidden="true">
+                <td
+                  colSpan={result.columns.length + 1}
+                  style={{ height: topSpacerHeight, padding: 0 }}
+                />
+              </tr>
+            )}
             {visibleRows.map((row, i) => {
               const rowKey =
                 (row.original as Record<string, unknown>)['__row_key__'] ?? visibleRange.start + i
@@ -259,13 +320,7 @@ export function DataGrid({
                 <tr
                   key={row.id}
                   className={`grid-row ${isDirty ? 'grid-row-dirty' : ''} ${isSelected ? 'grid-row-selected' : ''}`}
-                  style={{
-                    height: rowHeight,
-                    position: 'absolute',
-                    top: (visibleRange.start + i) * rowHeight,
-                    left: 0,
-                    right: 0,
-                  }}
+                  style={{ height: rowHeight }}
                   onClick={() => onSelectRow?.(rowKey as string | number)}
                 >
                   <td
@@ -284,11 +339,12 @@ export function DataGrid({
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
-                      className="grid-cell"
-                      style={{ width: cell.column.getSize() }}
-                      onDoubleClick={() =>
-                        handleCellDoubleClick(row.index, cell.column.id, cell.getValue())
-                      }
+                      className={`grid-cell ${
+                        editing && editing.row === row.index && editing.col === cell.column.id
+                          ? 'grid-cell-editing'
+                          : ''
+                      }`}
+                      onDoubleClick={() => handleCellDoubleClick(row.index, cell.column.id)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
@@ -296,6 +352,14 @@ export function DataGrid({
                 </tr>
               )
             })}
+            {bottomSpacerHeight > 0 && (
+              <tr aria-hidden="true">
+                <td
+                  colSpan={result.columns.length + 1}
+                  style={{ height: bottomSpacerHeight, padding: 0 }}
+                />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

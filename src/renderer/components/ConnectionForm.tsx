@@ -121,13 +121,6 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
 
   return (
     <div className="connection-form">
-      <h2>{initial ? '编辑连接' : '新建连接'}</h2>
-
-      <div className="form-field">
-        <label>名称 *</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="我的数据库" />
-      </div>
-
       <div className="form-field">
         <label>类型</label>
         <div className="type-selector">
@@ -142,6 +135,11 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="form-field">
+        <label>名称 *</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="我的数据库" />
       </div>
 
       <div className="form-field">

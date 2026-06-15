@@ -261,8 +261,12 @@ export class SqliteDriver implements DbDriver {
     let columns: { name: string; dataType: string }[] = []
     // SELECT 类语句用 all()，否则用 run()
     try {
+      columns = stmt.columns().map((col) => ({
+        name: col.name,
+        dataType: col.type ?? 'unknown',
+      }))
       const allRows = stmt.all() as Record<string, unknown>[]
-      if (allRows.length > 0) {
+      if (columns.length === 0 && allRows.length > 0) {
         columns = Object.keys(allRows[0]!).map((name) => ({
           name,
           dataType: typeof allRows[0]![name],

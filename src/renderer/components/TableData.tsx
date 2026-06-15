@@ -16,6 +16,7 @@ import {
   Trash2,
   Copy,
   ArrowDownToLine,
+  Plus,
 } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult } from '../api'
 import { DataGrid } from './DataGrid'
@@ -62,6 +63,16 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     return '`' + tableName + '`'
   }, [connection.type, schema, tableName])
 
+  const quoteIdentifier = useCallback(
+    (name: string) => {
+      if (connection.type === 'postgres' || connection.type === 'sqlite') {
+        return '"' + name.replace(/"/g, '""') + '"'
+      }
+      return '`' + name.replace(/`/g, '``') + '`'
+    },
+    [connection.type],
+  )
+
   const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -69,16 +80,25 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     setCommitLog(null)
     setSelectedRowKey(null)
     try {
+      const meta = await api['db:describeTable']({
+        connectionId: connection.id,
+        schema,
+        table: tableName,
+      })
       const sql = `SELECT * FROM ${qualifiedName} LIMIT 100`
       const res = await api['db:executeQuery']({ connectionId: connection.id, sql, limit: 100 })
+      const columns =
+        res.columns.length > 0
+          ? res.columns
+          : meta.columns.map((col) => ({ name: col.name, dataType: col.dataType }))
       const rowsWithKey = res.rows.map((row, i) => ({ ...row, __row_key__: i }))
-      setResult({ ...res, rows: rowsWithKey })
+      setResult({ ...res, columns, rows: rowsWithKey })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }
-  }, [connection.id, qualifiedName])
+  }, [connection.id, qualifiedName, schema, tableName])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时加载数据
@@ -98,12 +118,14 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
   }, [ctxMenu])
 
   /** 双击编辑回调 */
-  const handleCellChange = (rowIndex: number, column: string, value: string) => {
+  const handleCellChange = (rowKey: string | number, column: string, value: string) => {
+    const rowKeyNumber = Number(rowKey)
+    if (Number.isNaN(rowKeyNumber)) return
     // insert 行的特殊处理
-    if (rowIndex < 0) {
+    if (rowKeyNumber < 0) {
       setChanges((prev) => {
         const next = new Map(prev)
-        const ch = next.get(rowIndex)
+        const ch = next.get(rowKeyNumber)
         if (ch && ch.type === 'insert') {
           ch.newValues = { ...ch.newValues, [column]: value }
         }
@@ -113,24 +135,50 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     }
     setChanges((prev) => {
       const next = new Map(prev)
-      const existing = next.get(rowIndex)
-      const originalRow = result?.rows[rowIndex]
+      const existing = next.get(rowKeyNumber)
+      const originalRow = result?.rows.find((row) => row.__row_key__ === rowKeyNumber)
+      const originalValue = originalRow?.[column]
+      const normalizedOriginal =
+        originalValue === null || originalValue === undefined ? '' : String(originalValue)
       if (existing && existing.type === 'update') {
-        existing.values = { ...existing.values, [column]: value }
+        const values = { ...existing.values }
+        if (value === normalizedOriginal) {
+          delete values[column]
+        } else {
+          values[column] = value
+        }
+        if (Object.keys(values).length === 0) {
+          next.delete(rowKeyNumber)
+        } else {
+          existing.values = values
+        }
       } else {
+        if (value === normalizedOriginal) return next
         const original: Record<string, unknown> = {}
         if (originalRow) {
           for (const k of Object.keys(originalRow)) {
             if (k !== '__row_key__') original[k] = originalRow[k]
           }
         }
-        next.set(rowIndex, {
+        next.set(rowKeyNumber, {
           type: 'update',
-          rowKey: rowIndex,
+          rowKey: rowKeyNumber,
           values: { [column]: value },
           original,
         })
       }
+      return next
+    })
+  }
+
+  /** 新增空行（追加到顶部） */
+  const handleAddRow = () => {
+    setChanges((prev) => {
+      const next = new Map(prev)
+      const newKey = -1 * Math.floor(Math.random() * 1000000) - 1
+      const newValues: Record<string, string> = {}
+      result?.columns.forEach((col) => (newValues[col.name] = ''))
+      next.set(newKey, { type: 'insert', rowKey: newKey, newValues })
       return next
     })
   }
@@ -158,7 +206,7 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
       })
       return
     }
-    const originalRow = result?.rows[rowKey]
+    const originalRow = result?.rows.find((row) => row.__row_key__ === rowKey)
     if (!originalRow) return
     const original: Record<string, unknown> = {}
     for (const k of Object.keys(originalRow)) {
@@ -178,10 +226,14 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
       const ch = changes.get(rowKey)
       if (ch?.newValues) sourceValues = { ...ch.newValues }
     } else {
-      const originalRow = result?.rows[rowKey]
+      const originalRow = result?.rows.find((row) => row.__row_key__ === rowKey)
       if (originalRow) {
+        const updateValues = changes.get(rowKey)?.values ?? {}
         for (const [k, v] of Object.entries(originalRow)) {
-          if (k !== '__row_key__') sourceValues[k] = v === null ? '' : String(v)
+          if (k !== '__row_key__') {
+            const currentValue = updateValues[k] ?? v
+            sourceValues[k] = currentValue === null ? '' : String(currentValue)
+          }
         }
       }
     }
@@ -223,16 +275,17 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
         if (change.type === 'insert' && change.newValues) {
           const cols = Object.keys(change.newValues).filter((k) => change.newValues![k] !== '')
           if (cols.length === 0) return
+          const colSql = cols.map((k) => quoteIdentifier(k)).join(', ')
           const vals = cols.map((k) => escapeSqlValue(change.newValues![k] as string)).join(', ')
-          stmts.push(`INSERT INTO ${qualifiedName} (${cols.join(', ')}) VALUES (${vals})`)
+          stmts.push(`INSERT INTO ${qualifiedName} (${colSql}) VALUES (${vals})`)
         } else if (change.type === 'update' && change.values && change.original) {
           const sets = Object.entries(change.values)
-            .map(([k, v]) => quoteIdent(k) + ' = ' + escapeSqlValue(v))
+            .map(([k, v]) => quoteIdentifier(k) + ' = ' + escapeSqlValue(v))
             .join(', ')
-          const where = buildWhereClause(change.original)
+          const where = buildWhereClause(change.original, quoteIdentifier)
           stmts.push(`UPDATE ${qualifiedName} SET ${sets} WHERE ${where}`)
         } else if (change.type === 'delete' && change.original) {
-          const where = buildWhereClause(change.original)
+          const where = buildWhereClause(change.original, quoteIdentifier)
           stmts.push(`DELETE FROM ${qualifiedName} WHERE ${where}`)
         }
       })
@@ -270,18 +323,46 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
 
   const dirtyRowKeys = useMemo(() => new Set(changes.keys()), [changes])
 
-  // 合并 insert 行到显示数据（按 afterRowIndex 插入）
+  // 合并未提交变更到显示数据：update 立即覆盖显示值，insert 按 afterRowIndex 就近显示。
   const displayResult = useMemo(() => {
     if (!result) return null
-    const insertChanges = [...changes.values()].filter((c) => c.type === 'insert')
-    if (insertChanges.length === 0) return result
-    // 简单追加到顶部
-    const insertRows = insertChanges.map((c) => {
-      const row: Record<string, unknown> = { __row_key__: c.rowKey }
-      if (c.newValues) for (const [k, v] of Object.entries(c.newValues)) row[k] = v
-      return row
+    if (changes.size === 0) return result
+
+    const updateChanges = [...changes.values()].filter((c) => c.type === 'update')
+    const updateByRowKey = new Map(updateChanges.map((c) => [c.rowKey, c]))
+    const rows = result.rows.map((row) => {
+      const rowKey = Number(row.__row_key__)
+      const change = updateByRowKey.get(rowKey)
+      if (!change?.values) return row
+      return { ...row, ...change.values }
     })
-    return { ...result, rows: [...insertRows, ...result.rows] } as QueryResult
+
+    const topInsertRows: Record<string, unknown>[] = []
+    const insertRowsByAfterKey = new Map<number, Record<string, unknown>[]>()
+
+    for (const change of changes.values()) {
+      if (change.type !== 'insert') continue
+      const row: Record<string, unknown> = { __row_key__: change.rowKey }
+      if (change.newValues) for (const [k, v] of Object.entries(change.newValues)) row[k] = v
+
+      if (change.afterRowIndex === undefined) {
+        topInsertRows.push(row)
+      } else {
+        const existing = insertRowsByAfterKey.get(change.afterRowIndex) ?? []
+        existing.push(row)
+        insertRowsByAfterKey.set(change.afterRowIndex, existing)
+      }
+    }
+
+    const orderedRows: Record<string, unknown>[] = [...topInsertRows]
+    for (const row of rows) {
+      orderedRows.push(row)
+      const rowKey = Number(row.__row_key__)
+      const insertRows = insertRowsByAfterKey.get(rowKey)
+      if (insertRows) orderedRows.push(...insertRows)
+    }
+
+    return { ...result, rows: orderedRows } as QueryResult
   }, [result, changes])
 
   const hasChanges = changes.size > 0
@@ -290,35 +371,32 @@ export function TableData({ connection, schema, tableName }: TableDataProps) {
     <div className="table-data-view">
       {/* 工具栏（无标题） */}
       <div className="table-data-toolbar-bar">
-        <button
-          className="btn btn-sm"
-          style={{
-            background: hasChanges ? 'var(--success)' : 'var(--bg-hover)',
-            color: hasChanges ? 'white' : 'var(--text-muted)',
-            border: '1px solid transparent',
-            opacity: hasChanges ? 1 : 0.5,
-          }}
-          onClick={handleCommit}
-          disabled={!hasChanges || committing}
-          title="提交所有变更"
-        >
-          {committing ? <Loader2 size={12} className="spin" /> : <Check size={12} />}
-          提交 {hasChanges ? `(${changes.size})` : ''}
-        </button>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={handleRollback}
-          disabled={!hasChanges}
-          title="撤回所有未提交变更"
-          style={{ opacity: hasChanges ? 1 : 0.5 }}
-        >
-          <Undo2 size={12} /> 撤回
-        </button>
+        <abbr title={hasChanges ? '提交 ' + changes.size + ' 个变更' : '无变更可提交'}>
+          <button
+            className="icon-btn"
+            onClick={handleCommit}
+            disabled={!hasChanges || committing}
+            style={{ color: hasChanges ? 'var(--success)' : undefined }}
+          >
+            {committing ? <Loader2 size={14} className="spin" /> : <Check size={14} />}
+          </button>
+        </abbr>
+        <abbr title="撤回所有变更">
+          <button className="icon-btn" onClick={handleRollback} disabled={!hasChanges}>
+            <Undo2 size={14} />
+          </button>
+        </abbr>
+        <abbr title="新增空行">
+          <button className="icon-btn" onClick={handleAddRow}>
+            <Plus size={14} />
+          </button>
+        </abbr>
         <div className="toolbar-spacer" />
-        <button className="btn btn-secondary btn-sm" onClick={loadData} disabled={loading}>
-          {loading ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
-          刷新
-        </button>
+        <abbr title="刷新数据">
+          <button className="icon-btn" onClick={loadData} disabled={loading}>
+            {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+          </button>
+        </abbr>
       </div>
 
       {loading && (
@@ -407,16 +485,15 @@ function escapeSqlValue(v: string): string {
   return "'" + v.replace(/'/g, "''") + "'"
 }
 
-function quoteIdent(name: string): string {
-  return '`' + name + '`'
-}
-
-function buildWhereClause(original: Record<string, unknown>): string {
+function buildWhereClause(
+  original: Record<string, unknown>,
+  quoteIdentifier: (name: string) => string,
+): string {
   const conds = Object.entries(original)
     .filter(([, v]) => v !== null && v !== undefined)
     .map(([k, v]) => {
       const sv = typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'"
-      return quoteIdent(k) + ' = ' + sv
+      return quoteIdentifier(k) + ' = ' + sv
     })
   return conds.length > 0 ? conds.join(' AND ') : '1=1'
 }

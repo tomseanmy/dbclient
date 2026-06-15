@@ -16,6 +16,8 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Pencil,
+  Search,
 } from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import type { ConnectionListItem, Table } from '../api'
@@ -23,13 +25,14 @@ import type { ConnectionListItem, Table } from '../api'
 interface ObjectTreeProps {
   selectedTable: { connectionId: string; schema?: string; table: string } | null
   onSelectTable: (conn: ConnectionListItem, schema: string | undefined, table: Table) => void
-  onManageConnections: () => void
+  onCreateConnection: () => void
+  onEditConnection: (conn: ConnectionListItem) => void
   onOpenSql: (conn: ConnectionListItem) => void
   onOpenTableDetail: (conn: ConnectionListItem, schema: string | undefined, table: string) => void
 }
 
 /** 右键菜单位置 */
-interface ContextMenu {
+interface TableContextMenu {
   x: number
   y: number
   conn: ConnectionListItem
@@ -37,10 +40,17 @@ interface ContextMenu {
   table: string
 }
 
+interface ConnectionContextMenu {
+  x: number
+  y: number
+  conn: ConnectionListItem
+}
+
 export function ObjectTree({
   selectedTable,
   onSelectTable,
-  onManageConnections,
+  onCreateConnection,
+  onEditConnection,
   onOpenSql,
   onOpenTableDetail,
 }: ObjectTreeProps) {
@@ -57,7 +67,8 @@ export function ObjectTree({
   const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set())
   const [refreshingConn, setRefreshingConn] = useState<string | null>(null)
-  const [ctxMenu, setCtxMenu] = useState<ContextMenu | null>(null)
+  const [tableCtxMenu, setTableCtxMenu] = useState<TableContextMenu | null>(null)
+  const [connCtxMenu, setConnCtxMenu] = useState<ConnectionContextMenu | null>(null)
 
   useEffect(() => {
     if (refreshTick === 0) return
@@ -70,15 +81,18 @@ export function ObjectTree({
 
   // 点击其他地方关闭右键菜单
   useEffect(() => {
-    if (!ctxMenu) return
-    const close = () => setCtxMenu(null)
+    if (!tableCtxMenu && !connCtxMenu) return
+    const close = () => {
+      setTableCtxMenu(null)
+      setConnCtxMenu(null)
+    }
     window.addEventListener('click', close)
     window.addEventListener('contextmenu', close)
     return () => {
       window.removeEventListener('click', close)
       window.removeEventListener('contextmenu', close)
     }
-  }, [ctxMenu])
+  }, [tableCtxMenu, connCtxMenu])
 
   const toggleConn = async (conn: ConnectionListItem) => {
     const key = conn.id
@@ -91,11 +105,23 @@ export function ObjectTree({
       const state = states[key]
       if (!state?.connected) {
         const ok = await connectDb(conn.id)
-        if (ok) await loadSchemas(conn.id)
+        if (ok) {
+          await loadSchemas(conn.id)
+          await reloadExpandedTables(conn.id)
+        }
       } else {
         await loadSchemas(conn.id)
+        await reloadExpandedTables(conn.id)
       }
     }
+  }
+
+  const reloadExpandedTables = async (connId: string) => {
+    const schemas = [...expandedSchemas]
+      .filter((schemaKey) => schemaKey.startsWith(`${connId}:`))
+      .map((schemaKey) => schemaKey.slice(connId.length + 1))
+
+    await Promise.all(schemas.map((schema) => loadTables(connId, schema)))
   }
 
   const toggleSchema = async (connId: string, schemaName: string) => {
@@ -129,12 +155,20 @@ export function ObjectTree({
   ) => {
     e.preventDefault()
     e.stopPropagation()
-    setCtxMenu({ x: e.clientX, y: e.clientY, conn, schema, table })
+    setConnCtxMenu(null)
+    setTableCtxMenu({ x: e.clientX, y: e.clientY, conn, schema, table })
+  }
+
+  const handleConnectionContextMenu = (e: React.MouseEvent, conn: ConnectionListItem) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setTableCtxMenu(null)
+    setConnCtxMenu({ x: e.clientX, y: e.clientY, conn })
   }
 
   const handleCtxAction = (action: string) => {
-    if (!ctxMenu) return
-    const { conn, schema, table } = ctxMenu
+    if (!tableCtxMenu) return
+    const { conn, schema, table } = tableCtxMenu
     switch (action) {
       case 'data':
         onSelectTable(conn, schema, { name: table, type: 'table' })
@@ -153,7 +187,7 @@ export function ObjectTree({
         navigator.clipboard.writeText(table)
         break
     }
-    setCtxMenu(null)
+    setTableCtxMenu(null)
   }
 
   const handleDropTable = async (
@@ -179,7 +213,7 @@ export function ObjectTree({
     <div className="object-tree">
       <div className="tree-header">
         <span className="tree-title">连接</span>
-        <button className="btn-icon" onClick={onManageConnections} title="管理连接">
+        <button className="btn-icon" onClick={onCreateConnection} title="新建连接">
           +
         </button>
       </div>
@@ -187,7 +221,7 @@ export function ObjectTree({
       {connections.length === 0 && (
         <div className="tree-empty">
           <p>暂无连接</p>
-          <button className="btn btn-primary btn-sm" onClick={onManageConnections}>
+          <button className="btn btn-primary btn-sm" onClick={onCreateConnection}>
             新建连接
           </button>
         </div>
@@ -204,8 +238,9 @@ export function ObjectTree({
         return (
           <div key={conn.id} className="tree-node-group">
             <div
-              className={`tree-node tree-conn ${isOpen ? 'expanded' : ''}`}
+              className={`tree-node tree-conn tree-level-0 ${isOpen ? 'expanded' : ''}`}
               onClick={() => toggleConn(conn)}
+              onContextMenu={(e) => handleConnectionContextMenu(e, conn)}
             >
               <ChevronRight size={14} className={`chevron ${isOpen ? 'rotated' : ''}`} />
               <span
@@ -248,13 +283,13 @@ export function ObjectTree({
             </div>
 
             {isOpen && isConnecting && (
-              <div className="tree-loading">
+              <div className="tree-loading tree-level-1">
                 <Loader2 size={12} className="spin" /> 连接中…
               </div>
             )}
 
             {isOpen && connError && !isConnecting && (
-              <div className="tree-error">
+              <div className="tree-error tree-level-1">
                 <AlertCircle size={12} /> {connError}
               </div>
             )}
@@ -269,7 +304,9 @@ export function ObjectTree({
                   return (
                     <div key={schema.name}>
                       <div
-                        className={`tree-node tree-schema ${isSchemaOpen ? 'expanded' : ''}`}
+                        className={`tree-node tree-schema tree-level-1 ${
+                          isSchemaOpen ? 'expanded' : ''
+                        }`}
                         onClick={() => toggleSchema(conn.id, schema.name)}
                       >
                         <ChevronRight
@@ -284,7 +321,7 @@ export function ObjectTree({
                           {tables.map((table) => (
                             <div
                               key={table.name}
-                              className={`tree-node tree-table ${
+                              className={`tree-node tree-table tree-level-2 ${
                                 selectedTable?.connectionId === conn.id &&
                                 selectedTable?.table === table.name
                                   ? 'selected'
@@ -305,13 +342,17 @@ export function ObjectTree({
                               )}
                             </div>
                           ))}
-                          {tables.length === 0 && <div className="tree-empty-sm">无表</div>}
+                          {tables.length === 0 && (
+                            <div className="tree-empty-sm tree-level-2">无表</div>
+                          )}
                         </div>
                       )}
                     </div>
                   )
                 })}
-                {schemas.length === 0 && <div className="tree-empty-sm">无 schema</div>}
+                {schemas.length === 0 && (
+                  <div className="tree-empty-sm tree-level-1">无 schema</div>
+                )}
               </div>
             )}
           </div>
@@ -319,10 +360,38 @@ export function ObjectTree({
       })}
 
       {/* 右键菜单 */}
-      {ctxMenu && (
+      {connCtxMenu && (
         <div
           className="context-menu"
-          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          style={{ left: connCtxMenu.x, top: connCtxMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            className="ctx-item"
+            onClick={() => {
+              onEditConnection(connCtxMenu.conn)
+              setConnCtxMenu(null)
+            }}
+          >
+            <Pencil size={12} /> 编辑连接
+          </button>
+          <button
+            className="ctx-item"
+            onClick={() => {
+              onOpenSql(connCtxMenu.conn)
+              setConnCtxMenu(null)
+            }}
+          >
+            <Search size={12} /> SQL 查询
+          </button>
+        </div>
+      )}
+
+      {tableCtxMenu && (
+        <div
+          className="context-menu"
+          style={{ left: tableCtxMenu.x, top: tableCtxMenu.y }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
