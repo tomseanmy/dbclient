@@ -33,25 +33,25 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # 固定 Python 3.11：@electron/rebuild@3.6.1 自带的 node-gyp@9.4.1
       # 依赖 distutils，而 distutils 在 Python 3.12+ 已移除（runner 默认 3.14），
       # 否则 better-sqlite3 的 Electron 原生编译会报 ModuleNotFoundError: distutils。
       - name: Setup Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -64,7 +64,7 @@ jobs:
           CI: true
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.name }}
           # 只上传可分发的安装包 + 自动更新元数据，排除 win-unpacked/、
@@ -81,8 +81,6 @@ jobs:
             release/*.snap
             release/latest*.yml
           if-no-files-found: error
-          # 不上传 node_modules 等依赖，进一步收紧体积
-          include-node-modules: false
 
   release:
     name: Publish GitHub Release
@@ -91,16 +89,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release
           merge-multiple: true
 
       - name: Create / update GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           # fail_on_unmatched_files 按 glob 逐条判断：当前只开 Windows，
