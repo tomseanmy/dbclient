@@ -33,6 +33,7 @@ import {
 import { api, type ConnectionListItem, type QueryResult, type TableMeta } from '../api'
 import { DataGrid } from './DataGrid'
 import { useTabStore } from '../store/tabs'
+import { exportResultCsv, exportResultJson } from '../lib/export'
 
 interface TableDataProps {
   connection: ConnectionListItem
@@ -515,27 +516,14 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
   /** 导出 CSV */
   const exportCsv = () => {
     if (!result) return
-    const headers = result.columns.map((c) => c.name).join(',')
-    const lines = result.rows.map((row) =>
-      result.columns
-        .map((c) => {
-          const v = row[c.name]
-          if (v === null) return ''
-          const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
-          return s.includes(',') || s.includes('"') || s.includes('\n')
-            ? '"' + s.replace(/"/g, '""') + '"'
-            : s
-        })
-        .join(','),
-    )
-    download(tableName + '.csv', [headers, ...lines].join('\n'), 'text/csv')
+    exportResultCsv(tableName + '.csv', result)
     setExportOpen(false)
   }
 
   /** 导出 JSON */
   const exportJson = () => {
     if (!result) return
-    download(tableName + '.json', JSON.stringify(result.rows, null, 2), 'application/json')
+    exportResultJson(tableName + '.json', result)
     setExportOpen(false)
   }
 
@@ -948,14 +936,4 @@ function buildWhereClause(
       return quoteIdentifier(k) + ' = ' + sv
     })
   return conds.length > 0 ? conds.join(' AND ') : '1=1'
-}
-
-function download(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
 }

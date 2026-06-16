@@ -1852,10 +1852,11 @@ select,
 }
 
 .chat-composer-box {
+  position: relative;
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
-  overflow: hidden;
+  /* 不能用 overflow:hidden —— mention popover 需要向上溢出 box 显示 */
   transition: border-color 0.15s;
 }
 
@@ -2648,7 +2649,17 @@ select,
 /* ===== AGENT 工作台 ===== */
 .agent-workspace {
   display: flex;
+  flex-direction: row;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 左侧主区：连接提示 + 对话流 + 输入框 */
+.agent-main {
+  display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
   height: 100%;
 }
 
@@ -2800,6 +2811,261 @@ select,
   padding: 6px 10px;
   font-size: 11px;
   color: var(--text-muted);
+}
+
+/* 执行报错的 SQL 结果：错误文字染红 + 重新生成按钮 */
+.agent-sql-result-err {
+  color: var(--danger, #ff453a);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sql-regen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 未配置模型时的「配置模型」按钮（替代被禁用的 select） */
+.chat-model-configure {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.chat-model-configure:hover {
+  filter: brightness(1.1);
+}
+
+/* mention 候选项：未连接连接的状态标记 */
+.conn-dot-off {
+  background: var(--text-muted) !important;
+  opacity: 0.5;
+}
+
+.mention-item-status {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ===== 右侧：执行历史结果面板 ===== */
+.agent-results-panel {
+  width: 420px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  height: 100%;
+  overflow: hidden;
+}
+
+.agent-results-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.agent-results-title {
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-results-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 空态占位 */
+.agent-results-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.agent-results-placeholder p {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* 历史列表 */
+.agent-result-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.agent-result-item:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.agent-result-item.is-error {
+  border-left: 3px solid var(--danger, #ff453a);
+}
+
+.agent-result-status {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.agent-result-status.ok {
+  color: var(--success, #30d158);
+}
+
+.agent-result-status.err {
+  color: var(--danger, #ff453a);
+}
+
+.agent-result-sql {
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.agent-result-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* 结果视图 */
+.agent-results-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agent-results-meta {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.agent-results-grid .data-grid-wrap,
+.agent-results-grid > div {
+  flex: 1;
+  min-height: 0;
+}
+
+.agent-results-empty,
+.agent-results-error {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.agent-results-error {
+  color: var(--danger, #ff453a);
+}
+
+.agent-results-clear {
+  opacity: 0.7;
+}
+
+.agent-results-clear:hover {
+  opacity: 1;
+}
+
+.agent-results-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.agent-results-collapse-icon {
+  transform: rotate(0deg);
+}
+
+/* 折叠态：竖排窄条 */
+.agent-results-collapsed {
+  width: 36px;
+}
+
+.agent-results-expand-btn {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-family: inherit;
+}
+
+.agent-results-expand-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.agent-results-expand-icon {
+  transform: rotate(180deg);
+}
+
+.agent-results-expand-label {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .ai-chat-input {
@@ -2999,6 +3265,66 @@ select,
   display: flex;
   gap: 2px;
   flex-shrink: 0;
+}
+
+/* 默认模型选择区（Agent / 补全 分类） */
+.default-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.default-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.default-model-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.default-model-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.default-model-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.default-model-selects {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.default-model-select {
+  background: var(--bg-secondary);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  max-width: 180px;
+}
+
+.default-model-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 用量统计 */

@@ -5,9 +5,12 @@
  * 由父级 Settings 外壳提供 modal 容器，本组件只渲染内容区。
  */
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Star, Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { api, type LlmProvider, type LlmProviderInput, type UsageSummary } from '../../api'
 import { notify } from '../../services/notifications'
+import { useLlmProviderStore } from '../../store/llm-providers'
+import { useSettingsStore } from '../../store/settings'
+import type { ModelDefault } from '@shared/types/settings'
 
 export function ModelSettings() {
   const [providers, setProviders] = useState<LlmProvider[]>([])
@@ -18,6 +21,8 @@ export function ModelSettings() {
     const [list, u] = await Promise.all([api['llm:listProviders'](), api['llm:getUsage']()])
     setProviders(list)
     setUsage(u)
+    // 同步共享 store：Agent 模式左下角「选择模型」据此即时刷新
+    await useLlmProviderStore.getState().refresh()
   }, [])
 
   useEffect(() => {
@@ -37,6 +42,9 @@ export function ModelSettings() {
 
   return (
     <>
+      {/* 默认模型：Agent / 补全 分类 */}
+      <DefaultModelSection providers={providers} />
+
       {/* Provider 列表 */}
       <div className="settings-section">
         <div className="settings-section-header">
@@ -55,29 +63,11 @@ export function ModelSettings() {
             {providers.map((p) => (
               <div key={p.id} className="provider-card">
                 <div className="provider-info">
-                  <span className="provider-name">
-                    {p.name}
-                    {p.isDefault && (
-                      <span className="provider-default">
-                        <Star size={10} /> 默认
-                      </span>
-                    )}
-                  </span>
+                  <span className="provider-name">{p.name}</span>
                   <span className="provider-url">{p.baseUrl}</span>
                   <span className="provider-models">{p.models.join(' · ') || '未配置模型'}</span>
                 </div>
                 <div className="provider-actions">
-                  {!p.isDefault && (
-                    <button
-                      className="btn-icon"
-                      title="设为默认"
-                      onClick={() => {
-                        api['llm:setDefaultProvider']({ id: p.id }).then(reload)
-                      }}
-                    >
-                      <Star size={14} />
-                    </button>
-                  )}
                   <button
                     className="btn-icon"
                     title="编辑"
@@ -163,7 +153,6 @@ function ProviderForm({
   const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? 'https://api.deepseek.com/v1')
   const [models, setModels] = useState((provider?.models ?? []).join(', '))
   const [apiKey, setApiKey] = useState('')
-  const [isDefault, setIsDefault] = useState(provider?.isDefault ?? false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -177,7 +166,6 @@ function ProviderForm({
       .map((m) => m.trim())
       .filter(Boolean),
     apiKey: apiKey || undefined,
-    isDefault,
   })
 
   const handleTest = async () => {
@@ -259,18 +247,6 @@ function ProviderForm({
           />
           <span className="hint">存入系统 Keychain，不落库</span>
         </div>
-        <div className="form-field">
-          <label>
-            <input
-              type="checkbox"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              style={{ width: 'auto', marginRight: 6 }}
-            />
-            设为默认 Provider
-          </label>
-        </div>
-
         {testResult && (
           <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
             {testResult.success ? (
@@ -300,6 +276,124 @@ function ProviderForm({
             {saving ? '保存中…' : provider ? '保存' : '创建'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 默认模型选择区：Agent 模型 / 补全模型 两个分类默认。
+ * 每类各自选 Provider + 具体模型；两者可指向不同 Provider/模型。
+ * 未配置时回退到第一个 Provider 的第一个模型（由网关兜底）。
+ */
+function DefaultModelSection({ providers }: { providers: LlmProvider[] }) {
+  const { settings, update } = useSettingsStore()
+
+  const handleChange = async (kind: 'agent' | 'chat', value: ModelDefault | undefined) => {
+    await update(kind === 'agent' ? { defaultAgentModel: value } : { defaultChatModel: value })
+  }
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-header">
+        <h2>默认模型</h2>
+      </div>
+      {providers.length === 0 ? (
+        <div className="empty">先添加 Provider 后再选择默认模型。</div>
+      ) : (
+        <div className="default-model-list">
+          <DefaultModelRow
+            label="Agent 模型"
+            hint="AGENT 模式（带工具调用）使用"
+            providers={providers}
+            value={settings.defaultAgentModel}
+            onChange={(v) => handleChange('agent', v)}
+          />
+          <DefaultModelRow
+            label="补全模型"
+            hint="普通对话 / GUI 辅助使用"
+            providers={providers}
+            value={settings.defaultChatModel}
+            onChange={(v) => handleChange('chat', v)}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 单个默认模型行：Provider 选择 + 模型选择 */
+function DefaultModelRow({
+  label,
+  hint,
+  providers,
+  value,
+  onChange,
+}: {
+  label: string
+  hint: string
+  providers: LlmProvider[]
+  value?: ModelDefault
+  onChange: (v: ModelDefault | undefined) => void
+}) {
+  // 当前选中的 provider（校验：若 value.providerId 已失效则为 null）
+  const selectedProvider =
+    (value?.providerId && providers.find((p) => p.id === value.providerId)) || null
+  const providerId = selectedProvider?.id ?? ''
+  // 当前选中的模型（校验：必须在所选 provider 的模型列表里）
+  const model = value?.model && selectedProvider?.models.includes(value.model) ? value.model : ''
+
+  const handleProviderChange = (newProviderId: string) => {
+    if (!newProviderId) {
+      onChange(undefined)
+      return
+    }
+    const p = providers.find((x) => x.id === newProviderId)
+    // 切换 provider 后，模型回退到该 provider 的第一个模型
+    const firstModel = p?.models[0]
+    onChange(firstModel ? { providerId: newProviderId, model: firstModel } : undefined)
+  }
+
+  const handleModelChange = (newModel: string) => {
+    if (!providerId || !newModel) {
+      onChange(undefined)
+      return
+    }
+    onChange({ providerId, model: newModel })
+  }
+
+  return (
+    <div className="default-model-row">
+      <div className="default-model-label">
+        <span className="default-model-name">{label}</span>
+        <span className="default-model-hint">{hint}</span>
+      </div>
+      <div className="default-model-selects">
+        <select
+          className="default-model-select"
+          value={providerId}
+          onChange={(e) => handleProviderChange(e.target.value)}
+        >
+          <option value="">未选择</option>
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="default-model-select"
+          value={model}
+          onChange={(e) => handleModelChange(e.target.value)}
+          disabled={!providerId}
+        >
+          <option value="">{providerId ? '选择模型' : '—'}</option>
+          {selectedProvider?.models.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   )

@@ -20,6 +20,7 @@ import { useConnectionStore } from './store/connections'
 import { useTabStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useSettingsStore } from './store/settings'
+import { useLlmProviderStore } from './store/llm-providers'
 import { ObjectTree } from './components/ObjectTree'
 import { TableData } from './components/TableData'
 import { DatabaseDetail } from './components/DatabaseDetail'
@@ -29,6 +30,7 @@ import { AgentWorkspace } from './components/AgentWorkspace'
 import { ConnectionManager } from './pages/ConnectionManager'
 import { Settings } from './pages/Settings'
 import { WindowControls } from './components/WindowControls'
+import { useContextMenuClose } from './hooks/useContextMenu'
 
 /** 主内容区的 tab 类型 */
 interface Tab {
@@ -69,6 +71,8 @@ export default function App() {
     connection?: ConnectionListItem
   } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  /** 打开设置时默认定位的 tab（如 Agent 模式「配置模型」直达模型设置） */
+  const [settingsTab, setSettingsTab] = useState<'general' | 'model' | 'about'>('general')
   const tabBarRef = useRef<HTMLDivElement>(null)
 
   // 激活 tab 变化时，把 active tab 滚进可视区（横向滚动条跟随）
@@ -87,6 +91,12 @@ export default function App() {
   useEffect(() => {
     loadSettings().catch(() => {})
   }, [loadSettings])
+
+  // 首屏加载 LLM Provider 列表（Agent 模式左下角「选择模型」依赖它）
+  const loadProviders = useLlmProviderStore((s) => s.load)
+  useEffect(() => {
+    loadProviders().catch(() => {})
+  }, [loadProviders])
 
   const openTab = useCallback((tab: Tab) => {
     setTabs((prev) => {
@@ -187,16 +197,7 @@ export default function App() {
   const isTabDirty = useTabStore((s) => s.isDirty)
 
   // 点击任意处 / 触发其他右键菜单时关闭 Tab 菜单
-  useEffect(() => {
-    if (!tabMenu) return
-    const close = () => setTabMenu(null)
-    window.addEventListener('click', close)
-    window.addEventListener('contextmenu', close)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('contextmenu', close)
-    }
-  }, [tabMenu])
+  useContextMenuClose(tabMenu !== null, () => setTabMenu(null))
 
   const handleTabContextMenu = (e: React.MouseEvent, tabId: string) => {
     e.preventDefault()
@@ -276,7 +277,13 @@ export default function App() {
         <div
           className={`agent-overlay ${workspaceMode === 'agent' ? 'agent-overlay-visible' : ''}`}
         >
-          <AgentWorkspace initialInput={pendingAgentInput} />
+          <AgentWorkspace
+            initialInput={pendingAgentInput}
+            onOpenSettings={() => {
+              setSettingsTab('model')
+              setSettingsOpen(true)
+            }}
+          />
         </div>
 
         {/* 常规主区（编辑器/表格/数据库详情） */}
@@ -409,7 +416,7 @@ export default function App() {
       )}
 
       {/* 设置 modal */}
-      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <Settings initialTab={settingsTab} onClose={() => setSettingsOpen(false)} />}
 
       {/* Tab 右键菜单 */}
       {tabMenu && (

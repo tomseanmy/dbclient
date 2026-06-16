@@ -15,6 +15,8 @@ import { AboutPanel } from '../components/settings/AboutPanel'
 
 interface SettingsProps {
   onClose: () => void
+  /** 初始打开的 tab（如 Agent 模式「配置模型」入口直达模型设置） */
+  initialTab?: SettingsTab
 }
 
 type SettingsTab = 'general' | 'model' | 'about'
@@ -25,8 +27,8 @@ const NAV_ITEMS: { key: SettingsTab; label: string; icon: typeof Settings2 }[] =
   { key: 'about', label: '关于', icon: Info },
 ]
 
-export function Settings({ onClose }: SettingsProps) {
-  const [tab, setTab] = useState<SettingsTab>('general')
+export function Settings({ onClose, initialTab }: SettingsProps) {
+  const [tab, setTab] = useState<SettingsTab>(initialTab ?? 'general')
 
   return (
     <div className="modal-overlay" onClick={onClose}>

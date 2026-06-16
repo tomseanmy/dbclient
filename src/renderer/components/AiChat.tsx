@@ -7,6 +7,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { MessageCircle, User, Bot, Lock, AlertTriangle } from 'lucide-react'
 import { api } from '../api'
+import { useStreamChat } from '../hooks/useStreamChat'
+import { genStreamId } from '../lib/stream'
 import type { ConnectionListItem, LlmProvider, ChatMessage, AiStreamDonePayload } from '../api'
 
 interface ChatTurn {
@@ -24,11 +26,6 @@ interface AiChatProps {
   connection: ConnectionListItem
 }
 
-/** 生成简易唯一 streamId（足够区分并发流） */
-function genStreamId(): string {
-  return `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-}
-
 export function AiChat({ connection }: AiChatProps) {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [input, setInput] = useState('')
@@ -38,25 +35,11 @@ export function AiChat({ connection }: AiChatProps) {
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
   const [executing, setExecuting] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  /** 当前流的 streamId，用于事件过滤 */
-  const activeStreamId = useRef<string | null>(null)
 
-  // 加载 provider 列表
-  useEffect(() => {
-    api['llm:listProviders']()
-      .then((list) => {
-        setProviders(list)
-        const def = list.find((p) => p.isDefault) ?? list[0]
-        if (def) setSelectedProviderId(def.id)
-      })
-      .catch(() => {})
-  }, [])
-
-  // 订阅流式事件（挂载一次）
-  useEffect(() => {
+  // 订阅 ai:* 流式事件（封装在 hook 内，按 activeStreamId 过滤 + 卸载清理）
+  const { activeStreamIdRef, setActiveStreamId } = useStreamChat({
     // 增量：把 delta 追加到最后一个 assistant turn
-    const offDelta = window.on('ai:streamDelta', ({ streamId, delta }) => {
-      if (streamId !== activeStreamId.current) return
+    onDelta: (delta) => {
       setTurns((prev) => {
         const last = prev[prev.length - 1]
         if (!last || last.role !== 'assistant') return prev
@@ -64,11 +47,9 @@ export function AiChat({ connection }: AiChatProps) {
         next[next.length - 1] = { ...last, content: last.content + delta }
         return next
       })
-    })
-
+    },
     // 完成：补全 sql/dataFlow，关闭流式态
-    const offDone = window.on('ai:streamDone', (payload: AiStreamDonePayload) => {
-      if (payload.streamId !== activeStreamId.current) return
+    onDone: (payload: AiStreamDonePayload) => {
       setTurns((prev) => {
         const last = prev[prev.length - 1]
         if (!last || last.role !== 'assistant') return prev
@@ -82,12 +63,10 @@ export function AiChat({ connection }: AiChatProps) {
         return next
       })
       setLoading(false)
-      activeStreamId.current = null
-    })
-
+      setActiveStreamId(null)
+    },
     // 错误：展示错误，关闭 loading
-    const offError = window.on('ai:streamError', ({ streamId, message }) => {
-      if (streamId !== activeStreamId.current) return
+    onError: (message) => {
       setError(message)
       setLoading(false)
       // 移除可能残留的空 assistant 占位
@@ -98,14 +77,18 @@ export function AiChat({ connection }: AiChatProps) {
         }
         return prev
       })
-      activeStreamId.current = null
-    })
+      setActiveStreamId(null)
+    },
+  })
 
-    return () => {
-      offDelta()
-      offDone()
-      offError()
-    }
+  // 加载 provider 列表
+  useEffect(() => {
+    api['llm:listProviders']()
+      .then((list) => {
+        setProviders(list)
+        // 不自动选中：空 selectedProviderId 让网关用「默认补全模型」
+      })
+      .catch(() => {})
   }, [])
 
   // 自动滚到底部
@@ -120,7 +103,7 @@ export function AiChat({ connection }: AiChatProps) {
     setError(null)
     const userTurn: ChatTurn = { role: 'user', content: text }
     const streamId = genStreamId()
-    activeStreamId.current = streamId
+    setActiveStreamId(streamId)
     // 先放一个流式中的 assistant 占位 turn
     const placeholder: ChatTurn = { role: 'assistant', content: '', streaming: true }
     setTurns((prev) => [...prev, userTurn, placeholder])
@@ -143,14 +126,14 @@ export function AiChat({ connection }: AiChatProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setLoading(false)
-      activeStreamId.current = null
+      setActiveStreamId(null)
       setTurns((prev) => prev.filter((t) => !t.streaming))
     }
-  }, [input, loading, turns, connection.id, selectedProviderId])
+  }, [input, loading, turns, connection.id, selectedProviderId, setActiveStreamId])
 
   /** 停止当前流式生成 */
   const handleStop = useCallback(async () => {
-    const streamId = activeStreamId.current
+    const streamId = activeStreamIdRef.current
     if (!streamId) return
     // 通知主进程中止底层 fetch（SSE）
     try {
@@ -160,7 +143,7 @@ export function AiChat({ connection }: AiChatProps) {
     }
     // 立即结束本地流式态（保留已生成的内容）
     setLoading(false)
-    activeStreamId.current = null
+    setActiveStreamId(null)
     setTurns((prev) => {
       const last = prev[prev.length - 1]
       if (last && last.role === 'assistant' && last.streaming) {
@@ -170,7 +153,7 @@ export function AiChat({ connection }: AiChatProps) {
       }
       return prev
     })
-  }, [])
+  }, [activeStreamIdRef, setActiveStreamId])
 
   // 执行 AI 生成的 SQL（走 M3 安全层确认）
   const handleExecuteSql = useCallback(
@@ -219,10 +202,10 @@ export function AiChat({ connection }: AiChatProps) {
           disabled={!hasProvider}
         >
           {providers.length === 0 && <option value="">未配置 Provider</option>}
+          {providers.length > 0 && <option value="">默认补全模型</option>}
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name} · {p.models[0] ?? '?'}
-              {p.isDefault ? '（默认）' : ''}
             </option>
           ))}
         </select>

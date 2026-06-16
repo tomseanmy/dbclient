@@ -25,6 +25,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
+import { useContextMenuClose } from '../hooks/useContextMenu'
 import type { ConnectionListItem, Table } from '../api'
 
 interface ObjectTreeProps {
@@ -91,19 +92,10 @@ export function ObjectTree({
   }, [refreshTick])
 
   // 点击其他地方关闭右键菜单
-  useEffect(() => {
-    if (!tableCtxMenu && !connCtxMenu) return
-    const close = () => {
-      setTableCtxMenu(null)
-      setConnCtxMenu(null)
-    }
-    window.addEventListener('click', close)
-    window.addEventListener('contextmenu', close)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('contextmenu', close)
-    }
-  }, [tableCtxMenu, connCtxMenu])
+  useContextMenuClose(tableCtxMenu !== null || connCtxMenu !== null, () => {
+    setTableCtxMenu(null)
+    setConnCtxMenu(null)
+  })
 
   /** 单击连接节点：仅选中（chevron 展开/收折，schema 节点开详情） */
   const handleConnClick = (conn: ConnectionListItem) => {

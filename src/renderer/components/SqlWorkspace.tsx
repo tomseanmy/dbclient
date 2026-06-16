@@ -27,6 +27,7 @@ import {
   clearCompletionContext,
   invalidateCompletionCache,
 } from '../services/sql-completion'
+import { exportResultCsv, exportResultJson } from '../lib/export'
 
 /** SQL 编辑器初始模板，偏离即视为「已编辑」 */
 const INITIAL_SQL = '-- 在此输入 SQL\nSELECT * FROM '
@@ -160,30 +161,13 @@ export function SqlWorkspace({ connection, tabId }: SqlWorkspaceProps) {
 
   const exportCsv = () => {
     if (!result) return
-    const headers = result.columns.map((c) => c.name).join(',')
-    const lines = result.rows.map((row) =>
-      result.columns
-        .map((c) => {
-          const v = row[c.name]
-          if (v === null) return ''
-          const s = typeof v === 'object' ? JSON.stringify(v) : String(v)
-          return s.includes(',') || s.includes('"') || s.includes('\n')
-            ? '"' + s.replace(/"/g, '""') + '"'
-            : s
-        })
-        .join(','),
-    )
-    download(connection.name + '-query.csv', [headers, ...lines].join('\n'), 'text/csv')
+    exportResultCsv(connection.name + '-query.csv', result)
     setExportOpen(false)
   }
 
   const exportJson = () => {
     if (!result) return
-    download(
-      connection.name + '-query.json',
-      JSON.stringify(result.rows, null, 2),
-      'application/json',
-    )
+    exportResultJson(connection.name + '-query.json', result)
     setExportOpen(false)
   }
 
@@ -351,14 +335,4 @@ export function SqlWorkspace({ connection, tabId }: SqlWorkspaceProps) {
       <SavedQueries connectionId={connection.id} currentSql={sql} onPick={(s) => setSql(s)} />
     </div>
   )
-}
-
-function download(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
 }
