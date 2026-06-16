@@ -433,7 +433,9 @@ export function DataGrid({
    */
   const indexOfRowKey = (rowKey: string | number): number => {
     for (let k = 0; k < rows.length; k++) {
-      const rk = (rows[k].original as Record<string, unknown>)['__row_key__'] ?? rows[k].index
+      const row = rows[k]
+      if (!row) continue
+      const rk = (row.original as Record<string, unknown>)['__row_key__'] ?? row.index
       if (rk === rowKey) return k
     }
     return -1
@@ -463,7 +465,9 @@ export function DataGrid({
       const to = Math.max(anchorIndexRef.current, idx)
       // Shift 区间：在锚点基础上累加（macOS Finder 语义），不清空已有选择
       for (let k = from; k <= to; k++) {
-        const rk = (rows[k].original as Record<string, unknown>)['__row_key__'] ?? rows[k].index
+        const row = rows[k]
+        if (!row) continue
+        const rk = (row.original as Record<string, unknown>)['__row_key__'] ?? row.index
         next.add(rk as string | number)
       }
     } else if (modifier) {
