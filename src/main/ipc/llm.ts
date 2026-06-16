@@ -33,12 +33,6 @@ export function registerLlmHandlers(): void {
     return { success: true }
   })
 
-  // 设为默认
-  registerHandler('llm:setDefaultProvider', (_event, { id }) => {
-    llmProviderDao.setDefault(id)
-    return { success: true }
-  })
-
   // 连通性测试（不保存，验证 baseUrl + apiKey + model）
   registerHandler('llm:testProvider', async (_event, input: LlmProviderInput) => {
     logger.info('测试 LLM Provider', { name: input.name })

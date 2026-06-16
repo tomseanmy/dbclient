@@ -10,6 +10,8 @@
  * 上层（AI Chat / GUI 辅助 / MCP）只依赖此门面，不感知 provider 细节。
  */
 import type { ChatRequest, ChatResponse } from '@shared/types/llm'
+import type { DefaultModelKind, ModelDefault } from '@shared/types/settings'
+import { getAllSettings } from '@main/infra/storage/settings-dao'
 import { llmProviderDao } from '@main/infra/storage/llm-provider-dao'
 import { llmUsageDao } from '@main/infra/storage/llm-usage-dao'
 import { logger } from '@main/infra/logger'
@@ -46,15 +48,27 @@ export function stopStream(streamId: string): void {
   if (controller) controller.abort()
 }
 
-/** 解析 provider + model + apiKey，供调用前预检 */
-function resolveProvider(providerId?: string) {
-  const provider = providerId ? llmProviderDao.get(providerId) : llmProviderDao.getDefault()
-
-  if (!provider) {
-    throw new Error('未配置 LLM Provider，请先在设置中添加')
+/** 解析默认模型 KV（带校验，失效返回 null） */
+function readModelDefault(kind: DefaultModelKind): ModelDefault | null {
+  const kv = getAllSettings()
+  const raw = kind === 'agent' ? kv['model.default.agent'] : kv['model.default.chat']
+  if (!raw) return null
+  try {
+    const obj = JSON.parse(raw) as unknown
+    if (
+      obj &&
+      typeof obj === 'object' &&
+      typeof (obj as ModelDefault).providerId === 'string' &&
+      typeof (obj as ModelDefault).model === 'string' &&
+      (obj as ModelDefault).providerId &&
+      (obj as ModelDefault).model
+    ) {
+      return obj as ModelDefault
+    }
+  } catch {
+    // 损坏的旧值忽略
   }
-
-  return provider
+  return null
 }
 
 async function resolveApiKey(providerId: string): Promise<string> {
@@ -65,15 +79,57 @@ async function resolveApiKey(providerId: string): Promise<string> {
   return apiKey
 }
 
-/** 调用 LLM 对话（记录用量） */
-export async function chat(req: ChatRequest): Promise<ChatResponse> {
-  const provider = resolveProvider(req.providerId)
-  const apiKey = await resolveApiKey(provider.id)
-  const model = req.model ?? provider.models[0]
+/**
+ * 解析最终使用的 provider + model。
+ *
+ * 优先级：
+ * 1. 显式 providerId + model（调用方明确指定，优先级最高）
+ * 2. 分类默认模型设置（默认 Agent/补全 模型，含其 providerId + model）
+ * 3. 默认 provider 的第一个模型（兜底）
+ *
+ * kind 决定回退到哪一类默认模型：'agent' → 工具调用，'chat' → 普通补全。
+ */
+function resolveProviderAndModel(
+  providerId: string | undefined,
+  model: string | undefined,
+  kind: DefaultModelKind,
+): { provider: NonNullable<ReturnType<typeof llmProviderDao.get>>; model: string } {
+  // 1：显式 providerId（model 未指定时用该 provider 的第一个模型，与原行为一致）
+  if (providerId) {
+    const provider = llmProviderDao.get(providerId)
+    if (!provider) throw new Error('指定的 Provider 不存在')
+    const resolvedModel = model ?? provider.models[0]
+    if (!resolvedModel) {
+      throw new Error(`Provider "${provider.name}" 未配置模型`)
+    }
+    return { provider, model: resolvedModel }
+  }
 
-  if (!model) {
+  // 2：分类默认模型设置（provider 与 model 绑定，保证一致）
+  const def = readModelDefault(kind)
+  if (def) {
+    const provider = llmProviderDao.get(def.providerId)
+    if (provider && provider.models.includes(def.model)) {
+      return { provider, model: def.model }
+    }
+  }
+
+  // 3：默认 provider + 第一个模型兜底
+  const provider = llmProviderDao.getDefault()
+  if (!provider) {
+    throw new Error('未配置 LLM Provider，请先在设置中添加')
+  }
+  const resolvedModel = model ?? provider.models[0]
+  if (!resolvedModel) {
     throw new Error(`Provider "${provider.name}" 未配置模型`)
   }
+  return { provider, model: resolvedModel }
+}
+
+/** 调用 LLM 对话（记录用量） */
+export async function chat(req: ChatRequest): Promise<ChatResponse> {
+  const { provider, model } = resolveProviderAndModel(req.providerId, req.model, 'chat')
+  const apiKey = await resolveApiKey(provider.id)
 
   const result = await clientChat(provider.baseUrl, apiKey, model, req.messages, {
     temperature: req.temperature,
@@ -109,13 +165,8 @@ export async function chatStream(
   onDelta: (delta: StreamDelta) => void,
   streamId?: string,
 ): Promise<ChatResponse> {
-  const provider = resolveProvider(req.providerId)
+  const { provider, model } = resolveProviderAndModel(req.providerId, req.model, 'chat')
   const apiKey = await resolveApiKey(provider.id)
-  const model = req.model ?? provider.models[0]
-
-  if (!model) {
-    throw new Error(`Provider "${provider.name}" 未配置模型`)
-  }
 
   const controller = streamId ? registerStream(streamId) : undefined
   try {
@@ -154,12 +205,8 @@ export async function chatWithTools(
   tools: ToolDefinition[],
   opts: { providerId?: string; model?: string; temperature?: number } = {},
 ): Promise<ChatWithToolsResult> {
-  const provider = resolveProvider(opts.providerId)
+  const { provider, model } = resolveProviderAndModel(opts.providerId, opts.model, 'agent')
   const apiKey = await resolveApiKey(provider.id)
-  const model = opts.model ?? provider.models[0]
-  if (!model) {
-    throw new Error(`Provider "${provider.name}" 未配置模型`)
-  }
 
   const result = await clientChatWithTools(provider.baseUrl, apiKey, model, messages, tools, {
     temperature: opts.temperature,
@@ -200,12 +247,8 @@ export async function chatWithToolsStream(
     streamId?: string
   },
 ): Promise<ChatWithToolsResult> {
-  const provider = resolveProvider(opts.providerId)
+  const { provider, model } = resolveProviderAndModel(opts.providerId, opts.model, 'agent')
   const apiKey = await resolveApiKey(provider.id)
-  const model = opts.model ?? provider.models[0]
-  if (!model) {
-    throw new Error(`Provider "${provider.name}" 未配置模型`)
-  }
 
   const controller = opts.streamId ? registerStream(opts.streamId) : undefined
   try {

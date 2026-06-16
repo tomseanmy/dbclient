@@ -18,10 +18,23 @@ export interface NotificationSettings {
   backgroundTask: boolean
 }
 
+/** 默认模型：指向某个 Provider 的具体模型（非 Provider 列表里的第一个） */
+export interface ModelDefault {
+  providerId: string
+  model: string
+}
+
+/** 默认模型用途分类 */
+export type DefaultModelKind = 'agent' | 'chat'
+
 export interface AppSettings {
   theme: ThemeMode
   language: Language
   notifications: NotificationSettings
+  /** 默认 Agent 模型（AGENT 模式用，需要工具调用能力） */
+  defaultAgentModel?: ModelDefault
+  /** 默认补全模型（AiChat 普通对话/辅助用） */
+  defaultChatModel?: ModelDefault
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -33,4 +46,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     agentComplete: true,
     backgroundTask: true,
   },
+  // defaultAgentModel / defaultChatModel 默认 undefined：未配置时回退到第一个 Provider 的第一个模型
 }

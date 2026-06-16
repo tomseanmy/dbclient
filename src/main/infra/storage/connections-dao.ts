@@ -112,7 +112,11 @@ export const connectionsDao = {
       await getCredentialStore().setPassword(id, input.password)
     }
 
-    return this.get(id)!
+    const created = this.get(id)
+    if (!created) {
+      throw new Error(`连接创建后查询失败：${id}`)
+    }
+    return created
   },
 
   /** 更新连接（若提供 password 则更新密码） */
@@ -150,7 +154,11 @@ export const connectionsDao = {
       await getCredentialStore().setPassword(id, input.password)
     }
 
-    return this.get(id)!
+    const updated = this.get(id)
+    if (!updated) {
+      throw new Error(`连接更新后查询失败：${id}`)
+    }
+    return updated
   },
 
   /** 删除连接（同时删除密码） */

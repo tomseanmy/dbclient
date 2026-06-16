@@ -32,7 +32,7 @@ export interface ExecuteContext {
 /** 执行结果 */
 export type ExecuteOutcome =
   | { kind: 'query'; result: QueryResult }
-  | { kind: 'statement'; rowsAffected: number }
+  | { kind: 'statement'; rowsAffected: number; durationMs: number }
 
 /** 需要确认的错误（前端据此弹窗） */
 export class ConfirmationRequiredError extends Error {
@@ -42,6 +42,11 @@ export class ConfirmationRequiredError extends Error {
   ) {
     super(checkResult.reason)
     this.name = 'ConfirmationRequiredError'
+  }
+
+  /** 暴露结构化字段，供 IPC 错误序列化（前端可还原 checkResult） */
+  get data(): { checkResult: SecurityCheckResult; sql: string } {
+    return { checkResult: this.checkResult, sql: this.sql }
   }
 }
 
@@ -53,6 +58,11 @@ export class PermissionDeniedError extends Error {
   ) {
     super(checkResult.reason)
     this.name = 'PermissionDeniedError'
+  }
+
+  /** 暴露结构化字段，供 IPC 错误序列化（前端可还原 checkResult） */
+  get data(): { checkResult: SecurityCheckResult; sql: string } {
+    return { checkResult: this.checkResult, sql: this.sql }
   }
 }
 
@@ -158,7 +168,7 @@ export async function executeSql(
       outcome = { kind: 'query', result }
     } else {
       const { rowsAffected } = await driver.executeStatement(sql, opts)
-      outcome = { kind: 'statement', rowsAffected }
+      outcome = { kind: 'statement', rowsAffected, durationMs: Date.now() - start }
     }
 
     const durationMs = Date.now() - start

@@ -107,7 +107,6 @@ const api: RendererApi = {
   'llm:createProvider': (req) => invoke('llm:createProvider', req),
   'llm:updateProvider': (req) => invoke('llm:updateProvider', req),
   'llm:deleteProvider': (req) => invoke('llm:deleteProvider', req),
-  'llm:setDefaultProvider': (req) => invoke('llm:setDefaultProvider', req),
   'llm:testProvider': (req) => invoke('llm:testProvider', req),
   'llm:getUsage': () => invoke('llm:getUsage'),
   'llm:clearUsage': () => invoke('llm:clearUsage'),

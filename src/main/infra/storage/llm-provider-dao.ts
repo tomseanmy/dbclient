@@ -8,7 +8,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import type { LlmProvider, LlmProviderInput } from '@shared/types/llm'
-import { getDb, type DB } from './db'
+import { getDb } from './db'
 import { getCredentialStore } from '../credential'
 
 interface ProviderRow {
@@ -16,7 +16,6 @@ interface ProviderRow {
   name: string
   base_url: string
   models_json: string
-  is_default: number
   sort_order: number
   created_at: string
   updated_at: string
@@ -28,7 +27,6 @@ function rowToProvider(row: ProviderRow): LlmProvider {
     name: row.name,
     baseUrl: row.base_url,
     models: JSON.parse(row.models_json) as string[],
-    isDefault: row.is_default === 1,
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -43,7 +41,7 @@ export const llmProviderDao = {
   list(): LlmProvider[] {
     const db = getDb()
     const rows = db
-      .prepare(`SELECT * FROM llm_providers ORDER BY is_default DESC, sort_order, name`)
+      .prepare(`SELECT * FROM llm_providers ORDER BY sort_order, name`)
       .all() as ProviderRow[]
     return rows.map(rowToProvider)
   },
@@ -57,18 +55,13 @@ export const llmProviderDao = {
     return row ? rowToProvider(row) : null
   },
 
-  /** 获取全局默认 provider */
+  /** 获取默认 provider（排序最前的第一个；分类默认模型见 app_settings） */
   getDefault(): LlmProvider | null {
     const db = getDb()
-    const row = db.prepare(`SELECT * FROM llm_providers WHERE is_default = 1 LIMIT 1`).get() as
+    const row = db.prepare(`SELECT * FROM llm_providers ORDER BY sort_order LIMIT 1`).get() as
       | ProviderRow
       | undefined
-    if (row) return rowToProvider(row)
-    // 无默认则取第一个
-    const fallback = db.prepare(`SELECT * FROM llm_providers ORDER BY sort_order LIMIT 1`).get() as
-      | ProviderRow
-      | undefined
-    return fallback ? rowToProvider(fallback) : null
+    return row ? rowToProvider(row) : null
   },
 
   /** 获取 provider 的 API Key（从 CredentialStore） */
@@ -82,21 +75,16 @@ export const llmProviderDao = {
     const id = randomUUID()
     const now = new Date().toISOString()
 
-    if (input.isDefault) {
-      this.clearDefault(db)
-    }
-
     db.prepare(
       `INSERT INTO llm_providers
-        (id, name, base_url, models_json, is_default, sort_order, created_at, updated_at)
+        (id, name, base_url, models_json, sort_order, created_at, updated_at)
        VALUES
-        (@id, @name, @base_url, @models_json, @is_default, @sort_order, @created_at, @updated_at)`,
+        (@id, @name, @base_url, @models_json, @sort_order, @created_at, @updated_at)`,
     ).run({
       id,
       name: input.name,
       base_url: input.baseUrl,
       models_json: JSON.stringify(input.models ?? []),
-      is_default: input.isDefault ? 1 : 0,
       sort_order: input.sortOrder ?? 0,
       created_at: now,
       updated_at: now,
@@ -106,7 +94,11 @@ export const llmProviderDao = {
       await getCredentialStore().setPassword(credentialKey(id), input.apiKey)
     }
 
-    return this.get(id)!
+    const created = this.get(id)
+    if (!created) {
+      throw new Error(`Provider 创建后查询失败：${id}`)
+    }
+    return created
   },
 
   /** 更新 provider（apiKey 留空保持不变，与连接密码同一逻辑） */
@@ -114,21 +106,16 @@ export const llmProviderDao = {
     const db = getDb()
     const now = new Date().toISOString()
 
-    if (input.isDefault) {
-      this.clearDefault(db)
-    }
-
     db.prepare(
       `UPDATE llm_providers SET
         name = @name, base_url = @base_url, models_json = @models_json,
-        is_default = @is_default, sort_order = @sort_order, updated_at = @updated_at
+        sort_order = @sort_order, updated_at = @updated_at
        WHERE id = @id`,
     ).run({
       id,
       name: input.name,
       base_url: input.baseUrl,
       models_json: JSON.stringify(input.models ?? []),
-      is_default: input.isDefault ? 1 : 0,
       sort_order: input.sortOrder ?? 0,
       updated_at: now,
     })
@@ -138,7 +125,11 @@ export const llmProviderDao = {
       await getCredentialStore().setPassword(credentialKey(id), input.apiKey)
     }
 
-    return this.get(id)!
+    const updated = this.get(id)
+    if (!updated) {
+      throw new Error(`Provider 更新后查询失败：${id}`)
+    }
+    return updated
   },
 
   /** 删除 provider（同时删除 API Key） */
@@ -146,17 +137,5 @@ export const llmProviderDao = {
     const db = getDb()
     db.prepare(`DELETE FROM llm_providers WHERE id = ?`).run(id)
     await getCredentialStore().deletePassword(credentialKey(id))
-  },
-
-  /** 设为默认（先清除其他默认） */
-  setDefault(id: string): void {
-    const db = getDb()
-    this.clearDefault(db)
-    db.prepare(`UPDATE llm_providers SET is_default = 1 WHERE id = ?`).run(id)
-  },
-
-  /** 清除所有默认标记 */
-  clearDefault(db?: DB): void {
-    ;(db ?? getDb()).prepare(`UPDATE llm_providers SET is_default = 0 WHERE is_default = 1`).run()
   },
 }

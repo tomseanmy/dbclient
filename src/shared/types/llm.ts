@@ -10,8 +10,6 @@ export interface LlmProvider {
   baseUrl: string
   /** 可用模型列表 */
   models: string[]
-  /** 是否全局默认（唯一） */
-  isDefault: boolean
   sortOrder: number
   createdAt: string
   updatedAt: string
@@ -24,7 +22,6 @@ export interface LlmProviderInput {
   models: string[]
   /** API Key：create 时必填，update 时留空表示不变 */
   apiKey?: string
-  isDefault?: boolean
   sortOrder?: number
 }
 

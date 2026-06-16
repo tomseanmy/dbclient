@@ -259,10 +259,6 @@ export interface IpcContracts {
     req: { id: string }
     res: { success: boolean }
   }
-  'llm:setDefaultProvider': {
-    req: { id: string }
-    res: { success: boolean }
-  }
   'llm:testProvider': {
     req: import('./types/llm').LlmProviderInput
     res: import('./types/llm').ProviderTestResult

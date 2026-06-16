@@ -79,7 +79,7 @@ export function registerDatabaseHandlers(): void {
       columns: [],
       rows: [],
       rowCount: 0,
-      durationMs: 0,
+      durationMs: outcome.durationMs,
       message: `${outcome.rowsAffected} 行受影响`,
     }
   })
