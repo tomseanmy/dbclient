@@ -18,10 +18,23 @@ import type {
   ConnectionTestInput,
   ConnectionTestResult,
 } from './types/connection'
-import type { RedisKeyOverview, Schema, Table, TableMeta } from './types/database'
+import type { RedisKeyOverview, Schema, Table, TableMeta, DatabaseRole } from './types/database'
 import type { AiStreamDeltaPayload, AiStreamDonePayload, AiStreamErrorPayload } from './types/llm'
 import type { ToolCallEvent, ToolResultEvent, AgentTextEvent } from './types/agent'
 import type { AppSettings } from './types/settings'
+import type { UpdateStatus, UpdateInfo } from './types/update'
+import type {
+  MigrationPlan,
+  MigrationResult,
+  MigrationTarget,
+  SavedMigrationPlan,
+  SavedMigrationPlanInput,
+  StructureDiffItem,
+  DataDiffItem,
+  DataStrategy,
+  GeneratedStatement,
+  TypeMappingWarning,
+} from './types/migration'
 
 // ===== 通道元数据：每个 channel 的请求/响应类型 =====
 export interface IpcContracts {
@@ -105,6 +118,10 @@ export interface IpcContracts {
   'db:getRedisOverview': {
     req: { connectionId: string }
     res: RedisKeyOverview
+  }
+  'db:listRoles': {
+    req: { connectionId: string }
+    res: DatabaseRole[]
   }
   'db:executeQuery': {
     req: { connectionId: string; sql: string; limit?: number }
@@ -333,6 +350,72 @@ export interface IpcContracts {
     req: void
     res: boolean
   }
+
+  // ----- 应用更新（electron-updater）-----
+  // 手动触发检查更新（silent=false 时无更新会提示「已是最新」）
+  'update:checkForUpdates': {
+    req: { silent?: boolean }
+    res: { status: UpdateStatus; info?: UpdateInfo }
+  }
+  // 下载完成后，触发「重启并安装」
+  'update:installUpdate': {
+    req: void
+    res: void
+  }
+  // 查询当前更新状态（渲染层初始化/同步用）
+  'update:getStatus': {
+    req: void
+    res: { status: UpdateStatus; info?: UpdateInfo; progress: number; errorMessage?: string }
+  }
+
+  // ----- 数据库迁移 -----
+  // 结构 diff：对比源/目标表结构，产出差异项（新增/修改/删除列、索引、外键）
+  'migration:diffStructure': {
+    req: { source: MigrationTarget; target: MigrationTarget }
+    res: { items: StructureDiffItem[]; warnings: TypeMappingWarning[] }
+  }
+  // 数据 diff：按 PK 对比，产出新增/删除行（不做 UPDATE）
+  'migration:diffData': {
+    req: { source: MigrationTarget; target: MigrationTarget; strategy: DataStrategy }
+    res: { items: DataDiffItem[]; totalRows: number }
+  }
+  // 生成迁移脚本（目标方言 SQL）
+  'migration:generateScript': {
+    req: { plan: MigrationPlan }
+    res: { statements: GeneratedStatement[]; warnings: TypeMappingWarning[] }
+  }
+  // 预览将受影响的行（数据迁移前供用户确认）
+  'migration:previewRows': {
+    req: {
+      source: MigrationTarget
+      target: MigrationTarget
+      strategy: DataStrategy
+      limit?: number
+    }
+    res: { rows: Record<string, unknown>[]; total: number }
+  }
+  // 执行迁移（内部复用 M3 安全层 db:confirmExecute）
+  'migration:execute': {
+    req: { plan: MigrationPlan; selectedIndexes: number[] }
+    res: MigrationResult
+  }
+  // 持久化迁移方案（D3：必做）
+  'migration:savePlan': {
+    req: { plan: SavedMigrationPlanInput }
+    res: SavedMigrationPlan
+  }
+  'migration:listPlans': {
+    req: void
+    res: SavedMigrationPlan[]
+  }
+  'migration:getPlan': {
+    req: { id: string }
+    res: SavedMigrationPlan | null
+  }
+  'migration:deletePlan': {
+    req: { id: string }
+    res: { success: boolean }
+  }
 }
 
 // ===== 派生类型 =====
@@ -383,6 +466,20 @@ export interface IpcEvents {
   'agent:done': { streamId: string; reply: string; sql?: string[] }
   /** AGENT 流出错 */
   'agent:error': { streamId: string; message: string }
+  // —— 应用更新（主进程 → 渲染进程推送状态/进度）——
+  /** 更新状态变化（checking / available / up-to-date / downloaded / error） */
+  'update:stateChanged': { status: UpdateStatus; info?: UpdateInfo; errorMessage?: string }
+  /** 下载进度（percent 0-100） */
+  'update:downloadProgress': { percent: number; transferred: number; total: number }
+  // —— 数据库迁移进度（大表分批）——
+  /** 迁移执行进度（已处理批数/总批数） */
+  'migration:progress': {
+    planId?: string
+    phase: 'diff' | 'execute'
+    processed: number
+    total: number
+    currentStatement?: string
+  }
 }
 
 /** 所有事件通道名 */

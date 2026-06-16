@@ -66,6 +66,7 @@ const api: RendererApi = {
   'db:listTables': (req) => invoke('db:listTables', req),
   'db:describeTable': (req) => invoke('db:describeTable', req),
   'db:getRedisOverview': (req) => invoke('db:getRedisOverview', req),
+  'db:listRoles': (req) => invoke('db:listRoles', req),
 
   // ----- SQL 执行 -----
   'db:executeQuery': (req) => invoke('db:executeQuery', req),
@@ -127,6 +128,22 @@ const api: RendererApi = {
   'window:maximizeToggle': () => invoke('window:maximizeToggle'),
   'window:close': () => invoke('window:close'),
   'window:isMaximized': () => invoke('window:isMaximized'),
+
+  // ----- 应用更新（electron-updater）-----
+  'update:checkForUpdates': (req) => invoke('update:checkForUpdates', req),
+  'update:installUpdate': () => invoke('update:installUpdate'),
+  'update:getStatus': () => invoke('update:getStatus'),
+
+  // ----- 数据库迁移 -----
+  'migration:diffStructure': (req) => invoke('migration:diffStructure', req),
+  'migration:diffData': (req) => invoke('migration:diffData', req),
+  'migration:generateScript': (req) => invoke('migration:generateScript', req),
+  'migration:previewRows': (req) => invoke('migration:previewRows', req),
+  'migration:execute': (req) => invoke('migration:execute', req),
+  'migration:savePlan': (req) => invoke('migration:savePlan', req),
+  'migration:listPlans': () => invoke('migration:listPlans'),
+  'migration:getPlan': (req) => invoke('migration:getPlan', req),
+  'migration:deletePlan': (req) => invoke('migration:deletePlan', req),
 }
 
 contextBridge.exposeInMainWorld('api', api)
