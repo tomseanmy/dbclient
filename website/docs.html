@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0c10" />
+    <title>文档 — AI DB Client</title>
+    <meta
+      name="description"
+      content="AI DB Client 开发者文档：快速开始、连接管理、SQL 工作台、AI 能力、数据库迁移、权限安全、架构概览。"
+    />
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-glow" aria-hidden="true"></div>
+    <div class="bg-noise" aria-hidden="true"></div>
+
+    <header class="nav">
+      <div class="nav-inner">
+        <a href="index.html" class="brand" aria-label="AI DB Client home">
+          <img class="brand-logo" src="assets/images/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-text"
+            ><span class="brand-name">AI DB Client</span
+            ><span class="brand-version" id="brand-version" hidden></span
+          ></span>
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="index.html">产品</a>
+          <a href="docs.html">文档</a>
+          <a href="download.html">下载</a>
+          <a href="pricing.html">定价</a>
+          <a href="roadmap.html">路线图</a>
+          <a
+            href="https://github.com/tomseanmy/dbclient/"
+            target="_blank"
+            rel="noopener"
+            class="nav-github"
+            >GitHub ↗</a
+          >
+        </nav>
+        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container">
+          <div class="eyebrow">
+            <span class="eyebrow-dot"></span><span>文档 · v0.0.5</span
+            ><span class="eyebrow-sep">/</span><span>持续更新</span>
+          </div>
+          <h1 class="page-title">开发者<span class="hl">文档</span></h1>
+          <p class="page-lead">
+            从安装运行到二次开发：连接管理、SQL 工作台、AI
+            能力、数据库迁移、权限安全与架构概览。所有内容均对应当前已实现的真实功能。
+          </p>
+        </div>
+      </section>
+
+      <section class="page-body">
+        <div class="container">
+          <div class="docs-layout">
+            <!-- SIDEBAR -->
+            <aside class="docs-sidebar" aria-label="文档目录">
+              <h4>入门</h4>
+              <a href="#quickstart">快速开始</a>
+              <a href="#commands">命令与打包</a>
+              <h4>功能手册</h4>
+              <a href="#connections">连接管理</a>
+              <a href="#sql">SQL 工作台</a>
+              <a href="#ai">AI 能力</a>
+              <a href="#migration">数据库迁移</a>
+              <a href="#structure">表结构编辑</a>
+              <a href="#security">权限与安全</a>
+              <h4>开发</h4>
+              <a href="#architecture">架构概览</a>
+              <a href="#update">自动更新</a>
+              <a href="#extend">扩展指南</a>
+            </aside>
+
+            <!-- CONTENT -->
+            <div class="docs-content">
+              <div class="prose">
+                <h2 id="quickstart">快速开始</h2>
+                <p>
+                  AI DB Client 是一个基于 Electron 的开源桌面数据库客户端，本地优先、MIT
+                  协议。下面从源码跑起来。
+                </p>
+
+                <h3>环境要求</h3>
+                <ul>
+                  <li><strong>Node.js</strong> ≥ 20</li>
+                  <li><strong>pnpm</strong> ≥ 9</li>
+                  <li>macOS / Windows / Linux</li>
+                </ul>
+
+                <h3>安装与运行</h3>
+                <div class="code-block">
+                  <pre><code><span class="c-c"># 克隆仓库</span>
+git clone https://github.com/tomseanmy/dbclient.git
+cd dbclient
+
+<span class="c-c"># 安装依赖（会按需编译 better-sqlite3 / keytar 原生模块）</span>
+pnpm install
+
+<span class="c-c"># 启动开发模式（含 HMR）</span>
+pnpm dev</code></pre>
+                </div>
+
+                <div class="callout">
+                  <span class="callout-icon">i</span>
+                  <div>
+                    首次安装若原生模块报错，运行 <code>pnpm rebuild</code> 重建 better-sqlite3 /
+                    keytar；切换 Node/Electron 版本后也需要重建。
+                  </div>
+                </div>
+
+                <h2 id="commands">命令与打包</h2>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>命令</th>
+                      <th>说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>pnpm dev</code></td>
+                      <td>启动 Electron + Vite 开发模式（HMR）</td>
+                    </tr>
+                    <tr>
+                      <td><code>pnpm build</code></td>
+                      <td>构建主进程 + preload + 渲染进程</td>
+                    </tr>
+                    <tr>
+                      <td><code>pnpm dist:mac</code></td>
+                      <td>打包 macOS 安装包（.dmg）</td>
+                    </tr>
+                    <tr>
+                      <td><code>pnpm dist:win</code></td>
+                      <td>打包 Windows 安装包（.exe NSIS）</td>
+                    </tr>
+                    <tr>
+                      <td><code>pnpm dist:linux</code></td>
+                      <td>打包 Linux 安装包（.AppImage / .deb）</td>
+                    </tr>
+                    <tr>
+                      <td><code>pnpm typecheck</code></td>
+                      <td>TypeScript 类型检查（main + renderer）</td>
+                    </tr>
+                    <tr>
+                      <td><code>pnpm lint</code> / <code>pnpm test</code></td>
+                      <td>ESLint / Vitest 单元测试</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <h2 id="connections">连接管理</h2>
+                <p>在「连接管理」页新建连接，支持 MySQL / PostgreSQL / SQLite / Redis 四种类型。</p>
+                <ul>
+                  <li><strong>连通性测试</strong>：保存前可测试连接是否可达。</li>
+                  <li>
+                    <strong>凭据安全</strong>：密码经 OS 钥匙串存储（macOS Keychain / Win Credential
+                    Vault），<em>不以明文落盘</em>，连接时按需读取。
+                  </li>
+                  <li>
+                    <strong>环境分级</strong>：每个连接标注 <code>dev</code> /
+                    <code>staging</code> / <code>prod</code>，驱动安全策略矩阵（详见权限章节）。
+                  </li>
+                  <li>
+                    <strong>Redis</strong>：支持 single 与 cluster 模式（sentinel 为规划项）。
+                  </li>
+                </ul>
+
+                <h2 id="sql">SQL 工作台</h2>
+                <p>基于 Monaco Editor 的全功能 SQL 工作台，原生 SQL、无 ORM。</p>
+                <ul>
+                  <li>
+                    <strong>自动补全</strong>：根据 FROM/JOIN/INTO 上下文补全表名，按别名与
+                    SELECT/WHERE 上下文补全列名，含关键字与代码片段。
+                  </li>
+                  <li><strong>格式化</strong>：sql-formatter，按方言差异化输出。</li>
+                  <li><strong>历史记录</strong>：每条执行的 SQL 自动入历史，可回溯复用。</li>
+                  <li><strong>保存查询</strong>：常用查询可命名保存。</li>
+                  <li><strong>导出</strong>：结果集一键导出 CSV / JSON。</li>
+                </ul>
+                <div class="code-block">
+                  <pre><code><span class="c-c"># 快捷键</span>
+Cmd / Ctrl + Enter          <span class="c-c">执行全部</span>
+Cmd / Ctrl + Shift + Enter  <span class="c-c">执行选中</span>
+Cmd / Ctrl + S              <span class="c-c">保存查询</span></code></pre>
+                </div>
+
+                <h2 id="ai">AI 能力</h2>
+                <p>
+                  AI 以三种形态工作，且<em>永远不会擅自动手</em>：生成的写操作 SQL
+                  落入编辑器供你审阅，执行前必须由你确认。
+                </p>
+                <h3>配置 Provider</h3>
+                <p>在「设置 → 模型」中添加 Provider，采用 OpenAI 兼容协议，已验证支持：</p>
+                <ul>
+                  <li>DeepSeek / Qwen / Moonshot</li>
+                  <li>Ollama（本地自托管）</li>
+                  <li>任何 OpenAI 兼容端点</li>
+                </ul>
+                <p>
+                  可分别为 <code>agent</code> 与
+                  <code>chat</code> 类别指定默认模型，连通性可一键测试。所有调用记录 token 用量。
+                </p>
+
+                <h3>三种 AI 形态</h3>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>形态</th>
+                      <th>说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>NL2SQL</td>
+                      <td>自然语言 → SQL，落入编辑器供审阅</td>
+                    </tr>
+                    <tr>
+                      <td>流式对话</td>
+                      <td>SSE 流式响应，逐字输出</td>
+                    </tr>
+                    <tr>
+                      <td>Agent loop</td>
+                      <td>
+                        tool-calling 多步执行：listTables / describeTable / 只读查询 / 生成
+                        SQL；出错自动回灌上下文自愈（上限 50 轮）
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="callout warn">
+                  <span class="callout-icon">!</span>
+                  <div>
+                    Agent 的 <code>runReadQuery</code> 只放行只读白名单（SELECT / WITH / EXPLAIN /
+                    SHOW / DESCRIBE / PRAGMA），并同样经过安全层 <code>checkSql</code> 校验。<code
+                      >generateSql</code
+                    >
+                    生成的写操作 SQL <strong>不会自动执行</strong>。
+                  </div>
+                </div>
+
+                <h2 id="migration">数据库迁移</h2>
+                <p>
+                  结构 diff + 数据 diff + 跨库迁移，方言感知 DDL/DML 生成。4 步向导：<strong
+                    >选库 → 选表与设置 → 生成脚本 → 执行迁移</strong
+                  >。
+                </p>
+                <h3>结构 diff</h3>
+                <p>
+                  逐表比对建表 / 改列 / 删列、索引、外键，识别变更项：createTable /
+                  dropTable、addColumn / modifyColumn / dropColumn、addIndex / dropIndex、外键增删。
+                </p>
+                <h3>数据 diff</h3>
+                <p>
+                  行级差异识别，支持三种策略：<code>incremental</code>（增量）/
+                  <code>fullReplace</code>（全量替换）/ <code>insertOnly</code>（仅插入）。
+                </p>
+                <div class="callout warn">
+                  <span class="callout-icon">!</span>
+                  <div>
+                    明确的边界：数据 diff
+                    <strong>仅支持 insert / delete，不做 update</strong>。事务策略可选 none /
+                    perStatement / single。
+                  </div>
+                </div>
+                <h3>方言脚本与计划</h3>
+                <ul>
+                  <li>
+                    按目标方言生成 DDL/DML，类型自动映射（MySQL 的 <code>MODIFY</code>、PostgreSQL
+                    的 <code>ALTER COLUMN</code>）；不支持项（如 SQLite 改类型）明确标注。
+                  </li>
+                  <li>
+                    每步带风险徽章 <code>safe</code> / <code>caution</code> / <code>danger</code>。
+                  </li>
+                  <li>迁移计划可命名保存、加载复用；脚本一键导出并在文件管理器中定位。</li>
+                </ul>
+
+                <h2 id="structure">表结构编辑</h2>
+                <p>
+                  在表详情中行内编辑列 / 索引 /
+                  外键，改动以脏行高亮，并<strong>实时预览</strong>即将生成的
+                  <code>ALTER</code> 语句（只读 Monaco）。
+                </p>
+                <ul>
+                  <li>类型变更、可空、默认值、注释变更按方言差异化输出。</li>
+                  <li>SQLite 对部分类型/可空/默认/注释变更不支持，编辑器内会明确标注。</li>
+                </ul>
+
+                <h2 id="security">权限与安全</h2>
+                <p>统一的安全闸门：GUI 与 AI 两条执行路径都流经它。</p>
+                <h3>危险级别判定</h3>
+                <p>
+                  node-sql-parser 解析 AST → 判定 <code>safe</code> / <code>write</code> /
+                  <code>dangerous</code>。<code>DANGEROUS_KEYWORDS</code> 包含 DROP / TRUNCATE /
+                  SHUTDOWN / GRANT / REVOKE，并检测缺 WHERE 的 DELETE / UPDATE。
+                </p>
+                <h3>环境分级策略</h3>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>环境</th>
+                      <th>读</th>
+                      <th>写</th>
+                      <th>DDL / 危险</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><code>dev</code></td>
+                      <td>✓ 放行</td>
+                      <td>✓ 放行</td>
+                      <td>弹窗确认（dangerous）</td>
+                    </tr>
+                    <tr>
+                      <td><code>staging</code></td>
+                      <td>✓ 放行</td>
+                      <td>✓ 放行</td>
+                      <td>DDL 弹窗确认</td>
+                    </tr>
+                    <tr>
+                      <td><code>prod</code></td>
+                      <td>✓ 放行</td>
+                      <td>✗ 拦截（除非提权）</td>
+                      <td>✗ 拦截（即使提权仍确认）</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <ul>
+                  <li>
+                    <strong>临时提权</strong>：生产可 30
+                    分钟临时提权（默认有效期，会话级，自动过期）。
+                  </li>
+                  <li><strong>审计</strong>：所有写操作（含 AI 路径）全过程审计留痕。</li>
+                </ul>
+
+                <h2 id="architecture">架构概览</h2>
+                <p>
+                  核心设计：<strong>核心领域层 <code>src/main/domain/</code> 不依赖 Electron</strong
+                  >，可独立测试，被 GUI 和 AI 链路共用，保证两条执行路径权限一致。
+                </p>
+                <div class="code-block">
+                  <pre><code>src/
+├── shared/          <span class="c-c"># 共享类型契约（IPC、领域 DTO、迁移类型）</span>
+│   ├── types/       <span class="c-c">#   connection / database / llm / security / agent / migration</span>
+│   └── db/          <span class="c-c">#   列类型 + ALTER 语句生成（纯函数，跨进程复用）</span>
+├── main/            <span class="c-c"># Electron 主进程</span>
+│   ├── ipc/         <span class="c-c">#   IPC handler（应用服务层）</span>
+│   ├── domain/      <span class="c-c">#   核心领域层（纯逻辑，零 Electron 依赖）</span>
+│   │   ├── db/      <span class="c-c">#     驱动抽象 + mysql/pg/sqlite/redis</span>
+│   │   ├── agent/   <span class="c-c">#     Agent tool-calling loop + 工具集</span>
+│   │   ├── llm/     <span class="c-c">#     LLM 网关 / prompt / SQL 抽取</span>
+│   │   ├── migration/ <span class="c-c">#   结构 diff / 数据 diff / 方言脚本 / 执行器</span>
+│   │   ├── privacy/ <span class="c-c">#     Schema-only 上下文构造</span>
+│   │   └── security/<span class="c-c">#     SQL 分析 + 环境分级权限</span>
+│   ├── executor.ts  <span class="c-c">#   SQL 执行（走安全层）</span>
+│   └── infra/       <span class="c-c">#   本地库 / 凭据 / 日志</span>
+├── preload/         <span class="c-c"># contextBridge 安全桥</span>
+└── renderer/        <span class="c-c"># React UI</span></code></pre>
+                </div>
+
+                <h2 id="update">自动更新</h2>
+                <p>
+                  集成 electron-updater，对接 GitHub Releases。打包应用启动后自动检查（24h 节流 +
+                  10s 延迟；开发模式跳过），新版本下载完成后提示重启。
+                </p>
+                <ul>
+                  <li>
+                    状态机：idle / checking / available / downloading / downloaded / up-to-date /
+                    error。
+                  </li>
+                  <li>
+                    产物中由 electron-builder 生成 <code>app-update.yml</code>，autoUpdater
+                    启动时自动读取，无需 setFeedURL。
+                  </li>
+                </ul>
+
+                <h2 id="extend">扩展指南</h2>
+                <h3>新增数据库类型</h3>
+                <p>
+                  实现 <code>DbDriver</code> 接口并在 <code>createDriver()</code> 工厂注册，补充
+                  <code>DbType</code> 类型与连接表单选项即可被对象浏览、SQL 工作台、迁移复用。
+                </p>
+                <h3>新增 Agent 工具</h3>
+                <p>
+                  在 <code>src/main/domain/agent/tools.ts</code> 增加工具定义与
+                  handler；只读查询统一走 <code>isReadOnlySql</code> 白名单 +
+                  <code>checkSql</code> 安全闸门。
+                </p>
+                <h3>新增迁移方言</h3>
+                <p>
+                  在 <code>src/main/domain/migration/dialect/</code> 下新增方言实现（DDL/DML 输出 +
+                  类型映射），并在 <code>MigrationDialect</code> 与 target-loader 注册。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a href="index.html" class="brand"
+              ><img
+                class="brand-logo"
+                src="assets/images/logo.svg"
+                alt=""
+                aria-hidden="true" /><span class="brand-text"
+                ><span class="brand-name">AI DB Client</span
+                ><span class="brand-version" id="footer-version" hidden></span></span
+            ></a>
+            <p class="footer-tag">
+              开源的 AI 原生数据库客户端，内置数据库迁移与安全闸门。作者
+              <a href="https://github.com/tomseanmy" rel="noopener">@tomseanmy</a>。
+            </p>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">产品</div>
+            <a href="index.html">产品介绍</a><a href="download.html">下载</a
+            ><a href="pricing.html">定价</a><a href="roadmap.html">路线图</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">文档</div>
+            <a href="docs.html#quickstart">快速开始</a><a href="docs.html#connections">连接管理</a
+            ><a href="docs.html#ai">AI 能力</a><a href="docs.html#migration">数据库迁移</a
+            ><a href="docs.html#architecture">架构概览</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">资源</div>
+            <a href="https://github.com/tomseanmy/dbclient/">GitHub</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/docs/PRD.md">PRD</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/docs/TRD.md">TRD</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/LICENSE">License (MIT)</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 tomseanmy · MIT License</span><span class="footer-sep">/</span
+          ><span>默认只发 Schema</span><span class="footer-sep">/</span><span>本地优先</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+  </body>
+</html>

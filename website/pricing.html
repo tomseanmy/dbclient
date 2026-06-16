@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0c10" />
+    <title>定价 — AI DB Client</title>
+    <meta
+      name="description"
+      content="AI DB Client 完全开源免费（MIT）。所有功能全部可用：数据库支持、AI 能力、数据操作、迁移、安全、开发体验。未来可能的企业功能标为规划中。"
+    />
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-glow" aria-hidden="true"></div>
+    <div class="bg-noise" aria-hidden="true"></div>
+
+    <header class="nav">
+      <div class="nav-inner">
+        <a href="index.html" class="brand" aria-label="AI DB Client home">
+          <img class="brand-logo" src="assets/images/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-text"
+            ><span class="brand-name">AI DB Client</span
+            ><span class="brand-version" id="brand-version" hidden></span
+          ></span>
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="index.html">产品</a>
+          <a href="docs.html">文档</a>
+          <a href="download.html">下载</a>
+          <a href="pricing.html">定价</a>
+          <a href="roadmap.html">路线图</a>
+          <a
+            href="https://github.com/tomseanmy/dbclient/"
+            target="_blank"
+            rel="noopener"
+            class="nav-github"
+            >GitHub ↗</a
+          >
+        </nav>
+        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container">
+          <div class="eyebrow">
+            <span class="eyebrow-dot"></span><span>开源免费</span><span class="eyebrow-sep">/</span
+            ><span>全功能</span>
+          </div>
+          <h1 class="page-title">简单到极致的<span class="hl">定价</span></h1>
+          <p class="page-lead">
+            没有分层、没有试用、没有隐藏付费墙。<strong>全部功能，永久免费，开源（MIT）。</strong>自己部署、自己掌控。
+          </p>
+        </div>
+      </section>
+
+      <section class="page-body" style="padding-top: 48px">
+        <div class="container">
+          <!-- Hero tier -->
+          <div class="pricing-hero-tier">
+            <span class="tier-badge">开源版 · OPEN SOURCE</span>
+            <div class="tier-price">
+              <span class="currency">¥</span>0<span class="period"> / 永久</span>
+            </div>
+            <p class="tier-tagline">MIT 协议 · 全功能 · 自部署 · 无限制</p>
+            <div class="tier-cta">
+              <a class="btn btn-primary" href="download.html"
+                ><span>免费下载</span><span class="btn-arrow">→</span></a
+              >
+              <a
+                class="btn btn-ghost"
+                href="https://github.com/tomseanmy/dbclient/"
+                target="_blank"
+                rel="noopener"
+                style="margin-left: 10px"
+                >查看源码</a
+              >
+            </div>
+          </div>
+
+          <!-- Feature matrix -->
+          <div class="s-head" style="text-align: center; margin: 64px 0 24px">
+            <div class="s-eyebrow">// 功能清单</div>
+            <h2 style="font-size: 28px; color: var(--text-0); margin-bottom: 10px">
+              所有功能，全部<span
+                style="
+                  background: linear-gradient(90deg, var(--cyan), var(--violet));
+                  -webkit-background-clip: text;
+                  background-clip: text;
+                  -webkit-text-fill-color: transparent;
+                "
+                >免费</span
+              >
+            </h2>
+            <p style="font-size: 15px; color: var(--text-2); max-width: 560px; margin: 0 auto">
+              下面每一行都是当前已实现并在使用的真实功能。
+            </p>
+          </div>
+
+          <div class="matrix-wrap">
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th>功能</th>
+                  <th class="col-tier">开源版（免费）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="group-row">
+                  <td colspan="2">数据库支持</td>
+                </tr>
+                <tr>
+                  <td class="feat">MySQL 连接<small>原生 mysql2，5.7 / 8.x</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">PostgreSQL 连接<small>原生 pg，12 / 15 / 16</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">SQLite 连接<small>原生 better-sqlite3</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">Redis 连接<small>原生 ioredis，single / cluster</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">多连接 · 多 tab<small>同时管理多个连接切换</small></td>
+                  <td class="has"></td>
+                </tr>
+
+                <tr class="group-row">
+                  <td colspan="2">AI 能力</td>
+                </tr>
+                <tr>
+                  <td class="feat">NL2SQL<small>自然语言生成 SQL</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">流式对话<small>SSE 流式响应</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">Agent tool-calling<small>多步自动执行 + 自愈循环</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    多 Provider 网关<small>OpenAI 兼容：DeepSeek / Qwen / Moonshot / Ollama</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">Schema-only 上下文<small>默认只发结构，不发数据行</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">对话历史持久化<small>会话保存与回溯</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">token 用量记录</td>
+                  <td class="has"></td>
+                </tr>
+
+                <tr class="group-row">
+                  <td colspan="2">数据操作</td>
+                </tr>
+                <tr>
+                  <td class="feat">数据网格<small>表格化、分页、列筛选、自动刷新</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    Excel 风格行内编辑<small>双击编辑、增删改行、设 NULL、复制粘贴</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    表结构编辑器<small>列 / 索引 / 外键行内编辑 + 实时 ALTER 预览</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">CSV / JSON 导出</td>
+                  <td class="has"></td>
+                </tr>
+
+                <tr class="group-row">
+                  <td colspan="2">SQL 工作台</td>
+                </tr>
+                <tr>
+                  <td class="feat">Monaco 编辑器<small>语法高亮、格式化、代码片段</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">SQL 自动补全<small>表 / 列 / 别名 / 关键字</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">历史记录 · 保存查询</td>
+                  <td class="has"></td>
+                </tr>
+
+                <tr class="group-row">
+                  <td colspan="2">数据库迁移</td>
+                </tr>
+                <tr>
+                  <td class="feat">结构 diff<small>建表 / 改列 / 索引 / 外键</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    数据 diff<small>insert / delete（增量 / 全量 / 仅插入）</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    方言感知脚本<small>MySQL / PostgreSQL / SQLite DDL/DML</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">4 步向导 · 风险徽章 · 计划保存与导出</td>
+                  <td class="has"></td>
+                </tr>
+
+                <tr class="group-row">
+                  <td colspan="2">安全与权限</td>
+                </tr>
+                <tr>
+                  <td class="feat">环境分级权限<small>dev / staging / prod 策略矩阵</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    危险 SQL 拦截<small>DROP / TRUNCATE / 缺 WHERE 的写操作</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">临时提权<small>30 分钟，会话级，自动过期</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">审计日志<small>所有写操作全过程留痕</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    凭据钥匙串存储<small>macOS Keychain / Win Vault，不落明文盘</small>
+                  </td>
+                  <td class="has"></td>
+                </tr>
+
+                <tr class="group-row">
+                  <td colspan="2">开发体验</td>
+                </tr>
+                <tr>
+                  <td class="feat">自动更新<small>electron-updater，启动检查</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">桌面通知<small>查询完成 / Agent 完成 / 后台任务</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">跨平台<small>macOS / Windows / Linux</small></td>
+                  <td class="has"></td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    完整源码 · 可二次开发<small
+                      >TypeScript strict，核心领域层零 Electron 依赖</small
+                    >
+                  </td>
+                  <td class="has"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Future / enterprise (planned) -->
+          <div class="s-head" style="text-align: center; margin: 64px 0 24px">
+            <div class="s-eyebrow">// 未来可能</div>
+            <h2 style="font-size: 24px; color: var(--text-0); margin-bottom: 10px">规划中的能力</h2>
+            <p style="font-size: 15px; color: var(--text-2); max-width: 560px; margin: 0 auto">
+              这些尚未实现，未来可能以开源或企业形态出现，<strong>当前不收费、也不承诺</strong>。
+            </p>
+          </div>
+          <div class="matrix-wrap">
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th>能力</th>
+                  <th class="col-tier">状态</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="feat">
+                    MCP Server<small>供 Claude Code / Codex / OpenCode 等外部 Agent 调用</small>
+                  </td>
+                  <td class="planned">规划中</td>
+                </tr>
+                <tr>
+                  <td class="feat">列级 PII 脱敏 · 样本数据发送</td>
+                  <td class="planned">规划中</td>
+                </tr>
+                <tr>
+                  <td class="feat">审计日志查看 UI</td>
+                  <td class="planned">规划中</td>
+                </tr>
+                <tr>
+                  <td class="feat">数据导入 · Redis sentinel</td>
+                  <td class="planned">规划中</td>
+                </tr>
+                <tr>
+                  <td class="feat">亮色主题 · 英文界面</td>
+                  <td class="planned">规划中</td>
+                </tr>
+                <tr>
+                  <td class="feat">
+                    团队协作 · SSO · 审计导出 · 云托管<small>潜在的企业方向</small>
+                  </td>
+                  <td class="planned">未规划</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout" style="margin-top: 40px">
+            <span class="callout-icon">i</span>
+            <div>
+              本项目为个人开源作品，无商业模式。如果你用得顺手，欢迎在
+              <a href="https://github.com/tomseanmy/dbclient/" target="_blank" rel="noopener"
+                >GitHub</a
+              >
+              点个 Star，或参与贡献。
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a href="index.html" class="brand"
+              ><img
+                class="brand-logo"
+                src="assets/images/logo.svg"
+                alt=""
+                aria-hidden="true" /><span class="brand-text"
+                ><span class="brand-name">AI DB Client</span
+                ><span class="brand-version" id="footer-version" hidden></span></span
+            ></a>
+            <p class="footer-tag">
+              开源的 AI 原生数据库客户端，内置数据库迁移与安全闸门。作者
+              <a href="https://github.com/tomseanmy" rel="noopener">@tomseanmy</a>。
+            </p>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">产品</div>
+            <a href="index.html">产品介绍</a><a href="download.html">下载</a
+            ><a href="pricing.html">定价</a><a href="roadmap.html">路线图</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">文档</div>
+            <a href="docs.html#quickstart">快速开始</a><a href="docs.html#connections">连接管理</a
+            ><a href="docs.html#ai">AI 能力</a><a href="docs.html#migration">数据库迁移</a
+            ><a href="docs.html#architecture">架构概览</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">资源</div>
+            <a href="https://github.com/tomseanmy/dbclient/">GitHub</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/docs/PRD.md">PRD</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/docs/TRD.md">TRD</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/LICENSE">License (MIT)</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 tomseanmy · MIT License</span><span class="footer-sep">/</span
+          ><span>默认只发 Schema</span><span class="footer-sep">/</span><span>本地优先</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+  </body>
+</html>

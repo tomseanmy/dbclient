@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" role="img" aria-label="AI DB Client logo">
+  <defs>
+    <linearGradient id="lgStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00d4ff"/>
+      <stop offset="100%" stop-color="#7c5cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="9" fill="#0a0c10"/>
+  <ellipse cx="20" cy="11" rx="13" ry="3.2" stroke="url(#lgStroke)" stroke-width="1.5"/>
+  <line x1="7" y1="11" x2="7" y2="32" stroke="url(#lgStroke)" stroke-width="1.5"/>
+  <line x1="33" y1="11" x2="33" y2="32" stroke="url(#lgStroke)" stroke-width="1.5"/>
+  <path d="M7 32 Q7 35.2 20 35.2 Q33 35.2 33 32" stroke="url(#lgStroke)" stroke-width="1.5" fill="none"/>
+  <path d="M7 18 Q20 20.5 33 18" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.55"/>
+  <path d="M7 25 Q20 27.5 33 25" stroke="#00d4ff" stroke-width="0.8" fill="none" opacity="0.55"/>
+  <circle cx="29" cy="6" r="1.7" fill="#7c5cff"/>
+  <path d="M27 6l4 0M29 4l0 4" stroke="#7c5cff" stroke-width="1" stroke-linecap="round"/>
+</svg>

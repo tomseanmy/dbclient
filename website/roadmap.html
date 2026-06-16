@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0c10" />
+    <title>路线图 — AI DB Client</title>
+    <meta
+      name="description"
+      content="AI DB Client 开发路线图：M0–M5 已交付（工程骨架、连接浏览、SQL 编辑器与安全层、AI 对话与 Agent、数据编辑与结构、数据库迁移），M6 MCP 与 P1 规划中。"
+    />
+    <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-glow" aria-hidden="true"></div>
+    <div class="bg-noise" aria-hidden="true"></div>
+
+    <header class="nav">
+      <div class="nav-inner">
+        <a href="index.html" class="brand" aria-label="AI DB Client home">
+          <img class="brand-logo" src="assets/images/logo.svg" alt="" aria-hidden="true" />
+          <span class="brand-text"
+            ><span class="brand-name">AI DB Client</span
+            ><span class="brand-version" id="brand-version" hidden></span
+          ></span>
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="index.html">产品</a>
+          <a href="docs.html">文档</a>
+          <a href="download.html">下载</a>
+          <a href="pricing.html">定价</a>
+          <a href="roadmap.html">路线图</a>
+          <a
+            href="https://github.com/tomseanmy/dbclient/"
+            target="_blank"
+            rel="noopener"
+            class="nav-github"
+            >GitHub ↗</a
+          >
+        </nav>
+        <button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container">
+          <div class="eyebrow">
+            <span class="eyebrow-dot"></span><span>公开路线图</span
+            ><span class="eyebrow-sep">/</span><span>持续更新</span>
+          </div>
+          <h1 class="page-title">开发<span class="hl">路线图</span></h1>
+          <p class="page-lead">
+            六个里程碑，从能跑起来的骨架到完整的 AI 数据库工具。M0–M5 已交付，M6 MCP Server
+            与隐私增强 / 体验打磨仍在规划。每个里程碑都对应当前真实进度。
+          </p>
+        </div>
+      </section>
+
+      <section class="page-body" style="padding-top: 32px">
+        <div class="container" style="max-width: 920px">
+          <div class="s-head" style="margin-bottom: 8px">
+            <div class="s-eyebrow">// 已交付</div>
+            <h2>
+              M0–M5 ·
+              <span
+                style="
+                  background: linear-gradient(90deg, var(--cyan), var(--violet));
+                  -webkit-background-clip: text;
+                  background-clip: text;
+                  -webkit-text-fill-color: transparent;
+                "
+                >六个里程碑</span
+              >
+            </h2>
+          </div>
+
+          <div class="roadmap-detail">
+            <article class="rm-item delivered">
+              <div class="rm-marker">
+                <span class="rm-num">M0</span><span class="rm-status">已交付</span>
+              </div>
+              <div class="rm-body">
+                <h3>工程骨架</h3>
+                <p>
+                  Electron 应用能启动、渲染层能渲染、IPC 通道打通、本地存储就绪、构建 &amp; CI
+                  全绿。
+                </p>
+                <div class="rm-modules">
+                  <span>build</span><span>IPC</span><span>store</span><span>CI</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rm-item delivered">
+              <div class="rm-marker">
+                <span class="rm-num">M1</span><span class="rm-status">已交付</span>
+              </div>
+              <div class="rm-body">
+                <h3>连接 &amp; 浏览</h3>
+                <p>
+                  连通 MySQL / PostgreSQL / SQLite /
+                  Redis，浏览对象树、打开表、执行只读查询。多连接、多 tab 切换。
+                </p>
+                <div class="rm-modules">
+                  <span>连接管理</span><span>对象树</span><span>数据网格</span
+                  ><span>SQL 编辑器</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rm-item delivered">
+              <div class="rm-marker">
+                <span class="rm-num">M2</span><span class="rm-status">已交付</span>
+              </div>
+              <div class="rm-body">
+                <h3>SQL 编辑器 &amp; 安全层</h3>
+                <p>
+                  Monaco 编辑器、SQL 自动补全、格式化、历史、node-sql-parser AST 解析 → 危险级别 →
+                  环境分级权限矩阵 + 审计日志。
+                </p>
+                <div class="rm-modules">
+                  <span>Monaco</span><span>自动补全</span><span>权限矩阵</span><span>审计</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rm-item delivered">
+              <div class="rm-marker">
+                <span class="rm-num">M3</span><span class="rm-status">已交付</span>
+              </div>
+              <div class="rm-body">
+                <h3>AI 对话 · 流式 · Agent</h3>
+                <p>
+                  OpenAI 兼容 LLM 网关（DeepSeek / Qwen / Moonshot / Ollama），NL2SQL + 流式响应 +
+                  Agent tool-calling loop，生成 SQL 须用户确认，token 用量记录，对话历史持久化。
+                </p>
+                <div class="rm-modules">
+                  <span>LLM 网关</span><span>流式</span><span>Agent loop</span><span>对话历史</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rm-item delivered">
+              <div class="rm-marker">
+                <span class="rm-num">M4</span><span class="rm-status">已交付</span>
+              </div>
+              <div class="rm-body">
+                <h3>数据编辑 · 表结构 · 自动更新</h3>
+                <p>
+                  数据网格 Excel 风格行内编辑、表结构编辑器（列 / 索引 / 外键行内编辑 + 实时 ALTER
+                  预览）、electron-updater 自动更新。
+                </p>
+                <div class="rm-modules">
+                  <span>行内编辑</span><span>结构编辑器</span><span>ALTER 预览</span
+                  ><span>自动更新</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rm-item delivered">
+              <div class="rm-marker">
+                <span class="rm-num">M5</span><span class="rm-status">已交付</span>
+              </div>
+              <div class="rm-body">
+                <h3>数据库迁移</h3>
+                <p>
+                  结构 diff + 数据 diff + 跨库迁移，方言感知 DDL/DML 生成，4
+                  步向导，风险徽章，计划保存与脚本导出。
+                </p>
+                <div class="rm-modules">
+                  <span>结构 diff</span><span>数据 diff</span><span>方言脚本</span
+                  ><span>计划保存</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="s-head" style="margin: 56px 0 8px">
+            <div class="s-eyebrow">// 规划中</div>
+            <h2>
+              M6 与 P1 ·
+              <span
+                style="
+                  background: linear-gradient(90deg, var(--violet), var(--cyan));
+                  -webkit-background-clip: text;
+                  background-clip: text;
+                  -webkit-text-fill-color: transparent;
+                "
+                >下一步</span
+              >
+            </h2>
+          </div>
+
+          <div class="roadmap-detail">
+            <article class="rm-item planned">
+              <div class="rm-marker">
+                <span class="rm-num">M6</span><span class="rm-status">规划中</span>
+              </div>
+              <div class="rm-body">
+                <h3>MCP Server</h3>
+                <p>
+                  把数据库能力通过 MCP 协议暴露给 Claude Code / Codex / OpenCode 等外部
+                  Agent，复用同一道权限闸门。一键生成配置片段，支持 stdio / SSE 传输。<strong
+                    >当前尚未实现，仅有类型与文档占位。</strong
+                  >
+                </p>
+                <div class="rm-modules">
+                  <span>stdio</span><span>SSE</span><span>tools</span><span>配置片段</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="rm-item p1">
+              <div class="rm-marker">
+                <span class="rm-num">P1</span><span class="rm-status">规划中</span>
+              </div>
+              <div class="rm-body">
+                <h3>隐私增强 · 体验打磨</h3>
+                <p>
+                  可选发送前 N 行样本数据、列级 PII 脱敏、审计日志查看 UI、Redis
+                  sentinel、数据导入、亮色主题、英文界面等体验与隐私增强项。
+                </p>
+                <div class="rm-modules">
+                  <span>样本数据</span><span>PII 脱敏</span><span>审计 UI</span
+                  ><span>体验打磨</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="callout" style="margin-top: 40px">
+            <span class="callout-icon">i</span>
+            <div>
+              路线图按真实进度维护。里程碑任务拆解详见仓库
+              <a
+                href="https://github.com/tomseanmy/dbclient/blob/main/docs/"
+                target="_blank"
+                rel="noopener"
+                >docs/</a
+              >
+              下的 <code>M0</code>–<code>M5-tasks.md</code>。欢迎在 GitHub Issues 提需求或认领任务。
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <a href="index.html" class="brand"
+              ><img
+                class="brand-logo"
+                src="assets/images/logo.svg"
+                alt=""
+                aria-hidden="true" /><span class="brand-text"
+                ><span class="brand-name">AI DB Client</span
+                ><span class="brand-version" id="footer-version" hidden></span></span
+            ></a>
+            <p class="footer-tag">
+              开源的 AI 原生数据库客户端，内置数据库迁移与安全闸门。作者
+              <a href="https://github.com/tomseanmy" rel="noopener">@tomseanmy</a>。
+            </p>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">产品</div>
+            <a href="index.html">产品介绍</a><a href="download.html">下载</a
+            ><a href="pricing.html">定价</a><a href="roadmap.html">路线图</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">文档</div>
+            <a href="docs.html#quickstart">快速开始</a><a href="docs.html#connections">连接管理</a
+            ><a href="docs.html#ai">AI 能力</a><a href="docs.html#migration">数据库迁移</a
+            ><a href="docs.html#architecture">架构概览</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-h">资源</div>
+            <a href="https://github.com/tomseanmy/dbclient/">GitHub</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/docs/PRD.md">PRD</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/docs/TRD.md">TRD</a
+            ><a href="https://github.com/tomseanmy/dbclient/blob/main/LICENSE">License (MIT)</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 tomseanmy · MIT License</span><span class="footer-sep">/</span
+          ><span>默认只发 Schema</span><span class="footer-sep">/</span><span>本地优先</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+  </body>
+</html>
