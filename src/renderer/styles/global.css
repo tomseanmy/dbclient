@@ -4481,7 +4481,7 @@ select,
 .migration-workspace {
   height: 100%;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 16px;

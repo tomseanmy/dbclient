@@ -140,6 +140,7 @@ const api: RendererApi = {
   'migration:generateScript': (req) => invoke('migration:generateScript', req),
   'migration:previewRows': (req) => invoke('migration:previewRows', req),
   'migration:execute': (req) => invoke('migration:execute', req),
+  'migration:exportScript': (req) => invoke('migration:exportScript', req),
   'migration:savePlan': (req) => invoke('migration:savePlan', req),
   'migration:listPlans': () => invoke('migration:listPlans'),
   'migration:getPlan': (req) => invoke('migration:getPlan', req),

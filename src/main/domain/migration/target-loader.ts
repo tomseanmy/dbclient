@@ -64,11 +64,15 @@ export async function describeTargetTable(target: MigrationTarget): Promise<Tabl
   ensureConnected(target.connectionId)
   const driver = getDriver(target.connectionId)
   try {
-    return await driver.describeTable({ schema: target.schema, table: target.table })
+    const meta = await driver.describeTable({ schema: target.schema, table: target.table })
+    // 各驱动对不存在的表不抛错，而是返回空 columns（SQLite PRAGMA / PG/MySQL information_schema）
+    // 故 columns 为空时视为表不存在 → diffStructure 走 createTable 分支
+    if (meta.columns.length === 0) return null
+    return meta
   } catch (err) {
-    // 表不存在等错误归一为 null，由 diff 逻辑决定 createTable
+    // 部分驱动/场景会抛错（如权限不足），表不存在相关错误归一为 null
     const msg = err instanceof Error ? err.message : String(err)
-    if (/not exist|does not exist|找不到|不存在/i.test(msg)) return null
+    if (/not exist|does not exist|no such|找不到|不存在|relation/i.test(msg)) return null
     throw err
   }
 }

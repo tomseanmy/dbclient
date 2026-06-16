@@ -399,6 +399,11 @@ export interface IpcContracts {
     req: { plan: MigrationPlan; selectedByTable: Record<string, number[]> }
     res: MigrationBatchResult
   }
+  // 导出脚本为 .sql（主进程弹保存对话框 + 写文件 + 打开所在文件夹）
+  'migration:exportScript': {
+    req: { sql: string; defaultName?: string }
+    res: { success: boolean; filePath?: string; canceled?: boolean }
+  }
   // 持久化迁移方案（D3：必做）
   'migration:savePlan': {
     req: { plan: SavedMigrationPlanInput }

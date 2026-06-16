@@ -8,6 +8,8 @@
  * 安全：所有迁移默认只生成脚本，不自动执行；执行走执行引擎（事务守卫 + driver 执行）。
  * 每表独立事务（决策）：单表失败不影响其他表。
  */
+import { dialog, shell } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { registerHandler } from './registry'
 import { logger } from '@main/infra/logger'
 import { diffStructure } from '@main/domain/migration/structure-diff'
@@ -233,6 +235,25 @@ export function registerMigrationHandlers(): void {
       durationMs: Date.now() - start,
     }
     return batchResult
+  })
+
+  // 导出脚本为 .sql（弹保存对话框 + 写文件 + 打开所在文件夹）
+  registerHandler('migration:exportScript', async (_event, { sql, defaultName }) => {
+    const result = await dialog.showSaveDialog({
+      title: '导出迁移脚本',
+      defaultPath: defaultName ?? `migration-${Date.now()}.sql`,
+      filters: [
+        { name: 'SQL', extensions: ['sql'] },
+        { name: '所有文件', extensions: ['*'] },
+      ],
+    })
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true }
+    }
+    await writeFile(result.filePath, sql, 'utf-8')
+    // 打开文件所在目录并选中该文件
+    shell.showItemInFolder(result.filePath)
+    return { success: true, filePath: result.filePath }
   })
 
   // ===== 持久化方案（D3）=====

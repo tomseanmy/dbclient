@@ -6,7 +6,7 @@
  * 步骤3：生成脚本（按表分组）+ 勾选执行项
  * 步骤4：执行进度 + 结果
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   ArrowRight,
   Database,
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { useMigrationStore } from '../store/migration'
 import { useConnectionStore, DB_LABELS } from '../store/connections'
-import type { GeneratedStatement, ConnectionListItem } from '../api'
+import { api, type GeneratedStatement, type ConnectionListItem } from '../api'
 
 const STEP_LABELS = ['选择数据库', '选择表与设置', '生成脚本', '执行迁移'] as const
 
@@ -35,7 +35,6 @@ const RISK_CLASS: Record<GeneratedStatement['riskLevel'], string> = {
 export function MigrationWorkspace() {
   const store = useMigrationStore()
   const { connections, loadConnections } = useConnectionStore()
-  const [showPlans, setShowPlans] = useState(false)
   const [planName, setPlanName] = useState('')
 
   useEffect(() => {
@@ -76,14 +75,7 @@ export function MigrationWorkspace() {
       {store.step === 2 && <Step2Tables />}
 
       {/* 步骤3：生成脚本 */}
-      {store.step === 3 && (
-        <Step3Script
-          showPlans={showPlans}
-          setShowPlans={setShowPlans}
-          planName={planName}
-          setPlanName={setPlanName}
-        />
-      )}
+      {store.step === 3 && <Step3Script planName={planName} setPlanName={setPlanName} />}
 
       {/* 步骤4：执行结果 */}
       {store.step === 4 && <Step4Result />}
@@ -336,46 +328,62 @@ function Step2Tables() {
 }
 
 // ===== 步骤3：生成脚本（按表分组） =====
-function Step3Script(props: {
-  showPlans: boolean
-  setShowPlans: (v: boolean) => void
-  planName: string
-  setPlanName: (v: string) => void
-}) {
+function Step3Script(props: { planName: string; setPlanName: (v: string) => void }) {
   const store = useMigrationStore()
   const tableNames = Object.keys(store.scriptByTable)
   const totalStmts = Object.values(store.scriptByTable).reduce((s, arr) => s + arr.length, 0)
   const totalSelected = Object.values(store.selectedByTable).reduce((s, arr) => s + arr.length, 0)
 
-  const handleDownload = () => {
+  const [warningsExpanded, setWarningsExpanded] = useState(false)
+  const [showPlansLocal, setShowPlansLocal] = useState(false)
+  const plansRef = useRef<HTMLDivElement>(null)
+
+  // 点击 Popover 外部关闭方案库
+  useEffect(() => {
+    if (!showPlansLocal) return
+    const handler = (e: MouseEvent) => {
+      if (plansRef.current && !plansRef.current.contains(e.target as Node)) {
+        setShowPlansLocal(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPlansLocal])
+
+  const handleDownload = async () => {
     const allSql = Object.entries(store.scriptByTable)
-      .map(([tbl, stmts]) => `-- ===== ${tbl} =====\n${stmts.map((s) => s.sql).join(';\n')}`)
+      .map(([tbl]) => {
+        const sel = store.selectedByTable[tbl] ?? []
+        const stmts2 = store.scriptByTable[tbl] ?? []
+        // 仅导出勾选的语句
+        const filtered = sel.map((i) => stmts2[i]).filter((s): s is GeneratedStatement => !!s)
+        return `-- ===== ${tbl} =====\n${filtered.map((s) => s.sql).join(';\n')}`
+      })
       .join('\n\n;\n\n')
-    const blob = new Blob([allSql], { type: 'text/sql' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `migration-${Date.now()}.sql`
-    a.click()
-    URL.revokeObjectURL(url)
+    await api['migration:exportScript']({ sql: allSql, defaultName: `migration-${Date.now()}.sql` })
   }
 
   return (
     <div className="step-content">
-      {/* 类型告警 */}
+      {/* 类型告警（默认折叠，点击展开） */}
       {store.warnings.length > 0 && (
         <div className="migration-warnings">
-          <h4>跨库类型映射告警（{store.warnings.length}）</h4>
-          {store.warnings.slice(0, 10).map((w, i) => (
-            <div key={i} className={`warning-item warning-${w.severity}`}>
-              <AlertTriangle size={13} />
-              <span className="warning-col">{w.column}</span>
-              <span className="warning-types">
-                {w.fromType} → {w.toType}
-              </span>
-              <span className="warning-reason">{w.reason}</span>
-            </div>
-          ))}
+          <div className="warnings-header" onClick={() => setWarningsExpanded(!warningsExpanded)}>
+            {warningsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <AlertTriangle size={14} />
+            <h4>跨库类型映射告警（{store.warnings.length}）</h4>
+          </div>
+          {warningsExpanded &&
+            store.warnings.map((w, i) => (
+              <div key={i} className={`warning-item warning-${w.severity}`}>
+                <AlertTriangle size={13} />
+                <span className="warning-col">{w.column}</span>
+                <span className="warning-types">
+                  {w.fromType} → {w.toType}
+                </span>
+                <span className="warning-reason">{w.reason}</span>
+              </div>
+            ))}
         </div>
       )}
 
@@ -400,46 +408,48 @@ function Step3Script(props: {
         >
           <Save size={14} /> 保存方案
         </button>
-        <button
-          className="btn btn-text btn-sm"
-          onClick={() => {
-            props.setShowPlans(!props.showPlans)
-            void store.loadPlans()
-          }}
-        >
-          方案库 ({store.plans.length})
-        </button>
+        <div className="plans-popover-wrapper" ref={plansRef}>
+          <button
+            className="btn btn-text btn-sm"
+            onClick={() => {
+              setShowPlansLocal(!showPlansLocal)
+              if (!showPlansLocal) void store.loadPlans()
+            }}
+          >
+            方案库 ({store.plans.length})
+          </button>
+          {showPlansLocal && store.plans.length > 0 && (
+            <div className="plans-popover">
+              {store.plans.map((p) => (
+                <div key={p.id} className="plan-item">
+                  <div className="plan-item-info">
+                    <span className="plan-name">{p.name}</span>
+                    <span className="plan-meta">{p.pairs.length} 张表</span>
+                  </div>
+                  <button
+                    className="btn btn-text btn-sm"
+                    onClick={() => {
+                      store.loadPlan(p)
+                      setShowPlansLocal(false)
+                    }}
+                  >
+                    加载
+                  </button>
+                  <button
+                    className="btn btn-text btn-sm btn-danger-text"
+                    onClick={() => void store.deletePlan(p.id)}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <button className="btn btn-text btn-sm" onClick={handleDownload}>
           <Download size={13} /> 导出 .sql
         </button>
       </div>
-
-      {/* 方案库 */}
-      {props.showPlans && store.plans.length > 0 && (
-        <div className="migration-plans">
-          {store.plans.map((p) => (
-            <div key={p.id} className="plan-item">
-              <span className="plan-name">{p.name}</span>
-              <span className="plan-meta">{p.pairs.length} 张表</span>
-              <button
-                className="btn btn-text btn-sm"
-                onClick={() => {
-                  store.loadPlan(p)
-                  props.setShowPlans(false)
-                }}
-              >
-                加载
-              </button>
-              <button
-                className="btn btn-text btn-sm btn-danger-text"
-                onClick={() => void store.deletePlan(p.id)}
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* 按表分组的脚本 */}
       <div className="script-groups">
