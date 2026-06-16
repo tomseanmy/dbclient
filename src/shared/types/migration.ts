@@ -88,19 +88,30 @@ export interface GeneratedStatement {
   riskLevel: 'safe' | 'caution' | 'danger'
 }
 
-/** 迁移方案（一次迁移任务的完整配置，可持久化） */
-export interface MigrationPlan {
-  /** 源端定位 */
+/**
+ * 单个表配对（源表 → 目标表）。
+ *
+ * StructureDiffItem/DataDiffItem 不携带表名，故按表对分组持有各自的 diff 项。
+ * 脚本生成时，pair.target.table 注入为列级 DDL 的表名。
+ */
+export interface MigrationTablePair {
+  /** 源端定位（connectionId + schema + table） */
   source: MigrationTarget
   /** 目标端定位 */
   target: MigrationTarget
-  /** 目标方言（决定 DDL/DML 生成） */
-  dialect: MigrationDialect
-  /** 结构 diff 项（可空，纯数据迁移时为空） */
+  /** 该表对的结构 diff 项 */
   structureItems: StructureDiffItem[]
-  /** 数据 diff 项（可空，纯结构迁移时为空） */
+  /** 该表对的数据 diff 项（纯结构迁移时为空） */
   dataItems?: DataDiffItem[]
-  /** 迁移选项 */
+}
+
+/** 迁移方案（一次迁移任务的完整配置，可持久化） */
+export interface MigrationPlan {
+  /** 迁移表对列表（支持多表批量迁移） */
+  pairs: MigrationTablePair[]
+  /** 目标方言（所有 pair 共享；跨库迁移时各 pair 目标连接必须同类型） */
+  dialect: MigrationDialect
+  /** 迁移选项（所有 pair 共享） */
   options: MigrationOptions
   /** 跨库类型映射告警（生成脚本时填充） */
   warnings?: TypeMappingWarning[]
@@ -130,7 +141,7 @@ export interface MigrationFailedItem {
   error: string
 }
 
-/** 迁移执行结果 */
+/** 迁移执行结果（单表） */
 export interface MigrationResult {
   success: boolean
   /** 成功执行的语句数 */
@@ -141,4 +152,21 @@ export interface MigrationResult {
   durationMs: number
   /** 失败项明细（perStatement 模式下可能部分成功） */
   failedItems?: MigrationFailedItem[]
+}
+
+/**
+ * 多表批量迁移执行结果。
+ *
+ * 每表独立事务（决策：每表独立事务），单表失败不影响其他表。
+ * results 按目标表名索引。
+ */
+export interface MigrationBatchResult {
+  /** 每张表的执行结果，key = pair.target.table */
+  results: Record<string, MigrationResult>
+  /** 成功的表数量 */
+  totalSuccess: number
+  /** 失败的表数量 */
+  totalFailed: number
+  /** 总耗时（毫秒） */
+  durationMs: number
 }

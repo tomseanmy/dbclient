@@ -25,7 +25,7 @@ import type { AppSettings } from './types/settings'
 import type { UpdateStatus, UpdateInfo } from './types/update'
 import type {
   MigrationPlan,
-  MigrationResult,
+  MigrationBatchResult,
   MigrationTarget,
   SavedMigrationPlan,
   SavedMigrationPlanInput,
@@ -394,10 +394,10 @@ export interface IpcContracts {
     }
     res: { rows: Record<string, unknown>[]; total: number }
   }
-  // 执行迁移（内部复用 M3 安全层 db:confirmExecute）
+  // 执行迁移（多表批量，每表独立事务）
   'migration:execute': {
-    req: { plan: MigrationPlan; selectedIndexes: number[] }
-    res: MigrationResult
+    req: { plan: MigrationPlan; selectedByTable: Record<string, number[]> }
+    res: MigrationBatchResult
   }
   // 持久化迁移方案（D3：必做）
   'migration:savePlan': {

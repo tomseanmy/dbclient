@@ -1,49 +1,65 @@
 /**
- * 迁移功能状态管理（Zustand）
+ * 迁移功能状态管理（Zustand）—— 四步向导
  *
- * 管理迁移向导的交互状态：源/目标选择、diff 结果、生成脚本、执行结果。
- * 以及持久化方案的列表加载。
- *
- * 复用 useConnectionStore 的连接/schemas/tables 数据，不重复拉取。
+ * 步骤1：选源库 + 目标库（连接 + schema）
+ * 步骤2：勾选源表 + 配置维度/策略/事务
+ * 步骤3：生成脚本（按表分组）+ 勾选执行项
+ * 步骤4：执行进度 + 结果
  */
 import { create } from 'zustand'
 import { api } from '../api'
 import type {
-  StructureDiffItem,
   DataDiffItem,
   DataStrategy,
   GeneratedStatement,
-  TypeMappingWarning,
-  MigrationResult,
-  MigrationTarget,
+  MigrationBatchResult,
+  MigrationTablePair,
   SavedMigrationPlan,
+  StructureDiffItem,
   TransactionStrategy,
+  TypeMappingWarning,
 } from '../api'
 
-/** 迁移向导状态 */
-interface MigrationStore {
-  // —— 源/目标选择 ——
-  source: MigrationTarget | null
-  target: MigrationTarget | null
-  /** 数据迁移策略 */
-  strategy: DataStrategy
-  /** 事务策略 */
-  transaction: TransactionStrategy
-  /** 是否启用数据迁移（false=仅结构） */
-  includeData: boolean
-
-  // —— diff 结果 ——
+/** 步骤2/3 的表项（含勾选 + 目标表名） */
+export interface TableSelection {
+  /** 源表名 */
+  sourceTable: string
+  /** 目标表名（默认同名，可改） */
+  targetTable: string
+  /** 是否勾选迁移 */
+  selected: boolean
+  /** 结构 diff（步骤2生成时填充） */
   structureItems: StructureDiffItem[]
+  /** 数据 diff（步骤2生成时填充） */
   dataItems: DataDiffItem[]
-  warnings: TypeMappingWarning[]
-  /** 勾选执行的语句下标 */
-  selectedIndexes: number[]
-  /** 生成的脚本 */
-  statements: GeneratedStatement[]
+}
 
-  // —— 执行 ——
+interface MigrationStore {
+  // —— 步骤控制 ——
+  step: 1 | 2 | 3 | 4
+
+  // —— 步骤1：源/目标库 ——
+  sourceConnId: string
+  targetConnId: string
+  sourceSchema: string
+  targetSchema: string
+
+  // —— 步骤2：表选择 + 选项 ——
+  tables: TableSelection[]
+  includeData: boolean
+  strategy: DataStrategy
+  transaction: TransactionStrategy
+
+  // —— 步骤3：脚本（按表分组）——
+  /** key = 目标表名 */
+  scriptByTable: Record<string, GeneratedStatement[]>
+  /** key = 目标表名，value = 勾选的语句下标 */
+  selectedByTable: Record<string, number[]>
+  warnings: TypeMappingWarning[]
+
+  // —— 步骤4：执行结果 ——
   executing: boolean
-  result: MigrationResult | null
+  batchResult: MigrationBatchResult | null
 
   // —— 通用 ——
   loading: boolean
@@ -53,18 +69,26 @@ interface MigrationStore {
   plans: SavedMigrationPlan[]
 
   // ===== Actions =====
-  setSource: (t: MigrationTarget | null) => void
-  setTarget: (t: MigrationTarget | null) => void
+  setStep: (s: 1 | 2 | 3 | 4) => void
+  nextStep: () => void
+  prevStep: () => void
+  setSourceConn: (id: string) => void
+  setTargetConn: (id: string) => void
+  setSourceSchema: (s: string) => void
+  setTargetSchema: (s: string) => void
+
+  setTables: (tables: TableSelection[]) => void
+  toggleTable: (sourceTable: string) => void
+  setTargetTableName: (sourceTable: string, targetName: string) => void
+  setIncludeData: (v: boolean) => void
   setStrategy: (s: DataStrategy) => void
   setTransaction: (t: TransactionStrategy) => void
-  setIncludeData: (v: boolean) => void
 
-  runStructureDiff: () => Promise<void>
-  runDataDiff: () => Promise<void>
-  generateScript: () => Promise<void>
-  toggleSelect: (index: number) => void
-  selectAll: () => void
-  selectNone: () => void
+  /** 步骤2→3：对所有勾选表跑 diff + 生成脚本 */
+  generateAll: () => Promise<void>
+  toggleStatement: (tableName: string, index: number) => void
+
+  /** 步骤3→4：执行 */
   execute: () => Promise<void>
 
   loadPlans: () => Promise<void>
@@ -75,135 +99,194 @@ interface MigrationStore {
   reset: () => void
 }
 
+/** 从源/目标 schema/conn 推断目标方言（后端会校验，此处占位） */
+function inferDialect(): 'mysql' | 'postgres' | 'sqlite' {
+  return 'mysql'
+}
+
 export const useMigrationStore = create<MigrationStore>((set, get) => ({
-  source: null,
-  target: null,
+  step: 1,
+  sourceConnId: '',
+  targetConnId: '',
+  sourceSchema: '',
+  targetSchema: '',
+  tables: [],
+  includeData: false,
   strategy: 'incremental',
   transaction: 'single',
-  includeData: false,
-  structureItems: [],
-  dataItems: [],
+  scriptByTable: {},
+  selectedByTable: {},
   warnings: [],
-  selectedIndexes: [],
-  statements: [],
   executing: false,
-  result: null,
+  batchResult: null,
   loading: false,
   error: null,
   plans: [],
 
-  setSource: (t) =>
-    set({ source: t, structureItems: [], dataItems: [], statements: [], result: null }),
-  setTarget: (t) =>
-    set({ target: t, structureItems: [], dataItems: [], statements: [], result: null }),
+  setStep: (s) => set({ step: s }),
+  nextStep: () => set((st) => ({ step: Math.min(4, st.step + 1) as 1 | 2 | 3 | 4 })),
+  prevStep: () => set((st) => ({ step: Math.max(1, st.step - 1) as 1 | 2 | 3 | 4 })),
+  setSourceConn: (id) => set({ sourceConnId: id, sourceSchema: '', tables: [] }),
+  setTargetConn: (id) => set({ targetConnId: id, targetSchema: '' }),
+  setSourceSchema: (s) => set({ sourceSchema: s, tables: [] }),
+  setTargetSchema: (s) => set({ targetSchema: s }),
+
+  setTables: (tables) => set({ tables }),
+  toggleTable: (sourceTable) =>
+    set((st) => ({
+      tables: st.tables.map((t) =>
+        t.sourceTable === sourceTable ? { ...t, selected: !t.selected } : t,
+      ),
+    })),
+  setTargetTableName: (sourceTable, targetName) =>
+    set((st) => ({
+      tables: st.tables.map((t) =>
+        t.sourceTable === sourceTable ? { ...t, targetTable: targetName } : t,
+      ),
+    })),
+  setIncludeData: (v) => set({ includeData: v }),
   setStrategy: (s) => set({ strategy: s }),
   setTransaction: (t) => set({ transaction: t }),
-  setIncludeData: (v) => set({ includeData: v, dataItems: [], statements: [] }),
 
-  runStructureDiff: async () => {
-    const { source, target } = get()
-    if (!source || !target) {
-      set({ error: '请先选择源和目标表' })
-      return
-    }
-    set({ loading: true, error: null })
-    try {
-      const res = await api['migration:diffStructure']({ source, target })
-      set({ structureItems: res.items, warnings: res.warnings, loading: false })
-    } catch (err) {
-      set({ loading: false, error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-
-  runDataDiff: async () => {
-    const { source, target, strategy } = get()
-    if (!source || !target) {
-      set({ error: '请先选择源和目标表' })
-      return
-    }
-    set({ loading: true, error: null })
-    try {
-      const res = await api['migration:diffData']({ source, target, strategy })
-      set({ dataItems: res.items, loading: false })
-    } catch (err) {
-      set({ loading: false, error: err instanceof Error ? err.message : String(err) })
-    }
-  },
-
-  generateScript: async () => {
+  generateAll: async () => {
     const {
-      source,
-      target,
-      structureItems,
-      dataItems,
-      strategy,
-      transaction,
+      sourceConnId,
+      targetConnId,
+      sourceSchema,
+      targetSchema,
+      tables,
       includeData,
-      warnings,
+      strategy,
     } = get()
-    if (!source || !target) {
-      set({ error: '请先选择源和目标表' })
+    const selectedTables = tables.filter((t) => t.selected)
+    if (selectedTables.length === 0) {
+      set({ error: '请至少勾选一张表' })
       return
     }
-    set({ loading: true, error: null })
+    set({ loading: true, error: null, scriptByTable: {}, selectedByTable: {}, warnings: [] })
+
+    const scriptByTable: Record<string, GeneratedStatement[]> = {}
+    const selectedByTable: Record<string, number[]> = {}
+    const allWarnings: TypeMappingWarning[] = []
+
+    const updatedTables: TableSelection[] = []
     try {
-      // 推断目标方言由后端 assertMigratable 处理；这里传 'mysql' 占位，后端会覆盖
-      const plan = {
-        source,
-        target,
-        dialect: 'mysql' as const,
-        structureItems,
-        dataItems: includeData ? dataItems : [],
-        options: { useTransaction: transaction, strategy },
-        warnings,
+      // 逐表 diff + 生成脚本
+      for (const t of selectedTables) {
+        const source = {
+          connectionId: sourceConnId,
+          schema: sourceSchema || undefined,
+          table: t.sourceTable,
+        }
+        const target = {
+          connectionId: targetConnId,
+          schema: targetSchema || undefined,
+          table: t.targetTable,
+        }
+
+        // 结构 diff
+        const structRes = await api['migration:diffStructure']({ source, target })
+        allWarnings.push(...structRes.warnings)
+
+        let dataItems: DataDiffItem[] = []
+        if (includeData) {
+          const dataRes = await api['migration:diffData']({ source, target, strategy })
+          dataItems = dataRes.items
+        }
+
+        // 构造 pair 生成脚本
+        const pair: MigrationTablePair = {
+          source,
+          target,
+          structureItems: structRes.items,
+          dataItems,
+        }
+        const plan = {
+          pairs: [pair],
+          dialect: inferDialect(),
+          options: { useTransaction: get().transaction, strategy },
+          warnings: structRes.warnings,
+        }
+        const scriptRes = await api['migration:generateScript']({ plan })
+        scriptByTable[t.targetTable] = scriptRes.statements
+        selectedByTable[t.targetTable] = scriptRes.statements.map((_, i) => i)
+        // 回填 diff 结果到 tables（execute 时复用）
+        updatedTables.push({ ...t, structureItems: structRes.items, dataItems: dataItems })
       }
-      const res = await api['migration:generateScript']({ plan })
+
       set({
-        statements: res.statements,
-        selectedIndexes: res.statements.map((_, i) => i), // 默认全选
+        tables:
+          updatedTables.length > 0
+            ? get().tables.map(
+                (t) => updatedTables.find((u) => u.sourceTable === t.sourceTable) ?? t,
+              )
+            : get().tables,
+        scriptByTable,
+        selectedByTable,
+        warnings: allWarnings,
         loading: false,
+        step: 3,
       })
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : String(err) })
     }
   },
 
-  toggleSelect: (index) =>
-    set((s) => ({
-      selectedIndexes: s.selectedIndexes.includes(index)
-        ? s.selectedIndexes.filter((i) => i !== index)
-        : [...s.selectedIndexes, index],
-    })),
-
-  selectAll: () => set((s) => ({ selectedIndexes: s.statements.map((_, i) => i) })),
-  selectNone: () => set({ selectedIndexes: [] }),
+  toggleStatement: (tableName, index) =>
+    set((st) => {
+      const current = st.selectedByTable[tableName] ?? []
+      const next = current.includes(index)
+        ? current.filter((i) => i !== index)
+        : [...current, index]
+      return { selectedByTable: { ...st.selectedByTable, [tableName]: next } }
+    }),
 
   execute: async () => {
     const {
-      source,
-      target,
-      structureItems,
-      dataItems,
+      sourceConnId,
+      targetConnId,
+      sourceSchema,
+      targetSchema,
+      tables,
+      includeData,
       strategy,
       transaction,
-      includeData,
       warnings,
-      selectedIndexes,
     } = get()
-    if (!source || !target) return
-    set({ executing: true, error: null, result: null })
+    set({ executing: true, error: null, batchResult: null })
+
     try {
+      // 构造完整 plan（pairs 从 tables 重建，含 diff 项）
+      const pairs: MigrationTablePair[] = tables
+        .filter((t) => t.selected)
+        .map((t) => ({
+          source: {
+            connectionId: sourceConnId,
+            schema: sourceSchema || undefined,
+            table: t.sourceTable,
+          },
+          target: {
+            connectionId: targetConnId,
+            schema: targetSchema || undefined,
+            table: t.targetTable,
+          },
+          structureItems: t.structureItems,
+          dataItems: includeData ? t.dataItems : undefined,
+        }))
+
       const plan = {
-        source,
-        target,
-        dialect: 'mysql' as const,
-        structureItems,
-        dataItems: includeData ? dataItems : [],
+        pairs,
+        dialect: inferDialect(),
         options: { useTransaction: transaction, strategy },
         warnings,
       }
-      const result = await api['migration:execute']({ plan, selectedIndexes })
-      set({ result, executing: false })
+
+      // selectedByTable 直接传（key = 目标表名）
+      const result = await api['migration:execute']({
+        plan,
+        selectedByTable: get().selectedByTable,
+      })
+      set({ batchResult: result, executing: false, step: 4 })
     } catch (err) {
       set({ executing: false, error: err instanceof Error ? err.message : String(err) })
     }
@@ -220,23 +303,37 @@ export const useMigrationStore = create<MigrationStore>((set, get) => ({
 
   savePlan: async (name) => {
     const {
-      source,
-      target,
-      structureItems,
-      dataItems,
+      sourceConnId,
+      targetConnId,
+      sourceSchema,
+      targetSchema,
+      tables,
+      includeData,
       strategy,
       transaction,
-      includeData,
       warnings,
     } = get()
-    if (!source || !target) return
+    if (tables.filter((t) => t.selected).length === 0) return
     try {
+      const pairs: MigrationTablePair[] = tables
+        .filter((t) => t.selected)
+        .map((t) => ({
+          source: {
+            connectionId: sourceConnId,
+            schema: sourceSchema || undefined,
+            table: t.sourceTable,
+          },
+          target: {
+            connectionId: targetConnId,
+            schema: targetSchema || undefined,
+            table: t.targetTable,
+          },
+          structureItems: t.structureItems,
+          dataItems: includeData ? t.dataItems : undefined,
+        }))
       const plan = {
-        source,
-        target,
-        dialect: 'mysql' as const,
-        structureItems,
-        dataItems: includeData ? dataItems : [],
+        pairs,
+        dialect: inferDialect(),
         options: { useTransaction: transaction, strategy },
         warnings,
         name,
@@ -257,31 +354,43 @@ export const useMigrationStore = create<MigrationStore>((set, get) => ({
     }
   },
 
-  loadPlan: (plan) =>
+  loadPlan: (plan) => {
+    const firstPair = plan.pairs[0]
     set({
-      source: plan.source,
-      target: plan.target,
-      structureItems: plan.structureItems,
-      dataItems: plan.dataItems ?? [],
-      warnings: plan.warnings ?? [],
+      sourceConnId: firstPair?.source.connectionId ?? '',
+      targetConnId: firstPair?.target.connectionId ?? '',
+      sourceSchema: firstPair?.source.schema ?? '',
+      targetSchema: firstPair?.target.schema ?? '',
+      tables: plan.pairs.map((p) => ({
+        sourceTable: p.source.table,
+        targetTable: p.target.table,
+        selected: true,
+        structureItems: p.structureItems,
+        dataItems: p.dataItems ?? [],
+      })),
+      includeData: plan.pairs.some((p) => (p.dataItems?.length ?? 0) > 0),
       strategy: plan.options.strategy,
       transaction: plan.options.useTransaction,
-      includeData: (plan.dataItems?.length ?? 0) > 0,
-      statements: [],
-      selectedIndexes: [],
-      result: null,
-    }),
+      warnings: plan.warnings ?? [],
+      scriptByTable: {},
+      selectedByTable: {},
+      batchResult: null,
+      step: 2,
+    })
+  },
 
   reset: () =>
     set({
-      source: null,
-      target: null,
-      structureItems: [],
-      dataItems: [],
+      step: 1,
+      sourceConnId: '',
+      targetConnId: '',
+      sourceSchema: '',
+      targetSchema: '',
+      tables: [],
+      scriptByTable: {},
+      selectedByTable: {},
       warnings: [],
-      selectedIndexes: [],
-      statements: [],
-      result: null,
+      batchResult: null,
       error: null,
     }),
 }))

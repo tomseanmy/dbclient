@@ -17,7 +17,6 @@
 import type {
   GeneratedStatement,
   MigrationFailedItem,
-  MigrationPlan,
   MigrationResult,
 } from '@shared/types/migration'
 import { logger } from '@main/infra/logger'
@@ -31,10 +30,10 @@ export type TransactionControl = (sql: 'BEGIN' | 'COMMIT' | 'ROLLBACK') => Promi
 /**
  * 校验事务策略是否合法（D2 守卫）。
  * 含 DML 且 useTransaction='none' → 抛错拒绝。
- * @returns 处理后的语句列表（已按 selectedIndexes 过滤）
+ * @returns 处理后的语句列表（原样返回）
  */
 export function validateTransactionStrategy(
-  plan: { structureItems: unknown[]; dataItems?: unknown[]; options: { useTransaction: string } },
+  plan: { dataItems?: unknown[]; options: { useTransaction: string } },
   statements: GeneratedStatement[],
 ): GeneratedStatement[] {
   const hasData = (plan.dataItems?.length ?? 0) > 0
@@ -147,15 +146,13 @@ export async function executeStatements(
 }
 
 /**
- * 高层执行入口（IPC handler 调用）。
- * 接收 plan + selectedIndexes，内部生成脚本后执行。
+ * 单对执行入口（测试与单表场景用）。
+ * 多表批量执行由 IPC handler 层循环调用 executeStatements 实现。
  *
- * 注意：事务控制与语句执行均通过注入的 execFn/txFn，
- * 由 IPC handler 绑定到具体 driver（绕过 executeSql 的逐条安全检查，
- * 因为迁移脚本已在生成阶段经用户确认）。
+ * plan 参数只需 dataItems + options（用于事务守卫），不依赖完整 MigrationPlan。
  */
 export async function executeMigration(
-  plan: MigrationPlan,
+  plan: { dataItems?: unknown[]; options: { useTransaction: 'none' | 'perStatement' | 'single' } },
   statements: GeneratedStatement[],
   selectedIndexes: number[],
   execFn: StatementExecutor,

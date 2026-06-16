@@ -11,34 +11,19 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { validateTransactionStrategy, executeStatements, executeMigration } from './executor'
-import type { GeneratedStatement, MigrationPlan } from '@shared/types/migration'
+import type { GeneratedStatement } from '@shared/types/migration'
 
 function stmt(sql: string, kind: 'ddl' | 'dml' = 'ddl'): GeneratedStatement {
   return { sql, kind, riskLevel: 'safe' }
 }
 
-function plan(opts: {
-  useTransaction: 'none' | 'single' | 'perStatement'
-  hasData?: boolean
-}): MigrationPlan {
+function plan(opts: { useTransaction: 'none' | 'single' | 'perStatement'; hasData?: boolean }): {
+  dataItems?: unknown[]
+  options: { useTransaction: 'none' | 'single' | 'perStatement' }
+} {
   return {
-    source: { connectionId: 's', table: 't' },
-    target: { connectionId: 't', table: 't' },
-    dialect: 'mysql',
-    structureItems: [
-      {
-        kind: 'addColumn',
-        column: {
-          name: 'a',
-          dataType: 'int',
-          unifiedType: 'integer',
-          nullable: true,
-          isPrimaryKey: false,
-        },
-      },
-    ],
     dataItems: opts.hasData ? [{ kind: 'insert', pk: [1], row: { id: 1 } }] : undefined,
-    options: { useTransaction: opts.useTransaction, strategy: 'incremental' },
+    options: { useTransaction: opts.useTransaction },
   }
 }
 

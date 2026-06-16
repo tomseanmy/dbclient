@@ -85,9 +85,11 @@ export type {
   WarningSeverity,
   GeneratedStatement,
   MigrationPlan,
+  MigrationTablePair,
   SavedMigrationPlan,
   SavedMigrationPlanInput,
   MigrationResult,
+  MigrationBatchResult,
   MigrationFailedItem,
   MigrationOptions,
 } from '@shared/types/migration'

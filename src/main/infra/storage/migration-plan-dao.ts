@@ -76,8 +76,8 @@ export const migrationPlanDao = {
     ).run({
       id,
       name: input.name,
-      source_conn: input.source.connectionId,
-      target_conn: input.target.connectionId,
+      source_conn: input.pairs[0]?.source.connectionId ?? '',
+      target_conn: input.pairs[0]?.target.connectionId ?? '',
       plan_json: planJson,
       created_at: now,
       updated_at: now,
@@ -104,8 +104,8 @@ export const migrationPlanDao = {
     ).run({
       id,
       name: input.name,
-      source_conn: input.source.connectionId,
-      target_conn: input.target.connectionId,
+      source_conn: input.pairs[0]?.source.connectionId ?? '',
+      target_conn: input.pairs[0]?.target.connectionId ?? '',
       plan_json: planJson,
       updated_at: now,
     })
