@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../api'
 import { useUpdateStore } from '../../store/update'
-import logoUrl from '../../assets/logo.png'
+import logoUrl from '../../assets/logo.webp'
 
 const REPO_URL = 'https://github.com/tomseanmy/dbclient'
 

@@ -35,7 +35,7 @@ import { Settings } from './pages/Settings'
 import { WindowControls } from './components/WindowControls'
 import { UpdateReadyBanner } from './components/UpdateReadyBanner'
 import { useContextMenuClose } from './hooks/useContextMenu'
-import logoUrl from './assets/logo.png'
+import logoUrl from './assets/logo.webp'
 
 /** 主内容区的 tab 类型 */
 interface Tab {
