@@ -1,8 +1,8 @@
 /**
  * migration:* IPC handler —— 数据库迁移
  *
- * 批次 B 实现：结构迁移（diffStructure + generateScript 的结构部分）。
- * 数据迁移（diffData / previewRows / execute / 持久化方案）在批次 C/D 补齐。
+ * 批次 B+C：结构迁移 + 数据迁移。
+ * 执行（execute）与持久化方案（savePlan 等）在批次 D 补齐。
  *
  * 安全：所有迁移默认只生成脚本，不自动执行；执行走 M3 安全层（见 T5.4.2）。
  */
@@ -16,6 +16,11 @@ import {
   resolveTarget,
   assertMigratable,
 } from '@main/domain/migration/target-loader'
+import { diffData, extractPrimaryKeys } from '@main/domain/migration/data-diff'
+import type { Row } from '@main/domain/migration/data-diff'
+import { generateDataScript } from '@main/domain/migration/data-script'
+import { fetchAllRows, fetchPkOnly } from '@main/domain/migration/row-fetcher'
+import { getDriver } from '@main/domain/db/manager'
 import type { GeneratedStatement, TypeMappingWarning } from '@shared/types/migration'
 
 export function registerMigrationHandlers(): void {
@@ -44,7 +49,72 @@ export function registerMigrationHandlers(): void {
     return { items, warnings }
   })
 
-  // 生成迁移脚本（结构部分；数据部分在批次 C 的 data-script 完成后合并）
+  // 数据 diff：按 PK 比对源/目标行，产出 insert/delete 项（不做 UPDATE）
+  registerHandler('migration:diffData', async (_event, { source, target, strategy }) => {
+    logger.info('迁移数据 diff', { source: source.table, strategy })
+
+    const [sourceMeta, targetMeta] = await Promise.all([
+      describeTargetTable(source),
+      describeTargetTable(target),
+    ])
+    if (!sourceMeta) {
+      throw new Error(`源表 ${source.schema ?? ''}.${source.table} 不存在，无法迁移`)
+    }
+
+    const pkColumns = extractPrimaryKeys(sourceMeta)
+    const sourceDriver = getDriver(source.connectionId)
+
+    // incremental/insertOnly 仅需 PK 比对（轻量）；fullReplace 需全量行（用于 INSERT）
+    const needFullRows = strategy === 'fullReplace'
+    const sourceRows = needFullRows
+      ? await fetchAllRows(sourceDriver, source.table, source.schema, {
+          total: sourceMeta.estimatedRows,
+        })
+      : await fetchPkOnly(sourceDriver, source.table, source.schema, pkColumns, {
+          total: sourceMeta.estimatedRows,
+        })
+
+    // 目标端：incremental 需 PK（判断 delete）；insertOnly 无需拉目标；fullReplace 仅需 PK 判断多余
+    let targetRows: Row[] = []
+    if (strategy !== 'insertOnly' && targetMeta) {
+      const targetDriver = getDriver(target.connectionId)
+      targetRows = await fetchPkOnly(targetDriver, target.table, target.schema, pkColumns, {
+        total: targetMeta.estimatedRows,
+      })
+    }
+
+    const items = diffData(sourceRows, targetRows, pkColumns, strategy)
+    return { items, totalRows: sourceRows.length }
+  })
+
+  // 预览将受影响的行（数据迁移前供用户确认）
+  registerHandler('migration:previewRows', async (_event, { source, target, strategy, limit }) => {
+    const previewLimit = limit ?? 100
+    const sourceMeta = await describeTargetTable(source)
+    if (!sourceMeta) {
+      throw new Error(`源表 ${source.schema ?? ''}.${source.table} 不存在`)
+    }
+    const pkColumns = extractPrimaryKeys(sourceMeta)
+    const sourceDriver = getDriver(source.connectionId)
+    const sourceRows = await fetchPkOnly(sourceDriver, source.table, source.schema, pkColumns, {})
+    const targetMeta = await describeTargetTable(target)
+    const targetRows =
+      strategy !== 'insertOnly' && targetMeta
+        ? await fetchPkOnly(
+            getDriver(target.connectionId),
+            target.table,
+            target.schema,
+            pkColumns,
+            {},
+          )
+        : []
+    const items = diffData(sourceRows, targetRows, pkColumns, strategy)
+    // 取前 previewLimit 条 insert 项的 PK 供预览
+    const preview = items.filter((i) => i.kind === 'insert').slice(0, previewLimit)
+    return { rows: preview, total: items.length }
+  })
+
+  // 生成迁移脚本（结构 + 数据）
   registerHandler('migration:generateScript', async (_event, { plan }) => {
     const dialect = assertMigratable(plan.target).dialect
     const allWarnings: TypeMappingWarning[] = [...(plan.warnings ?? [])]
@@ -52,8 +122,24 @@ export function registerMigrationHandlers(): void {
     // 结构脚本
     const structureStmts = generateStructureScript(plan.structureItems, dialect, plan.target.table)
 
-    // 数据脚本（批次 C 实现后接入；此处先返回结构部分）
+    // 数据脚本（若 plan 含 dataItems）
     const dataStmts: GeneratedStatement[] = []
+    if (plan.dataItems && plan.dataItems.length > 0) {
+      const targetMeta = await describeTargetTable(plan.target)
+      if (targetMeta) {
+        dataStmts.push(
+          ...generateDataScript(
+            {
+              targetMeta,
+              dialect,
+              strategy: plan.options.strategy,
+              batchSize: plan.options.batchSize,
+            },
+            plan.dataItems,
+          ),
+        )
+      }
+    }
 
     return { statements: [...structureStmts, ...dataStmts], warnings: allWarnings }
   })
