@@ -117,8 +117,8 @@ export interface SavedMigrationPlan extends MigrationPlan {
   updatedAt: string
 }
 
-/** 新建/更新方案的输入（plan 不含 id 与时间戳） */
-export type SavedMigrationPlanInput = MigrationPlan & { name: string }
+/** 新建/更新方案的输入（更新时携带 id，新建时省略） */
+export type SavedMigrationPlanInput = MigrationPlan & { name: string; id?: string }
 
 // ===== 执行结果 =====
 

@@ -1,10 +1,9 @@
 /**
  * migration:* IPC handler —— 数据库迁移
  *
- * 批次 B+C：结构迁移 + 数据迁移。
- * 执行（execute）与持久化方案（savePlan 等）在批次 D 补齐。
+ * 批次 B+C+D：结构迁移 + 数据迁移 + 执行 + 持久化方案。
  *
- * 安全：所有迁移默认只生成脚本，不自动执行；执行走 M3 安全层（见 T5.4.2）。
+ * 安全：所有迁移默认只生成脚本，不自动执行；执行走执行引擎（事务守卫 + driver 执行）。
  */
 import { registerHandler } from './registry'
 import { logger } from '@main/infra/logger'
@@ -20,7 +19,9 @@ import { diffData, extractPrimaryKeys } from '@main/domain/migration/data-diff'
 import type { Row } from '@main/domain/migration/data-diff'
 import { generateDataScript } from '@main/domain/migration/data-script'
 import { fetchAllRows, fetchPkOnly } from '@main/domain/migration/row-fetcher'
+import { executeMigration } from '@main/domain/migration/executor'
 import { getDriver } from '@main/domain/db/manager'
+import { migrationPlanDao } from '@main/infra/storage/migration-plan-dao'
 import type { GeneratedStatement, TypeMappingWarning } from '@shared/types/migration'
 
 export function registerMigrationHandlers(): void {
@@ -142,5 +143,73 @@ export function registerMigrationHandlers(): void {
     }
 
     return { statements: [...structureStmts, ...dataStmts], warnings: allWarnings }
+  })
+
+  // 执行迁移（事务守卫 + driver 执行）
+  registerHandler('migration:execute', async (_event, { plan, selectedIndexes }) => {
+    logger.info('执行迁移', { table: plan.target.table, count: selectedIndexes.length })
+
+    // 先生成完整脚本，再按勾选执行
+    const { statements } = await (async () => {
+      const dialect = assertMigratable(plan.target).dialect
+      const structureStmts = generateStructureScript(
+        plan.structureItems,
+        dialect,
+        plan.target.table,
+      )
+      const dataStmts: GeneratedStatement[] = []
+      if (plan.dataItems && plan.dataItems.length > 0) {
+        const targetMeta = await describeTargetTable(plan.target)
+        if (targetMeta) {
+          dataStmts.push(
+            ...generateDataScript(
+              {
+                targetMeta,
+                dialect,
+                strategy: plan.options.strategy,
+                batchSize: plan.options.batchSize,
+              },
+              plan.dataItems,
+            ),
+          )
+        }
+      }
+      return { statements: [...structureStmts, ...dataStmts] }
+    })()
+
+    // 在目标连接上执行；事务控制与语句执行走 driver.executeStatement
+    const targetDriver = getDriver(plan.target.connectionId)
+    const execFn = async (sql: string) => {
+      await targetDriver.executeStatement(sql)
+    }
+    const txFn = async (sql: 'BEGIN' | 'COMMIT' | 'ROLLBACK') => {
+      await targetDriver.executeStatement(sql)
+    }
+
+    return executeMigration(plan, statements, selectedIndexes, execFn, txFn)
+  })
+
+  // ===== 持久化方案（D3）=====
+
+  registerHandler('migration:savePlan', async (_event, { plan }) => {
+    // 含 id 视为更新，否则新建
+    const existing = plan.id ? migrationPlanDao.get(plan.id) : null
+    if (existing && plan.id) {
+      return migrationPlanDao.update(plan.id, plan)
+    }
+    return migrationPlanDao.create(plan)
+  })
+
+  registerHandler('migration:listPlans', async () => {
+    return migrationPlanDao.list()
+  })
+
+  registerHandler('migration:getPlan', async (_event, { id }) => {
+    return migrationPlanDao.get(id)
+  })
+
+  registerHandler('migration:deletePlan', async (_event, { id }) => {
+    migrationPlanDao.remove(id)
+    return { success: true }
   })
 }

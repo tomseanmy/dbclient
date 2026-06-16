@@ -9,6 +9,15 @@ export const api = window.api
 // 重新导出类型，方便组件使用
 export type { SecurityCheckResult, ElevationStatus, AuditLogItem } from '@shared/types/security'
 
+// 表结构编辑：diff + ALTER 生成
+export type {
+  TableDialect,
+  DraftTableMeta,
+  DraftColumn,
+  DraftIndex,
+  DraftForeignKey,
+} from '@shared/db/alter-generator'
+
 export type {
   ConnectionConfig,
   ConnectionInput,
@@ -30,6 +39,7 @@ export type {
   RedisKeyOverview,
   ConnectionStatus,
   UnifiedType,
+  DatabaseRole,
 } from '@shared/types/database'
 export type {
   SavedQueryRecord,
@@ -44,6 +54,7 @@ export type {
   ToolResultStructured,
 } from '@shared/types/agent'
 export type { AgentRunRequest } from '@shared/types/agent-run'
+export type { UpdateStatus, UpdateInfo } from '@shared/types/update'
 export type {
   LlmProvider,
   LlmProviderInput,
@@ -63,3 +74,20 @@ export type {
   AiStreamDonePayload,
   AiStreamErrorPayload,
 } from '@shared/types/llm'
+export type {
+  MigrationTarget,
+  StructureDiffItem,
+  DataDiffItem,
+  DataStrategy,
+  TransactionStrategy,
+  MigrationDialect,
+  TypeMappingWarning,
+  WarningSeverity,
+  GeneratedStatement,
+  MigrationPlan,
+  SavedMigrationPlan,
+  SavedMigrationPlanInput,
+  MigrationResult,
+  MigrationFailedItem,
+  MigrationOptions,
+} from '@shared/types/migration'

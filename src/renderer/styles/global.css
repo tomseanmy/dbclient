@@ -283,6 +283,8 @@ select,
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
+  margin: 4px 10px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   white-space: nowrap;
@@ -718,11 +720,14 @@ select,
 
 /* ===== 表详情 ===== */
 .table-detail {
-  padding: 24px;
+  padding: 0px;
 }
 
 .detail-header {
-  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .detail-header h2 {
@@ -764,11 +769,76 @@ select,
   border-radius: var(--radius);
 }
 
+/* ===== 表结构编辑模式（基于 DataGrid 声明式单元格） ===== */
+.edit-error-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.edit-table-wrap {
+  margin-bottom: 16px;
+}
+
+/* 行操作条（添加 / 删除）：紧跟 detail-tabs 下方 */
+.edit-row-actions {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.edit-remove-btn {
+  opacity: 0.85;
+}
+
+/* DDL 预览框 */
+.edit-ddl-preview {
+  margin-top: 16px;
+}
+
+.edit-ddl-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-ddl-warn {
+  font-weight: 400;
+  color: var(--warning);
+}
+
+.edit-ddl-unsupported {
+  margin: 8px 0 0;
+  padding: 8px 12px 8px 24px;
+  font-size: 12px;
+  color: var(--warning);
+  background: var(--surface-warning);
+  border-radius: var(--radius);
+}
+
+.edit-ddl-unsupported li {
+  margin: 2px 0;
+}
+
 .detail-tabs {
   display: flex;
+  align-items: center;
   gap: 2px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 16px;
+}
+
+/* detail-tabs 最右侧的额外按钮（如保存），自动推到行末 */
+.detail-tabs-extra {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
 }
 
 .tab {
@@ -1037,11 +1107,18 @@ select,
   flex: 1;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 6px;
   overflow: hidden;
   min-height: 200px;
-  margin: 8px 12px;
+  /* 贴合容器：去掉边框/圆角/外边距（需求 2） */
+}
+
+/* 结果区网格容器：与表数据页一致，让 DataGrid 占满剩余空间 */
+.result-grid-wrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
 .result-toolbar {
@@ -1114,6 +1191,14 @@ select,
   margin: 8px 12px;
 }
 
+/* SQL 工作区内联的错误块：贴合布局，去掉外边距/圆角（需求 2） */
+.result-error-inline {
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+}
+
 .result-error strong {
   display: block;
   margin-bottom: 4px;
@@ -1160,7 +1245,6 @@ select,
   background: var(--bg-elevated);
   border-bottom: 2px solid var(--border-strong);
   border-right: 1px solid var(--border);
-  padding: 0;
   text-align: left;
   font-weight: 600;
   color: var(--text-muted);
@@ -1374,9 +1458,15 @@ select,
 }
 
 /* 单元格内渲染内容不捕获指针事件，确保双击/点击直接命中 <td>，
-   否则双击文本时浏览器原生选词行为会吞掉 dblclick，只能点空白处编辑 */
+   否则双击文本时浏览器原生选词行为会吞掉 dblclick，只能点空白处编辑。
+   但声明式内联控件（表结构编辑用）必须能交互，单独放行。 */
 .grid-cell:not(.grid-cell-editing) > * {
   pointer-events: none;
+}
+.grid-cell:not(.grid-cell-editing) > .cell-edit-input,
+.grid-cell:not(.grid-cell-editing) > .cell-edit-select,
+.grid-cell:not(.grid-cell-editing) > .cell-checkbox {
+  pointer-events: auto;
 }
 
 .cell-null {
@@ -1389,7 +1479,6 @@ select,
 }
 
 .cell-number {
-  color: #c084fc;
 }
 
 .cell-bool {
@@ -1796,8 +1885,8 @@ select,
   display: inline-flex;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2px;
+  border-radius: 10px;
+  padding: 4px;
   gap: 2px;
 }
 
@@ -1953,9 +2042,15 @@ select,
   font-family: inherit;
 }
 
-.mention-item:hover,
+.mention-item:hover {
+  background: var(--bg-hover);
+}
+
+/* 选中态（键盘上下移动 / 默认聚焦首项）：比 hover 更明显，便于区分 */
 .mention-item.active {
-  background: var(--bg-secondary);
+  background: var(--bg-hover-strong);
+  box-shadow: inset 3px 0 0 var(--primary);
+  outline: none;
 }
 
 .mention-item-name {
@@ -2189,6 +2284,54 @@ select,
 
 .cell-edit-input:focus {
   box-shadow: none;
+}
+
+/* 声明式内联单元格控件（表结构编辑用） */
+.cell-edit-input.cell-edit-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cell-edit-select {
+  display: block;
+  width: 100%;
+  height: 24px;
+  border: none;
+  border-radius: 0;
+  padding: 0 6px;
+  font-size: inherit;
+  line-height: 24px;
+  font-family: inherit;
+  color: var(--text);
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+.cell-edit-select:hover {
+  background: var(--bg-hover);
+}
+
+.cell-edit-select:focus {
+  box-shadow: none;
+}
+
+.cell-edit-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cell-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding-left: 4px;
+}
+
+.cell-checkbox-label {
+  font-size: inherit;
+  color: var(--text-muted);
 }
 
 /* 暗色下脏行/选中行用更明显的半透明高亮 */
@@ -2475,6 +2618,12 @@ select,
   display: flex;
   gap: 10px;
   max-width: 100%;
+  margin-bottom: 16px;
+}
+
+/* 容器已用 gap 控制间距时，关掉冗余 margin 避免双重间距 */
+.ai-chat-messages > .ai-chat-turn {
+  margin-bottom: 0;
 }
 
 .ai-chat-turn-user {
@@ -2933,7 +3082,6 @@ select,
   border-radius: 6px;
   background: var(--bg-elevated);
   color: var(--text);
-  cursor: pointer;
   text-align: left;
   font-family: inherit;
   transition:
@@ -2941,13 +3089,31 @@ select,
     background 0.12s;
 }
 
-.agent-result-item:hover {
-  border-color: var(--border-strong);
+/* 查询类条目：可点击进入详情窗口 */
+.agent-result-item.is-clickable {
+  cursor: pointer;
+}
+
+.agent-result-item.is-clickable:hover {
+  border-color: var(--primary);
   background: var(--bg-hover);
+}
+
+/* 静态条目（增删改/失败）：不可点击，弱化交互 */
+.agent-result-item.is-static {
+  cursor: default;
 }
 
 .agent-result-item.is-error {
   border-left: 3px solid var(--danger, #ff453a);
+}
+
+/* 列表项顶部一行：状态标记 + SQL 摘要 */
+.agent-result-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .agent-result-status {
@@ -3028,10 +3194,6 @@ select,
   gap: 2px;
 }
 
-.agent-results-collapse-icon {
-  transform: rotate(0deg);
-}
-
 /* 折叠态：竖排窄条 */
 .agent-results-collapsed {
   width: 36px;
@@ -3056,10 +3218,6 @@ select,
 .agent-results-expand-btn:hover {
   color: var(--text);
   background: var(--bg-hover);
-}
-
-.agent-results-expand-icon {
-  transform: rotate(180deg);
 }
 
 .agent-results-expand-label {
@@ -3134,11 +3292,11 @@ select,
 
 /* ===== AI 辅助面板 ===== */
 .ai-assist-panel {
-  margin: 0 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--bg-elevated);
+  background: transparent;
 }
 
 .ai-assist-header {
@@ -3158,7 +3316,6 @@ select,
 
 .ai-assist-body {
   padding: 12px;
-  max-height: 300px;
   overflow-y: auto;
 }
 
@@ -3490,11 +3647,55 @@ select,
   overflow: hidden;
 }
 
+/* 顶部 Tab：三个独立的等宽等高按钮（icon 在上、文字在下） */
+.db-detail-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.db-detail-tab {
+  width: 56px;
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border: none;
+  border-radius: var(--radius, 6px);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: inherit;
+  transition:
+    color 0.12s,
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.db-detail-tab:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.db-detail-tab.active {
+  color: var(--primary);
+  background: rgba(10, 132, 255, 0.12);
+  border-color: var(--primary);
+}
+.db-detail-tab span {
+  font-size: 10px;
+}
+
 .db-detail-search-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -3530,7 +3731,7 @@ select,
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  height: 28px;
+  height: 36px;
   cursor: pointer;
   font-size: 13px;
   border-bottom: 1px solid var(--border);
@@ -3600,18 +3801,176 @@ select,
   font-size: 13px;
 }
 
-/* 选中的连接节点高亮 */
-.tree-conn-selected {
-  background: rgba(10, 132, 255, 0.12);
+/* 角色无权限空状态 */
+.db-detail-role-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-muted);
 }
+
+.db-detail-role-denied svg {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.db-detail-role-denied-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.db-detail-role-denied-desc {
+  font-size: 12px;
+}
+
+.db-detail-role-denied-detail {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 4px;
+  word-break: break-all;
+  max-width: 420px;
+}
+
+.db-detail-empty-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ===== 保存查询弹窗（Cmd/Ctrl+S） ===== */
+.save-sql-modal {
+  max-width: 520px;
+}
+
+.save-sql-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+.save-sql-name-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+.save-sql-name-input:focus {
+  border-color: var(--primary);
+}
+
+.save-sql-preview {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted);
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.save-sql-shortcut {
+  font-size: 11px;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+/* 保存查询行 */
+.db-saved-query-row {
+  align-items: center;
+  height: auto;
+  min-height: 36px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.db-saved-query-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.db-saved-query-name {
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-saved-query-sql {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 角色行 */
+.db-role-row {
+  gap: 8px;
+}
+
+.db-role-kind {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.db-role-login {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.db-role-login.yes {
+  color: var(--success, #34c759);
+}
+
+.db-role-login.no {
+  color: var(--text-muted);
+}
+
+.db-role-members {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* 选中的连接节点高亮 */
+/* .tree-conn-selected {
+  background: rgba(10, 132, 255, 0.12);
+} */
 
 .tree-conn-selected:hover {
   background: rgba(10, 132, 255, 0.18);
 }
 
-.tree-schema-selected {
+/* .tree-schema-selected {
   background: rgba(10, 132, 255, 0.12);
-}
+} */
 
 .tree-schema-selected:hover {
   background: rgba(10, 132, 255, 0.18);
@@ -3861,4 +4220,591 @@ select,
 .about-update-hint {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* ===== 查询结果详情弹窗（独立窗口，上 SQL editor 下结果列表） ===== */
+.result-detail-overlay {
+  z-index: 120;
+}
+
+.result-detail-modal {
+  width: min(1080px, 94vw);
+  height: min(82vh, 820px);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.result-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.result-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.result-detail-conn {
+  color: var(--text);
+}
+
+.result-detail-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.result-detail-sql,
+.result-detail-result {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.result-detail-sql {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.result-detail-result {
+  flex: 1;
+  min-height: 0;
+}
+
+.result-detail-section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.result-detail-meta {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.result-detail-editor {
+  border-bottom: 1px solid var(--border);
+}
+
+.result-detail-grid {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-detail-grid .data-grid-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.result-detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.result-detail-error {
+  color: var(--danger, #ff453a);
+}
+
+/* ===== 应用更新 UI（electron-updater 状态驱动）===== */
+.about-update {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.about-update-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--success);
+}
+
+.about-update-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--danger);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 下载进度条 */
+.about-update-progress {
+  margin-top: 8px;
+  height: 4px;
+  width: 100%;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.about-update-progress-bar {
+  height: 100%;
+  background: var(--accent, #0a84ff);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+/* 更新就绪弹窗（复用 confirm-modal 结构） */
+.update-ready-overlay {
+  z-index: 130;
+}
+
+.update-ready-modal .confirm-reason {
+  text-align: center;
+}
+
+/* ============================================================ */
+/* 需求 1/2/3：SQL 工作区布局调整 + tab 脏标记                    */
+/* ============================================================ */
+
+/* tab 脏标记：未保存修改时显示的实心圆点 */
+.tab-dirty-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+  margin-left: -2px;
+}
+
+/* 有脏标记时隐藏关闭按钮（鼠标 hover tab 时仍可点 ×） */
+.tab-item .tab-dirty-dot {
+  display: inline-block;
+}
+.tab-item:hover .tab-dirty-dot {
+  display: none;
+}
+
+/* ---- SQL 工作区主/侧两栏布局（需求 3）---- */
+/* 默认（无 AI 侧栏）：主区独占 */
+.sql-workspace-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 有 AI 侧栏时：横向分栏 */
+.sql-workspace-with-side {
+  flex-direction: row;
+}
+
+.sql-workspace-aiside {
+  flex: 0 0 360px;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elevated);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sql-workspace-aiside-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(10, 132, 255, 0.08);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sql-workspace-aiside-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 侧栏内的 AI 面板头部去掉背景（侧栏头部已带主题色） */
+.sql-workspace-aiside-body .ai-assist-header {
+  display: none;
+}
+.sql-workspace-aiside-body .ai-assist-reply {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 10px;
+}
+
+/* ===== 数据库迁移工作区 ===== */
+.sidebar-migration-btn {
+  color: var(--text-muted);
+}
+.sidebar-migration-btn:hover {
+  color: var(--primary);
+}
+
+.migration-workspace {
+  height: 100%;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.migration-header h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.migration-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* 源/目标选择 */
+.migration-pickers {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.target-picker {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.target-picker h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.migration-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 32px;
+  color: var(--primary);
+}
+.target-error {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 6px;
+}
+.target-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* 维度与策略 */
+.migration-options {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.form-checkbox input {
+  margin: 0;
+}
+.migration-hint {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.migration-hint-warning {
+  color: var(--warning);
+}
+.migration-options .form-field {
+  flex: 0 0 auto;
+}
+
+/* 操作栏 */
+.migration-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.migration-actions-spacer {
+  flex: 1;
+}
+.plan-name-input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: var(--text);
+  width: 160px;
+}
+
+.migration-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--danger);
+  background: var(--surface-danger);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+}
+
+/* 方案库 */
+.migration-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+.plan-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+.plan-item:hover {
+  background: var(--bg-hover);
+}
+.plan-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.plan-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+}
+.btn-danger-text {
+  color: var(--danger);
+}
+
+/* 类型告警 */
+.migration-warnings {
+  background: var(--surface-warning);
+  border: 1px solid rgba(255, 214, 10, 0.3);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.migration-warnings h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--warning);
+}
+.warning-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  padding: 4px 0;
+}
+.warning-item svg {
+  flex-shrink: 0;
+}
+.warning-error {
+  color: var(--danger);
+}
+.warning-col {
+  font-weight: 600;
+  min-width: 80px;
+}
+.warning-types {
+  color: var(--text-muted);
+  min-width: 180px;
+}
+.warning-reason {
+  flex: 1;
+}
+
+/* diff 摘要 */
+.diff-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.diff-chip {
+  background: var(--surface-info);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.diff-chip-data {
+  background: var(--surface-success);
+  color: var(--success);
+}
+
+/* 脚本预览 */
+.migration-script {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.script-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.script-toolbar-spacer {
+  flex: 1;
+}
+.script-count {
+  font-weight: 500;
+  color: var(--text);
+}
+.script-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.script-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.script-row:hover {
+  background: var(--bg-hover);
+}
+.script-row input[type='checkbox'] {
+  margin-top: 3px;
+}
+.risk-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.risk-safe {
+  background: var(--surface-success);
+  color: var(--success);
+}
+.risk-caution {
+  background: var(--surface-warning);
+  color: var(--warning);
+}
+.risk-danger {
+  background: var(--surface-danger);
+  color: var(--danger);
+}
+.script-kind {
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+.script-sql {
+  font-family: var(--font-mono, 'SF Mono', monospace);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  flex: 1;
+  line-height: 1.5;
+}
+
+/* 执行 */
+.migration-exec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.exec-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+}
+.exec-success {
+  background: var(--surface-success);
+  color: var(--success);
+}
+.exec-failed {
+  background: var(--surface-danger);
+  color: var(--danger);
+}
+.exec-failed-items {
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  margin-top: 8px;
+}
+.failed-item {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  padding: 4px 0;
+  opacity: 0.9;
+}
+.failed-item-sql {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted);
+}
+.failed-item-err {
+  color: var(--danger);
 }

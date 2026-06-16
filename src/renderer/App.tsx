@@ -14,6 +14,7 @@ import {
   X,
   Code2,
   Sparkles,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { type ConnectionListItem, type Table } from './api'
 import { useConnectionStore } from './store/connections'
@@ -21,31 +22,44 @@ import { useTabStore } from './store/tabs'
 import { useWorkspaceStore } from './store/workspace'
 import { useSettingsStore } from './store/settings'
 import { useLlmProviderStore } from './store/llm-providers'
+import { useUpdateStore } from './store/update'
 import { ObjectTree } from './components/ObjectTree'
 import { TableData } from './components/TableData'
 import { DatabaseDetail } from './components/DatabaseDetail'
 import { TableDetail } from './components/TableDetail'
 import { WorkspaceContainer } from './components/WorkspaceContainer'
 import { AgentWorkspace } from './components/AgentWorkspace'
+import { MigrationWorkspace } from './components/MigrationWorkspace'
 import { ConnectionManager } from './pages/ConnectionManager'
 import { Settings } from './pages/Settings'
 import { WindowControls } from './components/WindowControls'
+import { UpdateReadyBanner } from './components/UpdateReadyBanner'
 import { useContextMenuClose } from './hooks/useContextMenu'
 
 /** 主内容区的 tab 类型 */
 interface Tab {
   id: string
   // workspace = 统一 AI 工作区（内部按全局模式切换编辑器/AGENT）
-  kind: 'tableData' | 'tableDetail' | 'workspace' | 'database'
+  // migration = 跨库迁移工作区（不绑定单个连接）
+  kind: 'tableData' | 'tableDetail' | 'workspace' | 'database' | 'migration'
   conn: ConnectionListItem
   schema?: string
   table?: string
+  /** workspace 预填 SQL（从保存的查询打开时） */
+  initialSql?: string
+  /** workspace 关联的保存查询 id（之后保存直接更新该记录） */
+  savedQueryId?: string
+  /** workspace 关联的保存查询名称（作为 tab 标题） */
+  savedQueryName?: string
 }
 
 function getTabLabel(tab: Tab): string {
+  if (tab.kind === 'migration') return '数据库迁移'
   if (tab.kind === 'workspace') {
+    // 标题格式：查询名@数据库（已关联保存查询）/ 新建查询@数据库（尚未保存）
     const db = tab.conn.database || tab.conn.name
-    return db + '@' + tab.conn.name
+    const name = tab.savedQueryName ?? '新建查询'
+    return `${name}@${db}`
   }
   if (tab.kind === 'database') {
     const db = tab.conn.database || tab.conn.name
@@ -94,17 +108,34 @@ export default function App() {
 
   // 首屏加载 LLM Provider 列表（Agent 模式左下角「选择模型」依赖它）
   const loadProviders = useLlmProviderStore((s) => s.load)
+  const refreshProviders = useLlmProviderStore((s) => s.refresh)
   useEffect(() => {
     loadProviders().catch(() => {})
   }, [loadProviders])
 
-  const openTab = useCallback((tab: Tab) => {
+  // 初始化更新 store：同步当前状态 + 订阅主进程推送的更新事件
+  const initUpdate = useUpdateStore((s) => s.init)
+  useEffect(() => {
+    const unsubscribe = initUpdate()
+    return () => {
+      // init 返回 Promise<取消订阅>，异步解析后执行取消；组件卸载时确保解绑
+      unsubscribe.then((off) => off()).catch(() => {})
+    }
+  }, [initUpdate])
+
+  const openTab = useCallback((tab: Tab, matchBy?: (t: Tab) => boolean) => {
+    let activateId = tab.id
     setTabs((prev) => {
-      // 同连接同类型同 schema/表只开一个 tab（id 已含 conn+schema+table+kind 维度）
-      const existing = prev.find((t) => t.id === tab.id)
-      return existing ? prev : [...prev, tab]
+      // 默认按 id 去重；传入 matchBy 时按身份去重（如同一保存查询，无论 tab id 是否迁移过）
+      const existing = matchBy ? prev.find((t) => matchBy(t)) : prev.find((t) => t.id === tab.id)
+      if (existing) {
+        activateId = existing.id
+        return prev
+      }
+      return [...prev, tab]
     })
-    setActiveTabId(tab.id)
+    // 在 setTabs 的 reducer 同步执行后 activateId 已是最终值，再触发激活
+    setActiveTabId(activateId)
   }, [])
 
   const clearDirty = useTabStore((s) => s.clearDirty)
@@ -176,6 +207,53 @@ export default function App() {
       conn,
     })
   }
+
+  /** 用预填 SQL 打开编辑器（从保存的查询打开时） */
+  const handleOpenSqlWithContent = (
+    conn: ConnectionListItem,
+    sql: string,
+    savedQuery?: { id: string; name: string },
+  ) => {
+    setWorkspaceMode('editor')
+    const tabId = `${conn.id}:workspace:${savedQuery ? `sq:${savedQuery.id}` : `new:${Date.now()}`}`
+    // 按保存查询身份去重：同一连接下同一查询，无论 tab 是双击打开(sq) 还是新建后保存(workspace)，
+    // 都复用/激活同一个 tab，不重复打开。
+    const matchBy = savedQuery
+      ? (t: Tab) =>
+          t.kind === 'workspace' && t.conn.id === conn.id && t.savedQueryId === savedQuery.id
+      : undefined
+    openTab(
+      {
+        id: tabId,
+        kind: 'workspace',
+        conn,
+        initialSql: sql,
+        savedQueryId: savedQuery?.id,
+        savedQueryName: savedQuery?.name,
+      },
+      matchBy,
+    )
+  }
+
+  /**
+   * 新建查询首次保存后回调：把当前 tab 关联到刚创建的保存查询。
+   * 保留原 tab id（迁移 id 会因 key 变化导致 SqlWorkspace 重挂载、丢失状态），
+   * 只更新 savedQueryId/savedQueryName：
+   * - tab 标题随之变为「查询名@数据库」
+   * - 之后双击同一查询时，handleOpenSqlWithContent 的身份去重能命中本 tab 并激活
+   */
+  const handleQueryBound = useCallback(
+    (currentTabId: string, savedQuery: { id: string; name: string }) => {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === currentTabId
+            ? { ...t, savedQueryId: savedQuery.id, savedQueryName: savedQuery.name }
+            : t,
+        ),
+      )
+    },
+    [],
+  )
 
   const handleOpenChat = (conn: ConnectionListItem) => {
     // AGENT 是全局覆盖层：切到 agent 模式，带入 `#数据库名 ` 前缀
@@ -263,6 +341,19 @@ export default function App() {
           </div>
           <div className="brand-spacer" />
           <button
+            className="btn-icon sidebar-migration-btn"
+            onClick={() =>
+              openTab({
+                id: 'migration',
+                kind: 'migration',
+                conn: connections[0] ?? ({} as ConnectionListItem),
+              })
+            }
+            title="数据库迁移：结构/数据 diff + 跨库迁移"
+          >
+            <ArrowLeftRight size={15} />
+          </button>
+          <button
             className="btn-icon sidebar-settings-btn"
             onClick={() => setSettingsOpen(true)}
             title="设置"
@@ -294,6 +385,7 @@ export default function App() {
               <div className="tab-bar" ref={tabBarRef}>
                 {tabs.map((tab) => {
                   const label = getTabLabel(tab)
+                  const dirty = isTabDirty(tab.id)
                   return (
                     <div
                       key={tab.id}
@@ -311,6 +403,8 @@ export default function App() {
                           label
                         )}
                       </span>
+                      {/* 脏标记：未保存修改时显示实心圆点 */}
+                      {dirty && <span className="tab-dirty-dot" title="有未保存的修改" />}
                       <button
                         className="tab-close"
                         onClick={(e) => {
@@ -346,17 +440,25 @@ export default function App() {
                         />
                       )}
                       {tab.kind === 'workspace' && (
-                        <WorkspaceContainer connection={tab.conn} tabId={tab.id} />
+                        <WorkspaceContainer
+                          connection={tab.conn}
+                          tabId={tab.id}
+                          initialSql={tab.initialSql}
+                          savedQueryId={tab.savedQueryId}
+                          onQueryBound={(sq) => handleQueryBound(tab.id, sq)}
+                        />
                       )}
                       {tab.kind === 'database' && (
                         <DatabaseDetail
                           connection={tab.conn}
                           schema={tab.schema}
                           onOpenSql={handleOpenSql}
+                          onOpenSqlWithContent={handleOpenSqlWithContent}
                           onSelectTable={handleSelectTable}
                           onOpenTableDetail={handleOpenTableDetail}
                         />
                       )}
+                      {tab.kind === 'migration' && <MigrationWorkspace />}
                     </div>
                   )
                 })}
@@ -416,7 +518,19 @@ export default function App() {
       )}
 
       {/* 设置 modal */}
-      {settingsOpen && <Settings initialTab={settingsTab} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <Settings
+          initialTab={settingsTab}
+          onClose={() => {
+            setSettingsOpen(false)
+            // 关闭设置后刷新 Provider 列表：确保 Agent 模式「选择模型」即时同步
+            refreshProviders().catch(() => {})
+          }}
+        />
+      )}
+
+      {/* 更新就绪弹窗：任何界面下下载完成后均提示重启 */}
+      <UpdateReadyBanner />
 
       {/* Tab 右键菜单 */}
       {tabMenu && (
