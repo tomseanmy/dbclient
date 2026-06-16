@@ -17,12 +17,12 @@ import {
   AlertCircle,
   RefreshCw,
   Pencil,
-  MessageCircle,
   FileText,
   ClipboardCopy,
   Trash2 as TrashIcon,
   Plug,
   PlugZap,
+  Sparkles,
 } from 'lucide-react'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import type { ConnectionListItem, Table } from '../api'
@@ -133,15 +133,25 @@ export function ObjectTree({
     }
   }
 
-  /** 点击 chevron：仅展开/收折 */
-  const handleChevronClick = (e: React.MouseEvent, conn: ConnectionListItem) => {
+  /** 点击 chevron：展开/收折（未连接时自动触发连接） */
+  const handleChevronClick = async (e: React.MouseEvent, conn: ConnectionListItem) => {
     e.stopPropagation()
     const key = conn.id
     const isOpen = expandedConns.has(key)
     if (isOpen) {
       setExpandedConns((prev) => new Set([...prev].filter((k) => k !== key)))
-    } else {
-      setExpandedConns((prev) => new Set(prev).add(key))
+      return
+    }
+    // 展开节点
+    setExpandedConns((prev) => new Set(prev).add(key))
+    // 未连接则自动连接并加载 schema
+    const state = states[key]
+    if (!state?.connected) {
+      const ok = await connectDb(conn.id)
+      if (ok) {
+        await loadSchemas(conn.id)
+        await reloadExpandedTables(conn.id)
+      }
     }
   }
 
@@ -456,7 +466,7 @@ export function ObjectTree({
               setConnCtxMenu(null)
             }}
           >
-            <FileText size={12} /> SQL 查询
+            <FileText size={12} /> SQL 查询（编辑器）
           </button>
           <button
             className="ctx-item"
@@ -465,7 +475,7 @@ export function ObjectTree({
               setConnCtxMenu(null)
             }}
           >
-            <MessageCircle size={12} /> AI 对话
+            <Sparkles size={12} /> AI AGENT
           </button>
         </div>
       )}

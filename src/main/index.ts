@@ -10,12 +10,15 @@
  *     → 创建主窗口
  *     → 全局错误兜底
  */
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, Menu } from 'electron'
 import { join } from 'node:path'
 import { logger } from './infra/logger'
 import { initDb, closeDb } from './infra/storage/db'
 import { registerAllHandlers } from './ipc/registry'
 import { closeAll as closeAllConnections } from './domain/db/manager'
+
+/** 应用显示名（菜单栏首项 / About 标题） */
+const APP_NAME = 'DB Client'
 
 // ===== 单实例锁：防止多开导致本地库/MCP 端口冲突 =====
 if (!app.requestSingleInstanceLock()) {
@@ -24,6 +27,120 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let mainWindow: BrowserWindow | null = null
+
+/**
+ * 设置应用菜单 + About 面板。
+ *
+ * 自定义菜单模板，使菜单栏首项显示应用名（而非 "Electron"）。
+ * About 面板通过 setAboutPanelOptions 填入准确的应用版本 + Electron 版本。
+ * dev 模式下用 app.setName 让 mac 菜单首项取到应用名。
+ */
+function setupAppMenu(): void {
+  const isMac = process.platform === 'darwin'
+
+  // dev 模式：设置应用名，使 mac 菜单首项（role: appMenu）显示应用名而非 Electron
+  if (!app.isPackaged) {
+    app.setName(APP_NAME)
+  }
+
+  // About 面板：展示准确版本号
+  app.setAboutPanelOptions({
+    applicationName: APP_NAME,
+    applicationVersion: app.getVersion(),
+    version: process.versions.electron, // Electron 版本（mac About 的 "Version" 行）
+    copyright: 'MIT License',
+    // win/linux About 对话框的额外信息
+    credits: ``,
+  })
+
+  const template: Electron.MenuItemConstructorOptions[] = isMac
+    ? [
+        {
+          label: APP_NAME,
+          submenu: [
+            { role: 'about' },
+            { type: 'separator' },
+            { role: 'services' },
+            { type: 'separator' },
+            { role: 'hide' },
+            { role: 'hideOthers' },
+            { role: 'unhide' },
+            { type: 'separator' },
+            { role: 'quit' },
+          ],
+        },
+        {
+          label: '编辑',
+          submenu: [
+            { role: 'undo', label: '撤销' },
+            { role: 'redo', label: '重做' },
+            { type: 'separator' },
+            { role: 'cut', label: '剪切' },
+            { role: 'copy', label: '复制' },
+            { role: 'paste', label: '粘贴' },
+            { role: 'selectAll', label: '全选' },
+          ],
+        },
+        {
+          label: '视图',
+          submenu: [
+            { role: 'reload', label: '重新加载' },
+            { role: 'forceReload', label: '强制重新加载' },
+            { role: 'toggleDevTools', label: '开发者工具' },
+            { type: 'separator' },
+            { role: 'resetZoom', label: '重置缩放' },
+            { role: 'zoomIn', label: '放大' },
+            { role: 'zoomOut', label: '缩小' },
+            { type: 'separator' },
+            { role: 'togglefullscreen', label: '全屏' },
+          ],
+        },
+        {
+          label: '窗口',
+          submenu: [
+            { role: 'minimize', label: '最小化' },
+            { role: 'zoom', label: '缩放' },
+            { type: 'separator' },
+            { role: 'front' },
+          ],
+        },
+      ]
+    : [
+        {
+          label: '文件',
+          submenu: [isMac ? { role: 'close' } : { role: 'quit', label: '退出' }],
+        },
+        {
+          label: '编辑',
+          submenu: [
+            { role: 'undo', label: '撤销' },
+            { role: 'redo', label: '重做' },
+            { type: 'separator' },
+            { role: 'cut', label: '剪切' },
+            { role: 'copy', label: '复制' },
+            { role: 'paste', label: '粘贴' },
+            { role: 'selectAll', label: '全选' },
+          ],
+        },
+        {
+          label: '视图',
+          submenu: [
+            { role: 'reload', label: '重新加载' },
+            { role: 'forceReload', label: '强制重新加载' },
+            { role: 'toggleDevTools', label: '开发者工具' },
+            { type: 'separator' },
+            { role: 'resetZoom', label: '重置缩放' },
+            { role: 'zoomIn', label: '放大' },
+            { role: 'zoomOut', label: '缩小' },
+            { type: 'separator' },
+            { role: 'togglefullscreen', label: '全屏' },
+          ],
+        },
+      ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
@@ -85,6 +202,7 @@ app.whenReady().then(async () => {
   logger.info('应用启动', { version: app.getVersion(), platform: process.platform })
 
   try {
+    setupAppMenu()
     initDb()
     await registerAllHandlers()
     createWindow()

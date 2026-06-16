@@ -117,3 +117,40 @@ export interface UsageSummary {
     calls: number
   }[]
 }
+
+// ============================================================================
+// 流式（SSE）对话支持
+//
+// 流式采用「请求-响应 + 事件推送」组合：
+// - 渲染进程 invoke('ai:chatStream', req) 发起请求，拿到本次会话的 streamId
+// - 主进程通过 webContents.send('ai:streamDelta', { streamId, delta }) 增量推送
+// - 收到 streamId 一致的 'ai:streamDone' 表示本流结束（携带最终回复/SQL/数据流向）
+// - 出错时推送 'ai:streamError'（携带 message）
+// ============================================================================
+
+/** 流式请求：复用 AiChatRequest，额外带一个客户端生成的 streamId */
+export interface AiChatStreamRequest extends AiChatRequest {
+  /** 本次流的唯一标识（前端生成），用于匹配增量事件 */
+  streamId: string
+}
+
+/** 增量文本事件载荷 */
+export interface AiStreamDeltaPayload {
+  streamId: string
+  /** 本片段新增文本 */
+  delta: string
+}
+
+/** 流结束事件载荷（携带最终回复 + 提取的 SQL + 数据流向） */
+export interface AiStreamDonePayload {
+  streamId: string
+  reply: string
+  sql?: string[]
+  dataFlow: DataFlowNotice
+}
+
+/** 流错误事件载荷 */
+export interface AiStreamErrorPayload {
+  streamId: string
+  message: string
+}

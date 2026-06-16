@@ -32,6 +32,19 @@ export type {
   UnifiedType,
 } from '@shared/types/database'
 export type {
+  SavedQueryRecord,
+  SavedQueryInput,
+  SavedQueryUpdatePatch,
+} from '@shared/types/saved-query'
+export type { ChatSession, ChatMessageRecord, ChatSessionInput } from '@shared/types/chat-session'
+export type {
+  ToolCallEvent,
+  ToolResultEvent,
+  AgentTextEvent,
+  ToolResultStructured,
+} from '@shared/types/agent'
+export type { AgentRunRequest } from '@shared/types/agent-run'
+export type {
   LlmProvider,
   LlmProviderInput,
   ChatMessage,
@@ -45,4 +58,8 @@ export type {
   AiAssistRequest,
   AssistAction,
   UsageSummary,
+  AiChatStreamRequest,
+  AiStreamDeltaPayload,
+  AiStreamDonePayload,
+  AiStreamErrorPayload,
 } from '@shared/types/llm'

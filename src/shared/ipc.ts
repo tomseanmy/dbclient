@@ -19,6 +19,9 @@ import type {
   ConnectionTestResult,
 } from './types/connection'
 import type { RedisKeyOverview, Schema, Table, TableMeta } from './types/database'
+import type { AiStreamDeltaPayload, AiStreamDonePayload, AiStreamErrorPayload } from './types/llm'
+import type { ToolCallEvent, ToolResultEvent, AgentTextEvent } from './types/agent'
+import type { AppSettings } from './types/settings'
 
 // ===== 通道元数据：每个 channel 的请求/响应类型 =====
 export interface IpcContracts {
@@ -36,6 +39,21 @@ export interface IpcContracts {
       platform: string
       userDataPath: string
     }
+  }
+  // 打开 userData 目录（Finder/资源管理器），用于设置页「存储路径」
+  'app:openUserDataFolder': {
+    req: void
+    res: { ok: true }
+  }
+  // 用系统默认浏览器打开外链（开源地址等）
+  'app:openExternal': {
+    req: { url: string }
+    res: { ok: true }
+  }
+  // 显示原生桌面通知（渲染进程无 Notification 权限，委托主进程）
+  'app:notify': {
+    req: { title: string; body?: string }
+    res: { ok: true }
   }
   // ----- 连接管理 -----
   'connection:list': {
@@ -131,6 +149,63 @@ export interface IpcContracts {
     res: { success: boolean }
   }
 
+  // ----- 保存查询 -----
+  'savedQuery:list': {
+    req: { connectionId?: string }
+    res: import('./types/saved-query').SavedQueryRecord[]
+  }
+  'savedQuery:search': {
+    req: { keyword: string }
+    res: import('./types/saved-query').SavedQueryRecord[]
+  }
+  'savedQuery:save': {
+    req: import('./types/saved-query').SavedQueryInput
+    res: import('./types/saved-query').SavedQueryRecord
+  }
+  'savedQuery:update': {
+    req: {
+      id: string
+      patch: import('./types/saved-query').SavedQueryUpdatePatch
+    }
+    res: { success: boolean }
+  }
+  'savedQuery:delete': {
+    req: { id: string }
+    res: { success: boolean }
+  }
+
+  // ----- AI 对话会话 -----
+  'chatSession:list': {
+    req: { connectionId?: string }
+    res: import('./types/chat-session').ChatSession[]
+  }
+  'chatSession:create': {
+    req: import('./types/chat-session').ChatSessionInput
+    res: import('./types/chat-session').ChatSession
+  }
+  'chatSession:rename': {
+    req: { id: string; title: string }
+    res: { success: boolean }
+  }
+  'chatSession:delete': {
+    req: { id: string }
+    res: { success: boolean }
+  }
+  'chatSession:getMessages': {
+    req: { sessionId: string }
+    res: import('./types/chat-session').ChatMessageRecord[]
+  }
+  'chatSession:appendMessage': {
+    req: {
+      sessionId: string
+      connectionId?: string | null
+      role: import('./types/chat-session').ChatMessageRecord['role']
+      content: string
+      sqlText?: string | null
+    }
+    res: { success: boolean }
+  }
+
   // ----- 安全与权限 -----
   'db:checkSql': {
     req: { connectionId: string; sql: string }
@@ -210,6 +285,40 @@ export interface IpcContracts {
     req: import('./types/llm').AiAssistRequest
     res: import('./types/llm').AiChatResponse
   }
+  /**
+   * 流式对话：invoke 只确认「流已发起」，返回 streamId；
+   * 增量文本/结束/错误通过下面三个事件通道推送（见 AiStreamEvents）。
+   */
+  'ai:chatStream': {
+    req: import('./types/llm').AiChatStreamRequest
+    res: { streamId: string; ok: true }
+  }
+  /**
+   * 停止流式对话：中止指定 streamId 对应的底层 SSE fetch。
+   * 已结束/不存在的 streamId 视为 no-op。
+   */
+  'ai:stopStream': {
+    req: { streamId: string }
+    res: { ok: true }
+  }
+  /**
+   * AGENT 流式（带工具调用）：invoke 发起，返回 streamId；
+   * 通过 agent:* 事件推送工具调用/结果/文本增量，agent:done 结束。
+   */
+  'ai:agentRun': {
+    req: import('./types/agent-run').AgentRunRequest
+    res: { streamId: string; ok: true }
+  }
+
+  // ----- 应用设置 -----
+  'settings:getAll': {
+    req: void
+    res: AppSettings
+  }
+  'settings:update': {
+    req: Partial<AppSettings>
+    res: AppSettings
+  }
 
   // ----- 窗口控制（win/linux 自绘标题栏按钮使用）-----
   'window:minimize': {
@@ -254,3 +363,31 @@ export type RendererApi = {
     ? () => Promise<IpcRes<C>>
     : (req: IpcReq<C>) => Promise<IpcRes<C>>
 }
+
+// ===== 主进程 → 渲染进程的单向事件通道（webContents.send）=====
+// 这类通道不走 invoke（无返回值），仅供主进程主动推送。
+// 渲染进程通过 window.api.on(channel, cb) 订阅（见 preload 的 on 封装）。
+
+/** 主进程推送给渲染进程的事件通道名 → 载荷类型 */
+export interface IpcEvents {
+  /** 流式对话增量文本 */
+  'ai:streamDelta': AiStreamDeltaPayload
+  /** 流式对话完成（最终回复 + SQL + 数据流向） */
+  'ai:streamDone': AiStreamDonePayload
+  /** 流式对话出错 */
+  'ai:streamError': AiStreamErrorPayload
+  // —— AGENT 工具调用流 ——
+  /** LLM 请求调用某工具 */
+  'agent:toolCall': ToolCallEvent
+  /** 工具执行结果 */
+  'agent:toolResult': ToolResultEvent
+  /** AGENT 文本增量（思考过程 / 最终回复） */
+  'agent:text': AgentTextEvent
+  /** AGENT 流完成（携带最终回复 + SQL） */
+  'agent:done': { streamId: string; reply: string; sql?: string[] }
+  /** AGENT 流出错 */
+  'agent:error': { streamId: string; message: string }
+}
+
+/** 所有事件通道名 */
+export type IpcEventChannel = keyof IpcEvents

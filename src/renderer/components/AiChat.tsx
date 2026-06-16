@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { MessageCircle, User, Bot, Lock, AlertTriangle } from 'lucide-react'
 import { api } from '../api'
-import type { ConnectionListItem, LlmProvider, ChatMessage, AiChatResponse } from '../api'
+import type { ConnectionListItem, LlmProvider, ChatMessage, AiStreamDonePayload } from '../api'
 
 interface ChatTurn {
   role: 'user' | 'assistant'
@@ -16,10 +16,17 @@ interface ChatTurn {
   sql?: string[]
   /** 数据流向提示 */
   dataFlow?: { providerName: string; summary: string; tableNames?: string[] }
+  /** 是否正在流式生成（渲染光标） */
+  streaming?: boolean
 }
 
 interface AiChatProps {
   connection: ConnectionListItem
+}
+
+/** 生成简易唯一 streamId（足够区分并发流） */
+function genStreamId(): string {
+  return `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function AiChat({ connection }: AiChatProps) {
@@ -31,6 +38,8 @@ export function AiChat({ connection }: AiChatProps) {
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
   const [executing, setExecuting] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  /** 当前流的 streamId，用于事件过滤 */
+  const activeStreamId = useRef<string | null>(null)
 
   // 加载 provider 列表
   useEffect(() => {
@@ -41,6 +50,62 @@ export function AiChat({ connection }: AiChatProps) {
         if (def) setSelectedProviderId(def.id)
       })
       .catch(() => {})
+  }, [])
+
+  // 订阅流式事件（挂载一次）
+  useEffect(() => {
+    // 增量：把 delta 追加到最后一个 assistant turn
+    const offDelta = window.on('ai:streamDelta', ({ streamId, delta }) => {
+      if (streamId !== activeStreamId.current) return
+      setTurns((prev) => {
+        const last = prev[prev.length - 1]
+        if (!last || last.role !== 'assistant') return prev
+        const next = [...prev]
+        next[next.length - 1] = { ...last, content: last.content + delta }
+        return next
+      })
+    })
+
+    // 完成：补全 sql/dataFlow，关闭流式态
+    const offDone = window.on('ai:streamDone', (payload: AiStreamDonePayload) => {
+      if (payload.streamId !== activeStreamId.current) return
+      setTurns((prev) => {
+        const last = prev[prev.length - 1]
+        if (!last || last.role !== 'assistant') return prev
+        const next = [...prev]
+        next[next.length - 1] = {
+          ...last,
+          sql: payload.sql,
+          dataFlow: payload.dataFlow,
+          streaming: false,
+        }
+        return next
+      })
+      setLoading(false)
+      activeStreamId.current = null
+    })
+
+    // 错误：展示错误，关闭 loading
+    const offError = window.on('ai:streamError', ({ streamId, message }) => {
+      if (streamId !== activeStreamId.current) return
+      setError(message)
+      setLoading(false)
+      // 移除可能残留的空 assistant 占位
+      setTurns((prev) => {
+        const last = prev[prev.length - 1]
+        if (last && last.role === 'assistant' && last.streaming && !last.content) {
+          return prev.slice(0, -1)
+        }
+        return prev
+      })
+      activeStreamId.current = null
+    })
+
+    return () => {
+      offDelta()
+      offDone()
+      offError()
+    }
   }, [])
 
   // 自动滚到底部
@@ -54,37 +119,58 @@ export function AiChat({ connection }: AiChatProps) {
 
     setError(null)
     const userTurn: ChatTurn = { role: 'user', content: text }
-    setTurns((prev) => [...prev, userTurn])
+    const streamId = genStreamId()
+    activeStreamId.current = streamId
+    // 先放一个流式中的 assistant 占位 turn
+    const placeholder: ChatTurn = { role: 'assistant', content: '', streaming: true }
+    setTurns((prev) => [...prev, userTurn, placeholder])
     setInput('')
     setLoading(true)
 
     try {
-      // 构造历史消息（最近 10 轮）
+      // 构造历史消息（最近 10 轮，不含刚加的占位）
       const history: ChatMessage[] = [...turns, userTurn]
         .slice(-20)
         .map((t) => ({ role: t.role, content: t.content }))
 
-      const result: AiChatResponse = await api['ai:chat']({
+      await api['ai:chatStream']({
+        streamId,
         connectionId: connection.id,
         messages: history,
         providerId: selectedProviderId || undefined,
       })
-
-      setTurns((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: result.reply,
-          sql: result.sql,
-          dataFlow: result.dataFlow,
-        },
-      ])
+      // 实际内容由 ai:streamDelta/done 事件填充
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-    } finally {
       setLoading(false)
+      activeStreamId.current = null
+      setTurns((prev) => prev.filter((t) => !t.streaming))
     }
   }, [input, loading, turns, connection.id, selectedProviderId])
+
+  /** 停止当前流式生成 */
+  const handleStop = useCallback(async () => {
+    const streamId = activeStreamId.current
+    if (!streamId) return
+    // 通知主进程中止底层 fetch（SSE）
+    try {
+      await api['ai:stopStream']({ streamId })
+    } catch {
+      // 忽略：主进程可能已无此流
+    }
+    // 立即结束本地流式态（保留已生成的内容）
+    setLoading(false)
+    activeStreamId.current = null
+    setTurns((prev) => {
+      const last = prev[prev.length - 1]
+      if (last && last.role === 'assistant' && last.streaming) {
+        const next = [...prev]
+        next[next.length - 1] = { ...last, streaming: false }
+        return next
+      }
+      return prev
+    })
+  }, [])
 
   // 执行 AI 生成的 SQL（走 M3 安全层确认）
   const handleExecuteSql = useCallback(
@@ -171,8 +257,18 @@ export function AiChat({ connection }: AiChatProps) {
               {turn.role === 'user' ? <User size={14} /> : <Bot size={14} />}
             </div>
             <div className="ai-chat-bubble">
-              <div className="ai-chat-content">{turn.content}</div>
-              {/* SQL 卡片 */}
+              {/* 流式中且尚无内容：显示打字动画；否则渲染已累积内容 */}
+              {turn.streaming && !turn.content ? (
+                <div className="ai-chat-typing">
+                  <span /> <span /> <span />
+                </div>
+              ) : (
+                <div className="ai-chat-content">
+                  {turn.content}
+                  {turn.streaming && <span className="ai-chat-cursor">▋</span>}
+                </div>
+              )}
+              {/* SQL 卡片（流式结束后才有） */}
               {turn.sql && turn.sql.length > 0 && (
                 <div className="ai-chat-sql-cards">
                   {turn.sql.map((sql, j) => (
@@ -196,18 +292,6 @@ export function AiChat({ connection }: AiChatProps) {
             </div>
           </div>
         ))}
-        {loading && (
-          <div className="ai-chat-turn ai-chat-turn-assistant">
-            <div className="ai-chat-avatar">
-              <Bot size={14} />
-            </div>
-            <div className="ai-chat-bubble">
-              <div className="ai-chat-typing">
-                <span /> <span /> <span />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {error && <div className="ai-chat-error">{error}</div>}
@@ -219,6 +303,9 @@ export function AiChat({ connection }: AiChatProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
+            // 输入法正在输入合成中（敲拼音/选候选词）时，Enter 不发送
+            // 让输入法自行处理：通常是确认候选词并上屏
+            if (e.nativeEvent.isComposing) return
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
               handleSend()
@@ -227,16 +314,22 @@ export function AiChat({ connection }: AiChatProps) {
           placeholder={
             hasProvider ? '输入需求，Enter 发送，Shift+Enter 换行…' : '请先配置 Provider'
           }
-          disabled={!hasProvider || loading}
-          rows={2}
+          disabled={!hasProvider}
+          rows={3}
         />
-        <button
-          className="btn btn-primary ai-chat-send"
-          onClick={handleSend}
-          disabled={!input.trim() || loading || !hasProvider}
-        >
-          {loading ? '思考中…' : '发送'}
-        </button>
+        {loading ? (
+          <button className="btn btn-danger ai-chat-send" onClick={handleStop} title="停止生成">
+            停止
+          </button>
+        ) : (
+          <button
+            className="btn btn-primary ai-chat-send"
+            onClick={handleSend}
+            disabled={!input.trim() || !hasProvider}
+          >
+            发送
+          </button>
+        )}
       </div>
     </div>
   )

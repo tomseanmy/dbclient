@@ -18,6 +18,7 @@ import { analyzeSqlBatch } from './security/analyzer'
 import { decide, isElevated } from './security/policy'
 import { sqlHistoryDao } from '@main/infra/storage/sql-history-dao'
 import { auditLogDao } from '@main/infra/storage/audit-log-dao'
+import { invalidateSchemaCache } from './privacy/schema-context'
 import { connectionsDao } from '@main/infra/storage/connections-dao'
 import { logger } from '@main/infra/logger'
 import type { SecurityCheckResult } from '@shared/types/security'
@@ -170,6 +171,11 @@ export async function executeSql(
       errorMessage: null,
       source: ctx.source,
     })
+
+    // 非 query 语句（DDL/DML）会改变结构或数据，失效 schema 缓存避免 AI 用到旧结构
+    if (!isQuerySql(sql)) {
+      invalidateSchemaCache(ctx.connectionId)
+    }
 
     return outcome
   } catch (err) {

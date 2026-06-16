@@ -9,6 +9,7 @@
 import type { ConnectionConfig } from '@shared/types/connection'
 import { createDriver, type DbDriver, type RedisDriver } from './driver'
 import { getCredentialStore } from '@main/infra/credential'
+import { schemaCacheDao } from '@main/infra/storage/schema-cache-dao'
 
 interface ActiveConnection {
   config: ConnectionConfig
@@ -33,6 +34,8 @@ export async function disconnect(connectionId: string): Promise<void> {
   if (entry) {
     await entry.driver.disconnect()
     pool.delete(connectionId)
+    // 失效该连接的 schema 缓存（重连后结构可能已变）
+    schemaCacheDao.invalidateConnection(connectionId)
   }
 }
 

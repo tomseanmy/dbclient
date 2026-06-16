@@ -16,10 +16,17 @@ import { useConnectionStore } from '../store/connections'
 import { SqlEditor } from './SqlEditor'
 import { DataGrid } from './DataGrid'
 import { SqlHistory } from './SqlHistory'
+import { SavedQueries } from './SavedQueries'
 import { ConfirmDialog } from './ConfirmDialog'
+import { notify } from '../services/notifications'
 import { PermissionNotice } from './PermissionNotice'
 import { AiAssistPanel } from './AiAssistPanel'
 import { useTabStore } from '../store/tabs'
+import {
+  setCompletionContext,
+  clearCompletionContext,
+  invalidateCompletionCache,
+} from '../services/sql-completion'
 
 /** SQL 编辑器初始模板，偏离即视为「已编辑」 */
 const INITIAL_SQL = '-- 在此输入 SQL\nSELECT * FROM '
@@ -53,6 +60,17 @@ export function SqlWorkspace({ connection, tabId }: SqlWorkspaceProps) {
     setTabDirty(tabId, sql !== INITIAL_SQL)
   }, [tabId, sql, setTabDirty])
 
+  // 设置 SQL 补全上下文（当前连接），卸载时清除；refreshTick 变化时失效缓存
+  const refreshTick = useConnectionStore((s) => s.refreshTick)
+  useEffect(() => {
+    setCompletionContext(connection.id, undefined)
+    return () => clearCompletionContext()
+  }, [connection.id])
+  useEffect(() => {
+    // 对象树刷新（DDL 执行后）时，失效该连接的补全缓存
+    if (refreshTick > 0) invalidateCompletionCache(connection.id)
+  }, [refreshTick, connection.id])
+
   const doExecute = useCallback(
     async (sqlToRun: string) => {
       setExecuting(true)
@@ -68,6 +86,12 @@ export function SqlWorkspace({ connection, tabId }: SqlWorkspaceProps) {
         if (res.message) {
           triggerRefresh()
         }
+        // 窗口失焦时提醒用户查询已完成
+        void notify(
+          'queryComplete',
+          '查询完成',
+          res.message ? res.message : `${res.rowCount ?? 0} 行 · ${res.durationMs ?? 0}ms`,
+        )
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
       } finally {
@@ -324,6 +348,7 @@ export function SqlWorkspace({ connection, tabId }: SqlWorkspaceProps) {
       )}
 
       <SqlHistory connectionId={connection.id} onPick={(s) => setSql(s)} />
+      <SavedQueries connectionId={connection.id} currentSql={sql} onPick={(s) => setSql(s)} />
     </div>
   )
 }
