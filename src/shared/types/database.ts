@@ -136,5 +136,19 @@ export interface RedisKeyOverview {
 /** 连接状态 */
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
+/** 数据库角色（用户/权限角色） */
+export interface DatabaseRole {
+  /** 角色名 / 用户名 */
+  name: string
+  /** 角色/用户类型描述（如 role、user） */
+  kind?: string
+  /** 可登录标记（部分 DB 区分角色与登录用户） */
+  canLogin?: boolean
+  /** 关联成员数（PG role 的 member count 等，无则省略） */
+  memberCount?: number
+  /** 注释 / 说明 */
+  comment?: string
+}
+
 /** Redis key 类型 */
 export type RedisKeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'stream'

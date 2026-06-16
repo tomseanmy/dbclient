@@ -104,6 +104,15 @@ export class MysqlDriver implements DbDriver {
     }
   }
 
+  async getServerInfo(): Promise<string | undefined> {
+    try {
+      const rows = await this.query<Array<{ version: string }>>('SELECT VERSION() AS version')
+      return `MySQL ${rows[0]?.version ?? 'unknown'}`
+    } catch {
+      return undefined
+    }
+  }
+
   private async query<T = RowDataPacket[]>(sql: string, params?: unknown[]): Promise<T> {
     if (!this.pool) throw new Error('MySQL 未连接，请先 connect()')
     const [rows] = await this.pool.query(sql, params)
@@ -269,6 +278,33 @@ export class MysqlDriver implements DbDriver {
     const db = rows[0]?.db
     if (!db) throw new Error('无法确定当前数据库，请在连接配置中指定 database')
     return db
+  }
+
+  async listRoles(): Promise<import('@shared/types/database').DatabaseRole[]> {
+    // mysql.user 是全局账号；is_role 标记（MySQL 8.0+ 角色）
+    const rows = await this.query<
+      Array<{
+        name: string
+        host: string
+        is_role: string
+        can_login: string
+        comment: string | null
+      }>
+    >(
+      `SELECT
+        user AS name,
+        host AS host,
+        COALESCE(Account_locked = 'N' AND Password_expired = 'N', 1) AS can_login,
+        comment AS comment
+       FROM mysql.user
+       ORDER BY user`,
+    )
+    return rows.map((r) => ({
+      name: r.host === '%' ? r.name : `${r.name}@${r.host}`,
+      kind: 'user',
+      canLogin: r.can_login === '1',
+      comment: r.comment ?? undefined,
+    }))
   }
 
   async executeQuery(

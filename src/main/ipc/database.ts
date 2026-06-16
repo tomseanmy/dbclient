@@ -69,6 +69,12 @@ export function registerDatabaseHandlers(): void {
     return driver.describeTable({ schema, table })
   })
 
+  // 列出角色 / 用户
+  registerHandler('db:listRoles', async (_event, { connectionId }) => {
+    const driver = getDriver(connectionId)
+    return driver.listRoles()
+  })
+
   // 执行查询（SELECT 等）
   registerHandler('db:executeQuery', async (_event, { connectionId, sql, limit }) => {
     const { executeSql } = await import('@main/domain/executor')

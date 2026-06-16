@@ -50,6 +50,17 @@ export class RedisDriverClass implements IRedisDriver {
     }
   }
 
+  async getServerInfo(): Promise<string | undefined> {
+    try {
+      const info = await this.getClient().info('server')
+      const versionLine = info.split('\r\n').find((l) => l.startsWith('redis_version:'))
+      const version = versionLine?.split(':')[1]?.trim()
+      return `Redis ${version ?? 'unknown'}`
+    } catch {
+      return undefined
+    }
+  }
+
   private getClient(): RedisLike {
     if (!this.client) throw new Error('Redis 未连接，请先 connect()')
     return this.client
@@ -95,6 +106,12 @@ export class RedisDriverClass implements IRedisDriver {
 
   async describeTable(_opts: DescribeOptions): Promise<TableMeta> {
     throw new Error('Redis 不支持 describeTable，请使用 getRedisOverview()')
+  }
+
+  async listRoles(): Promise<import('@shared/types/database').DatabaseRole[]> {
+    // Redis 没有用户/角色体系（ACL 用户在 6.0+ 可查 ACL LOG，但与关系库角色语义不同）。
+    // 返回空数组，UI 层据此显示「Redis 无角色概念」。
+    return []
   }
 
   async getRedisOverview(): Promise<RedisKeyOverview> {

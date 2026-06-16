@@ -10,15 +10,28 @@
  *     → 创建主窗口
  *     → 全局错误兜底
  */
-import { app, BrowserWindow, shell, Menu } from 'electron'
+import { app, BrowserWindow, shell, Menu, nativeImage } from 'electron'
 import { join } from 'node:path'
 import { logger } from './infra/logger'
 import { initDb, closeDb } from './infra/storage/db'
 import { registerAllHandlers } from './ipc/registry'
 import { closeAll as closeAllConnections } from './domain/db/manager'
+import { initUpdater, maybeAutoCheckOnStartup } from './domain/updater'
 
 /** 应用显示名（菜单栏首项 / About 标题） */
 const APP_NAME = 'DB Client'
+
+/**
+ * 解析应用图标路径。
+ * - 打包后：图标随 extraResources 解包到 <app>/resources/icon.png
+ * - 开发期：使用项目根 build/icon.png
+ * macOS 的 dock/About 图标由 .icns 直接提供，此处仅 win/linux 与窗口图标使用。
+ */
+function resolveIconPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(__dirname, '../../build/icon.png')
+}
 
 // ===== 单实例锁：防止多开导致本地库/MCP 端口冲突 =====
 if (!app.requestSingleInstanceLock()) {
@@ -49,6 +62,7 @@ function setupAppMenu(): void {
     applicationVersion: app.getVersion(),
     version: process.versions.electron, // Electron 版本（mac About 的 "Version" 行）
     copyright: 'MIT License',
+    iconPath: resolveIconPath(),
     // win/linux About 对话框的额外信息
     credits: ``,
   })
@@ -149,6 +163,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    icon: nativeImage.createFromPath(resolveIconPath()),
     // mac：hiddenInset 保留红绿灯；win/linux：hidden 去掉原生大标题栏，保留可缩放边框
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     ...(isMac && { trafficLightPosition: { x: 13, y: 14 } }),
@@ -206,6 +221,9 @@ app.whenReady().then(async () => {
     initDb()
     await registerAllHandlers()
     createWindow()
+    // 自动更新：初始化 + 启动后台静默检查（24h 节流，打包模式才生效）
+    initUpdater()
+    maybeAutoCheckOnStartup()
     logger.info('应用就绪')
   } catch (err) {
     logger.error('启动失败', err)

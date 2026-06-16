@@ -10,7 +10,7 @@ export function makeMentionTag(connName: string): string {
   return `#${connName}`
 }
 
-/** mention 上下文：连接（#db）或表（#db 之后的单词） */
+/** mention 上下文：连接（#db）或表（#db 之后的单词 / @触发的表补全） */
 export type MentionContext =
   | { kind: 'connection'; query: string }
   | { kind: 'table'; query: string; connTag: string }
@@ -19,8 +19,12 @@ export type MentionContext =
 /**
  * 检测 textarea 当前光标处的 mention 上下文：
  * - 连接上下文：光标在「#...」标签内（# 与光标间无空白）→ 弹连接候选。
- * - 表上下文：光标在「#连接名 」之后的单词内 → 弹该连接下的表候选。
+ * - 表上下文（两种触发）：
+ *   1) 光标在「#连接名 」之后的单词内 → 弹该连接下的表候选。
+ *   2) 光标在「@单词」内（@ 位于行首或空白后）→ 弹「当前生效连接」的表候选。
  * 否则返回 null。
+ *
+ * @ 触发的表上下文 connTag 为空串，表示「用当前生效连接」（由组件解析 activeConn）。
  */
 export function detectMention(el: HTMLTextAreaElement): MentionContext {
   const { selectionStart, selectionEnd, value } = el
@@ -28,8 +32,21 @@ export function detectMention(el: HTMLTextAreaElement): MentionContext {
   const before = value.slice(0, selectionStart)
   const after = value.slice(selectionEnd)
 
-  // —— 连接上下文：最近一个未闭合的 # ——
+  // —— @ 表补全：@ 位于行首或空白后，@ 与光标间无空白 ——
+  const atIdx = before.lastIndexOf('@')
+  // 取 # 与 @ 中更靠近光标的一个，避免二者并存时误判
   const hashIdx = before.lastIndexOf('#')
+  if (atIdx > hashIdx && atIdx !== -1) {
+    const prevChar = before[atIdx - 1]
+    const atLineStartOrSpace = prevChar === undefined || /\s/.test(prevChar)
+    const queryPart = before.slice(atIdx + 1)
+    if (atLineStartOrSpace && !/\s/.test(queryPart) && /^\s|$/.test(after)) {
+      // connTag 空串 = 当前生效连接
+      return { kind: 'table', query: queryPart, connTag: '' }
+    }
+  }
+
+  // —— # 连接上下文：最近一个未闭合的 # ——
   if (hashIdx !== -1) {
     const prevChar = before[hashIdx - 1]
     const atLineStartOrSpace = prevChar === undefined || /\s/.test(prevChar)

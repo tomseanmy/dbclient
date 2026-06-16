@@ -55,6 +55,8 @@ export function SqlCardMini({
         sql: curSql,
         ok: true,
         result: hasColumns ? r : null,
+        // 非查询语句（增删改）：记录影响行数，列表态直接展示、禁用点击
+        affected: hasColumns ? undefined : { rows: r.rowCount, message: r.message },
         connName: connection?.name ?? '',
       })
     } catch (err) {

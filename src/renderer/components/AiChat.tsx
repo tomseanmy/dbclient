@@ -8,8 +8,9 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { MessageCircle, User, Bot, Lock, AlertTriangle } from 'lucide-react'
 import { api } from '../api'
 import { useStreamChat } from '../hooks/useStreamChat'
+import { useLlmProviderStore } from '../store/llm-providers'
 import { genStreamId } from '../lib/stream'
-import type { ConnectionListItem, LlmProvider, ChatMessage, AiStreamDonePayload } from '../api'
+import type { ConnectionListItem, ChatMessage, AiStreamDonePayload } from '../api'
 
 interface ChatTurn {
   role: 'user' | 'assistant'
@@ -31,7 +32,8 @@ export function AiChat({ connection }: AiChatProps) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [providers, setProviders] = useState<LlmProvider[]>([])
+  // provider 列表改为共享 store：设置中配置后即时刷新（无需重启）
+  const providers = useLlmProviderStore((s) => s.providers)
   const [selectedProviderId, setSelectedProviderId] = useState<string>('')
   const [executing, setExecuting] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -80,16 +82,6 @@ export function AiChat({ connection }: AiChatProps) {
       setActiveStreamId(null)
     },
   })
-
-  // 加载 provider 列表
-  useEffect(() => {
-    api['llm:listProviders']()
-      .then((list) => {
-        setProviders(list)
-        // 不自动选中：空 selectedProviderId 让网关用「默认补全模型」
-      })
-      .catch(() => {})
-  }, [])
 
   // 自动滚到底部
   useEffect(() => {

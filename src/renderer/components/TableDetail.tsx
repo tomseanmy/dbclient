@@ -1,19 +1,32 @@
 /**
  * 表详情面板
  *
- * 选中表后展示：列、索引、外键、DDL。
- * 对于 Redis 连接，展示 key 概览。
+ * 选中表后：
+ * - SQL 数据库（MySQL/PG/SQLite）的 table：直接进入表结构编辑器（行内编辑列/索引/外键），
+ *   下方实时生成 DDL 预览，点「保存」时经安全检查后执行该 DDL。
+ * - view：只读展示结构（不可改）。
+ * - Redis：展示 key 概览。
  */
-import { useEffect, useState } from 'react'
-import { Copy, Loader2, Eye, KeyRound } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Copy, Loader2, KeyRound, Save, AlertTriangle } from 'lucide-react'
 import {
   api,
   type ConnectionListItem,
   type Table,
   type TableMeta,
   type RedisKeyOverview,
+  type SecurityCheckResult,
 } from '../api'
 import { DB_LABELS } from '../store/connections'
+import { TableStructureEditor, toDraftMeta } from './table-edit/TableStructureEditor'
+import {
+  buildAlterStatements,
+  diffTableMeta,
+  type DraftTableMeta,
+  type TableDialect,
+} from '@shared/db/alter-generator'
+import { ConfirmDialog } from './ConfirmDialog'
+import { PermissionNotice } from './PermissionNotice'
 
 interface TableDetailProps {
   connection: ConnectionListItem
@@ -29,13 +42,48 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
   const [tab, setTab] = useState<'columns' | 'indexes' | 'foreignKeys' | 'ddl'>('columns')
   const [copied, setCopied] = useState(false)
 
+  // ---- 编辑状态（SQL table 默认进入编辑，点开即编辑） ----
+  const [draft, setDraft] = useState<DraftTableMeta | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [confirmCheck, setConfirmCheck] = useState<SecurityCheckResult | null>(null)
+  const [confirmSql, setConfirmSql] = useState('')
+  const [deniedCheck, setDeniedCheck] = useState<SecurityCheckResult | null>(null)
+
+  /** SQL 数据库（Redis 无 SQL，view 不改结构） */
+  const isSqlTable =
+    (connection.type === 'mysql' ||
+      connection.type === 'postgres' ||
+      connection.type === 'sqlite') &&
+    table.type === 'table'
+  const dialect = connection.type as TableDialect
+
+  /** 当前未保存变更数（保存按钮启用判定） */
+  const changedCount = useMemo(() => {
+    if (!meta || !draft) return 0
+    const d = diffTableMeta(meta, draft)
+    return (
+      d.columns.added.length +
+      d.columns.removed.length +
+      d.columns.changed.length +
+      d.indexes.added.length +
+      d.indexes.removed.length +
+      d.indexes.changed.length +
+      d.foreignKeys.added.length +
+      d.foreignKeys.removed.length +
+      d.foreignKeys.changed.length
+    )
+  }, [meta, draft])
+
   useEffect(() => {
     let cancelled = false
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时重置加载状态是合法模式
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 切换表时重置状态是合法模式
     setLoading(true)
     setError(null)
     setMeta(null)
     setRedisOverview(null)
+    setDraft(null)
+    setEditError(null)
 
     if (connection.type === 'redis') {
       api['db:getRedisOverview']({ connectionId: connection.id })
@@ -60,6 +108,8 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
       .then((m) => {
         if (!cancelled) {
           setMeta(m)
+          // SQL table：加载完成即进入编辑（草稿 = 原始结构的副本）
+          if (isSqlTable) setDraft(toDraftMeta(m))
           setLoading(false)
         }
       })
@@ -72,7 +122,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
     return () => {
       cancelled = true
     }
-  }, [connection.id, connection.type, schema, table.name])
+  }, [connection.id, connection.type, schema, table.name, isSqlTable])
 
   const copyDdl = async () => {
     if (meta?.ddl) {
@@ -82,7 +132,84 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
     }
   }
 
-  // Redis 概览视图
+  /**
+   * 保存：生成 ALTER → 一次安全预检（checkSql）→ 按 allow/confirm/deny 分流。
+   * 镜像 SqlWorkspace.handleExecute/handleConfirm 的既有写法。
+   * 实际执行逐条走 db:confirmExecute（规避 SQLite 多语句限制；单条 DROP 仍需关键词）。
+   */
+  const handleSave = async () => {
+    if (!meta || !draft) return
+    setEditError(null)
+    setSaving(true)
+    try {
+      const { statements } = buildAlterStatements(dialect, meta, draft)
+      if (statements.length === 0) {
+        setEditError('没有可生成的变更')
+        setSaving(false)
+        return
+      }
+      // 合并脚本仅用于一次安全预检（展示 + 风险判定）
+      const joined = statements.join(';\n') + ';'
+
+      const check = await api['db:checkSql']({ connectionId: connection.id, sql: joined })
+      if (check.denied) {
+        setDeniedCheck(check)
+        setSaving(false)
+        return
+      }
+      // 需要确认，或含 DROP/TRUNCATE 等最高危操作（即便环境允许，单条仍需关键词）→ 走确认弹窗
+      if (check.confirmRequired || check.requireKeywordConfirm) {
+        setConfirmCheck(check)
+        setConfirmSql(joined)
+        setSaving(false)
+        return
+      }
+      await runStatements(statements)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : String(err))
+      setSaving(false)
+    }
+  }
+
+  /** 逐条执行 ALTER。keyword 用于 DROP/TRUNCATE 等需关键词确认的单条语句。 */
+  const runStatements = async (statements: string[], keyword?: string) => {
+    setSaving(true)
+    setEditError(null)
+    try {
+      for (const stmt of statements) {
+        await api['db:confirmExecute']({
+          connectionId: connection.id,
+          sql: stmt,
+          confirmedKeyword: keyword,
+        })
+      }
+      // 成功 → 重新拉取结构，草稿重置为新结构的副本
+      const fresh = await api['db:describeTable']({
+        connectionId: connection.id,
+        schema,
+        table: table.name,
+      })
+      setMeta(fresh)
+      setDraft(toDraftMeta(fresh))
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /** 确认弹窗确认后执行（带关键词，逐条仍需关键词） */
+  const handleConfirm = async (keyword?: string) => {
+    setConfirmCheck(null)
+    try {
+      const { statements } = buildAlterStatements(dialect, meta!, draft!)
+      await runStatements(statements, keyword)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  // ===== Redis 概览视图 =====
   if (connection.type === 'redis') {
     return (
       <div className="table-detail">
@@ -133,25 +260,31 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
     )
   }
 
+  // ===== 通用头部 =====
+  // const renderHeader = (extra?: React.ReactNode) => (
+  //   <div className="detail-header">
+  //     <div>
+  //       <h2>
+  //         {table.type === 'view' ? (
+  //           <Eye size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
+  //         ) : (
+  //           <Copy size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
+  //         )}{' '}
+  //         {schema ? `${schema}.` : ''}
+  //         {table.name}
+  //       </h2>
+  //       {table.comment && <p className="table-comment">{table.comment}</p>}
+  //       {table.estimatedRows !== undefined && (
+  //         <span className="row-badge">≈ {table.estimatedRows.toLocaleString()} 行</span>
+  //       )}
+  //     </div>
+  //     {extra}
+  //   </div>
+  // )
+
   return (
     <div className="table-detail">
-      <div className="detail-header">
-        <div>
-          <h2>
-            {table.type === 'view' ? (
-              <Eye size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
-            ) : (
-              <Copy size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />
-            )}{' '}
-            {schema ? `${schema}.` : ''}
-            {table.name}
-          </h2>
-          {table.comment && <p className="table-comment">{table.comment}</p>}
-          {table.estimatedRows !== undefined && (
-            <span className="row-badge">≈ {table.estimatedRows.toLocaleString()} 行</span>
-          )}
-        </div>
-      </div>
+      {/* {renderHeader()} */}
 
       {loading && (
         <div className="detail-loading">
@@ -160,7 +293,50 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
       )}
       {error && <div className="detail-error">{error}</div>}
 
-      {meta && (
+      {editError && (
+        <div className="detail-error edit-error-bar">
+          <AlertTriangle size={14} /> {editError}
+        </div>
+      )}
+      {deniedCheck && (
+        <PermissionNotice
+          check={deniedCheck}
+          connectionId={connection.id}
+          onElevated={() => setDeniedCheck(null)}
+          onDismiss={() => setDeniedCheck(null)}
+        />
+      )}
+      {confirmCheck && (
+        <ConfirmDialog
+          check={confirmCheck}
+          sql={confirmSql}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirmCheck(null)}
+        />
+      )}
+
+      {/* SQL table：直接进入表结构编辑器（DDL 预览在编辑器内部） */}
+      {meta && isSqlTable && draft && (
+        <TableStructureEditor
+          original={meta}
+          draft={draft}
+          onChange={setDraft}
+          dialect={dialect}
+          headerExtra={
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleSave}
+              disabled={saving || changedCount === 0}
+              title={changedCount === 0 ? '无变更' : `保存 ${changedCount} 项变更`}
+            >
+              {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
+            </button>
+          }
+        />
+      )}
+
+      {/* view / 非 table：只读结构展示 */}
+      {meta && !isSqlTable && (
         <>
           <div className="detail-tabs">
             <button

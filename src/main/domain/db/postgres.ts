@@ -118,10 +118,43 @@ export class PostgresDriver implements DbDriver {
     }
   }
 
+  async getServerInfo(): Promise<string | undefined> {
+    try {
+      const rows = await this.query<{ version: string }>('SELECT version() AS version')
+      return rows[0]?.version ?? 'PostgreSQL'
+    } catch {
+      return undefined
+    }
+  }
+
   private async query<T extends QueryResultRow>(sql: string, params?: unknown[]): Promise<T[]> {
     if (!this.pool) throw new Error('PostgreSQL 未连接，请先 connect()')
     const res = await this.pool.query<T>(sql, params)
     return res.rows
+  }
+
+  async listRoles(): Promise<import('@shared/types/database').DatabaseRole[]> {
+    const rows = await this.query<{
+      name: string
+      is_login: boolean
+      member_count: string | null
+      comment: string | null
+    }>(
+      `SELECT
+        r.rolname AS name,
+        r.rolcanlogin AS is_login,
+        (SELECT count(*) FROM pg_auth_members m WHERE m.roleid = r.oid) AS member_count,
+        pg_catalog.shobj_description(r.oid, 'pg_authid') AS comment
+       FROM pg_roles r
+       ORDER BY r.rolname`,
+    )
+    return rows.map((r) => ({
+      name: r.name,
+      kind: r.is_login ? 'user' : 'role',
+      canLogin: r.is_login,
+      memberCount: r.member_count ? Number.parseInt(r.member_count, 10) : undefined,
+      comment: r.comment ?? undefined,
+    }))
   }
 
   async listSchemas(): Promise<Schema[]> {

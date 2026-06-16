@@ -21,6 +21,7 @@ import { detectMention, makeMentionTag, autoGrow, type MentionContext } from '..
 import { ToolCard } from './agent/ToolCard'
 import { SqlCardMini } from './agent/SqlCardMini'
 import { ResultsPanel } from './agent/ResultsPanel'
+import { ResultDetailModal } from './agent/ResultDetailModal'
 import type { Entry, ExecHistoryItem } from './agent/types'
 import type { ConnectionListItem, ChatMessage, ToolCallEvent, ToolResultEvent } from '../api'
 
@@ -73,8 +74,8 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
 
   // —— 执行历史（右侧面板）——
   const [execHistory, setExecHistory] = useState<ExecHistoryItem[]>([])
-  /** 当前在右侧查看的历史项 id（null=展示列表） */
-  const [activeResultId, setActiveResultId] = useState<string | null>(null)
+  /** 详情弹窗展示的历史项（点击查询类历史项打开；null=关闭） */
+  const [detailItem, setDetailItem] = useState<ExecHistoryItem | null>(null)
   /** 右侧结果面板是否折叠 */
   const [resultsCollapsed, setResultsCollapsed] = useState(false)
 
@@ -85,6 +86,8 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
   const [mentionIndex, setMentionIndex] = useState(0)
   /** 关闭 mention 下一次 onInput 的处理（选中候选项时设 true，避免循环） */
   const suppressMentionRef = useRef(false)
+  /** mention 候选列表容器，用于键盘导航时把选中项滚进可视区 */
+  const mentionListRef = useRef<HTMLDivElement>(null)
 
   /**
    * 解析当前生效的连接：
@@ -146,11 +149,21 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
         .slice(0, 10)
     }
 
-    // table 上下文：定位 #connTag 对应的连接，取其已加载表
-    const conn =
-      connections.find(
-        (c) => makeMentionTag(c.name).toLowerCase() === `#${mentionContext.connTag.toLowerCase()}`,
-      ) ?? connections.find((c) => c.name.toLowerCase() === mentionContext.connTag.toLowerCase())
+    // table 上下文：定位连接，取其已加载表
+    // - connTag 为空（@ 触发）：用当前生效连接（按输入文本解析）
+    // - connTag 非空（#db 触发）：按 #tag 匹配连接
+    let conn: ConnectionListItem | null
+    if (mentionContext.connTag) {
+      conn =
+        connections.find(
+          (c) =>
+            makeMentionTag(c.name).toLowerCase() === `#${mentionContext.connTag.toLowerCase()}`,
+        ) ??
+        connections.find((c) => c.name.toLowerCase() === mentionContext.connTag.toLowerCase()) ??
+        null
+    } else {
+      conn = resolveConnection(input)
+    }
     if (!conn) return []
     const tableMap = states[conn.id]?.tables ?? {}
     const q = mentionContext.query.toLowerCase()
@@ -165,10 +178,19 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
       if (items.length >= 10) break
     }
     return items
-  }, [mentionContext, connections])
+  }, [mentionContext, connections, resolveConnection, input])
 
   /** 当前有效的选中索引（渲染期 clamp 到候选范围内，避免 effect） */
   const activeMentionIndex = Math.min(mentionIndex, Math.max(0, mentionCandidates.length - 1))
+
+  // 键盘上下移动选中项时，把它滚进候选下拉的可视区（避免被遮挡需手动滚动）
+  useEffect(() => {
+    if (!mentionListRef.current) return
+    const el = mentionListRef.current.querySelector<HTMLElement>(
+      `[data-mention-idx="${activeMentionIndex}"]`,
+    )
+    el?.scrollIntoView({ block: 'nearest' })
+  }, [activeMentionIndex])
 
   /**
    * 连接成功后拉取 schema 与默认 schema 下的表，写入 store。
@@ -251,7 +273,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
   )
 
   // 订阅 agent 事件（封装在 hook 内，按 activeStreamId 过滤 + 卸载清理）
-  const { setActiveStreamId } = useAgentStream({
+  const { activeStreamIdRef, setActiveStreamId } = useAgentStream({
     onToolCall: (e: ToolCallEvent) => {
       setEntries((prev) => [
         ...prev,
@@ -349,6 +371,28 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
     }
   }, [input, loading, entries, resolveConnection, selectedProviderId, setActiveStreamId])
 
+  /** 停止当前 AGENT 生成：通知主进程中止底层 SSE 流，并就地结束本地流式态（保留已生成内容） */
+  const handleStop = useCallback(async () => {
+    const streamId = activeStreamIdRef.current
+    if (!streamId) return
+    try {
+      await api['ai:stopStream']({ streamId })
+    } catch {
+      // 忽略：主进程可能已无此流
+    }
+    setLoading(false)
+    setActiveStreamId(null)
+    // 把正在流式输出的 assistant 条目定型（保留已累积的内容）
+    setEntries((prev) => {
+      const next = [...prev] as Entry[]
+      const last = next[next.length - 1]
+      if (last && last.type === 'assistant' && last.streaming) {
+        next[next.length - 1] = { ...last, streaming: false }
+      }
+      return next
+    })
+  }, [activeStreamIdRef, setActiveStreamId])
+
   const hasProvider = providers.length > 0
   const activeConn = resolveConnection(input)
 
@@ -434,9 +478,9 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
                           providerId={selectedProviderId || undefined}
                           onExecuted={(item) => {
                             setExecHistory((prev) => [item, ...prev].slice(0, 50))
-                            // 成功且为查询语句：自动在右侧展示结果，避免「点了执行看不到东西」
+                            // 成功且为查询语句：自动弹出详情窗口，避免「点了执行看不到东西」
                             if (item.ok && item.result && item.result.columns.length > 0) {
-                              setActiveResultId(item.id)
+                              setDetailItem(item)
                             }
                           }}
                         />
@@ -533,16 +577,19 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
 
             {/* mention 候选下拉：连接上下文显示连接，表上下文显示表 */}
             {mentionContext !== null && mentionCandidates.length > 0 && (
-              <div className="mention-popover">
+              <div className="mention-popover" ref={mentionListRef}>
                 <div className="mention-popover-title">
                   {mentionContext.kind === 'connection'
                     ? '数据库连接'
-                    : `${mentionContext.connTag} 的表`}
+                    : mentionContext.connTag
+                      ? `${mentionContext.connTag} 的表`
+                      : `${resolveConnection(input)?.name ?? '当前连接'} 的表`}
                 </div>
                 {mentionCandidates.map((item, i) => (
                   <button
                     key={item.kind === 'connection' ? item.conn.id : `${item.conn.id}:${item.name}`}
                     className={`mention-item ${i === activeMentionIndex ? 'active' : ''}`}
+                    data-mention-idx={i}
                     onMouseDown={(e) => {
                       e.preventDefault() // 阻止 textarea blur
                       void applyMention(item)
@@ -603,31 +650,40 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
                   <Settings2 size={13} /> 配置模型
                 </button>
               )}
-              <button
-                className="btn btn-primary chat-send-btn"
-                onClick={handleSend}
-                disabled={!input.trim() || loading || !hasProvider}
-                title="发送（Enter）"
-              >
-                {loading ? '思考中…' : '发送'}
-              </button>
+              {loading ? (
+                <button
+                  className="btn btn-danger chat-send-btn chat-stop-btn"
+                  onClick={handleStop}
+                  title="停止生成（再按可中止请求）"
+                >
+                  停止
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary chat-send-btn"
+                  onClick={handleSend}
+                  disabled={!input.trim() || !hasProvider}
+                  title="发送（Enter）"
+                >
+                  发送
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* 右侧：执行历史结果面板（点击历史项展示查询结果表） */}
+      {/* 右侧：执行历史面板（列表态；点击查询类项弹出详情窗口） */}
       <ResultsPanel
         history={execHistory}
-        activeResultId={activeResultId}
         collapsed={resultsCollapsed}
-        onSelect={setActiveResultId}
+        onOpenDetail={(item) => setDetailItem(item)}
         onToggleCollapse={() => setResultsCollapsed((v) => !v)}
-        onClear={() => {
-          setExecHistory([])
-          setActiveResultId(null)
-        }}
+        onClear={() => setExecHistory([])}
       />
+
+      {/* 查询结果详情弹窗（独立窗口，上 SQL editor 下结果列表） */}
+      {detailItem && <ResultDetailModal item={detailItem} onClose={() => setDetailItem(null)} />}
     </div>
   )
 }

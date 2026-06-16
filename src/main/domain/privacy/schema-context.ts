@@ -59,7 +59,16 @@ export async function buildSchemaContext(
     const cached = schemaCacheDao.get(connectionId, databaseName)
     if (cached) {
       logger.debug('Schema 缓存命中', { connectionId, databaseName, tables: cached.tables.length })
-      return formatSnapshot(config.type, opts.schema, cached.tables, cached.metas, opts.scopeTables)
+      // serverInfo 每次实时取（版本可能升级），不放入缓存快照
+      const serverInfo = await driver.getServerInfo().catch(() => undefined)
+      return formatSnapshot(
+        config.type,
+        opts.schema,
+        cached.tables,
+        cached.metas,
+        opts.scopeTables,
+        serverInfo,
+      )
     }
   }
 
@@ -80,7 +89,8 @@ export async function buildSchemaContext(
   schemaCacheDao.set(connectionId, databaseName, { tables: allTables, metas })
   logger.debug('Schema 缓存已写入', { connectionId, databaseName, tables: allTables.length })
 
-  return formatSnapshot(config.type, opts.schema, allTables, metas, opts.scopeTables)
+  const serverInfo = await driver.getServerInfo().catch(() => undefined)
+  return formatSnapshot(config.type, opts.schema, allTables, metas, opts.scopeTables, serverInfo)
 }
 
 /**
@@ -105,6 +115,7 @@ function formatSnapshot(
   allTables: Table[],
   metas: Record<string, TableMeta>,
   scopeTables: string[] = [],
+  serverInfo?: string,
 ): SchemaContextResult {
   // 排序：scopeTables 指定的表排前面
   const scope = scopeTables
@@ -135,7 +146,7 @@ function formatSnapshot(
     charCount += block.length
   }
 
-  const header = formatHeader(dbType, schema, allTables.length)
+  const header = formatHeader(dbType, schema, allTables.length, serverInfo)
   const tail = truncated
     ? `\n\n> ⚠️ 表数量较多，仅展示前 ${includedTables.length} 张表的结构。如需其他表请在对话中指明表名。`
     : ''
@@ -147,11 +158,18 @@ function formatSnapshot(
   }
 }
 
-/** 格式化表头说明 */
-function formatHeader(dbType: DbType, schema: string | undefined, totalTables: number): string {
+/** 格式化表头说明（含数据库类型、版本、schema、表数量） */
+function formatHeader(
+  dbType: DbType,
+  schema: string | undefined,
+  totalTables: number,
+  serverInfo?: string,
+): string {
   const dbLabel = dbType.toUpperCase()
+  // 版本信息：优先用 serverInfo（含版本号），让 LLM 生成与版本兼容的 SQL
+  const versionPart = serverInfo ? ` · ${serverInfo}` : ` · ${dbLabel}`
   const schemaLabel = schema ? ` · schema: ${schema}` : ''
-  return `## 数据库结构（${dbLabel}${schemaLabel}，共 ${totalTables} 张表）`
+  return `## 数据库结构（${dbLabel}${versionPart}${schemaLabel}，共 ${totalTables} 张表）`
 }
 
 /** 格式化单张表的结构为 Markdown */

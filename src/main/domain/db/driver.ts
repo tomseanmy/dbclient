@@ -13,6 +13,7 @@ import type {
   Schema,
   Table,
   TableMeta,
+  DatabaseRole,
 } from '@shared/types/database'
 import type { UnifiedType } from '@shared/types/database'
 
@@ -47,6 +48,9 @@ export interface DbDriver {
   /** 断开连接，释放资源 */
   disconnect(): Promise<void>
 
+  /** 获取服务器版本信息（复用已建立连接，供 AI 提示词注入版本，避免方言兼容性问题） */
+  getServerInfo(): Promise<string | undefined>
+
   /** 列出所有 schema / database */
   listSchemas(): Promise<Schema[]>
 
@@ -55,6 +59,9 @@ export interface DbDriver {
 
   /** 获取表的完整结构 */
   describeTable(opts: DescribeOptions): Promise<TableMeta>
+
+  /** 列出数据库中的角色 / 用户（Redis 等无角色概念的库返回空数组） */
+  listRoles(): Promise<DatabaseRole[]>
 
   /** 执行查询，返回结果集（SELECT 等返回行） */
   executeQuery(sql: string, opts?: QueryOptions): Promise<QueryResult>

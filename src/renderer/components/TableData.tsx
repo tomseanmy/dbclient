@@ -60,6 +60,12 @@ interface RowContextMenu {
   y: number
   rowKey: number
   isInsertRow: boolean
+  /**
+   * 右键落点位于多选集内时，记录当时的多选集合；
+   * 删除项将作用于这些行（macOS 语义：右键不改变多选）。
+   * 单行情况为 undefined。
+   */
+  selectedKeys?: number[]
 }
 
 /** 单元格右键菜单 */
@@ -84,7 +90,8 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [changes, setChanges] = useState<Map<number, Change>>(new Map())
-  const [selectedRowKey, setSelectedRowKey] = useState<number | null>(null)
+  // 行选中：支持多选（Cmd/Ctrl 增选、Shift 区间）。空 Set 表示无选中。
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Set<number>>(new Set())
   const [selectedCell, setSelectedCell] = useState<{
     rowKey: string | number
     column: string
@@ -151,7 +158,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
     setError(null)
     setChanges(new Map())
     setCommitLog(null)
-    setSelectedRowKey(null)
+    setSelectedRowKeys(new Set())
     setSelectedCell(null)
     setEditingCell(null)
     try {
@@ -311,11 +318,17 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
     })
   }
 
-  /** 删除行（工具栏按钮：优先删选中单元格所在行，否则删选中行） */
+  /** 删除行（工具栏按钮：优先删选中单元格所在行，否则删所有选中行） */
   const handleDeleteRow = () => {
-    const targetKey = selectedCell ? Number(selectedCell.rowKey) : selectedRowKey
-    if (targetKey === null || Number.isNaN(targetKey)) return
-    deleteRow(targetKey)
+    if (selectedCell) {
+      deleteRow(Number(selectedCell.rowKey))
+      return
+    }
+    if (selectedRowKeys.size === 0) return
+    // 复制一份再清空选中，避免 deleteRow 内部依赖选中态
+    const keys = Array.from(selectedRowKeys)
+    setSelectedRowKeys(new Set())
+    for (const k of keys) deleteRow(k)
   }
 
   /** 删除行 */
@@ -373,17 +386,25 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
     })
   }
 
-  /** 序号列右键菜单 */
+  /** 序号列右键菜单（多选语义：落点在已选集内时保持多选，否则聚焦单选该行） */
   const handleRowContextMenu = (e: React.MouseEvent, rowKey: number) => {
     e.preventDefault()
     e.stopPropagation()
-    setSelectedRowKey(rowKey)
+    // 右键不改变已有选择：若落点不在选中集中，则聚焦单选该行
+    let activeSelectedKeys: number[] | undefined
+    if (selectedRowKeys.has(rowKey) && selectedRowKeys.size > 1) {
+      activeSelectedKeys = Array.from(selectedRowKeys)
+    } else {
+      // 落点不在多选集中：单选该行
+      setSelectedRowKeys(new Set([rowKey]))
+    }
     setCellCtxMenu(null)
     setCtxMenu({
       x: e.clientX,
       y: e.clientY,
       rowKey,
       isInsertRow: rowKey < 0,
+      selectedKeys: activeSelectedKeys,
     })
   }
 
@@ -507,7 +528,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
   /** 撤回 */
   const handleRollback = () => {
     setChanges(new Map())
-    setSelectedRowKey(null)
+    setSelectedRowKeys(new Set())
     setSelectedCell(null)
     setEditingCell(null)
     setCommitLog(null)
@@ -636,7 +657,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
           <button
             className="icon-btn"
             onClick={handleDeleteRow}
-            disabled={selectedRowKey === null && selectedCell === null}
+            disabled={selectedRowKeys.size === 0 && selectedCell === null}
           >
             <Minus size={14} />
           </button>
@@ -739,8 +760,12 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
             editable
             dirtyRowKeys={dirtyRowKeys}
             onCellChange={handleCellChange}
-            selectedRowKey={selectedRowKey}
-            onSelectRow={(k) => setSelectedRowKey(typeof k === 'number' ? k : Number(k))}
+            selectedRowKeys={selectedRowKeys}
+            onSelectRows={(keys) => {
+              // 选中整行时清除单元格选中（保持两者互斥）
+              if (keys.size > 0) setSelectedCell(null)
+              setSelectedRowKeys(new Set(Array.from(keys).map((k) => Number(k))))
+            }}
             onRowContextMenu={handleRowContextMenu}
             selectedCell={selectedCell}
             onSelectCell={setSelectedCell}
@@ -870,11 +895,16 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
           <button
             className="ctx-item ctx-danger"
             onClick={() => {
-              deleteRow(ctxMenu.rowKey)
+              const keys = ctxMenu.selectedKeys ?? [ctxMenu.rowKey]
+              setSelectedRowKeys(new Set())
+              for (const k of keys) deleteRow(k)
               setCtxMenu(null)
             }}
           >
             <Trash2 size={12} /> 删除行
+            {ctxMenu.selectedKeys && ctxMenu.selectedKeys.length > 1
+              ? `（${ctxMenu.selectedKeys.length}）`
+              : ''}
           </button>
         </div>
       )}

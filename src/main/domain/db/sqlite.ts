@@ -94,6 +94,18 @@ export class SqliteDriver implements DbDriver {
     }
   }
 
+  async getServerInfo(): Promise<string | undefined> {
+    if (!this.db) return undefined
+    try {
+      const row = this.db.prepare('SELECT sqlite_version() AS version').get() as
+        | { version: string }
+        | undefined
+      return `SQLite ${row?.version ?? 'unknown'}`
+    } catch {
+      return undefined
+    }
+  }
+
   private getDb(): DB {
     if (!this.db) throw new Error('SQLite 未连接，请先 connect()')
     return this.db
@@ -102,6 +114,14 @@ export class SqliteDriver implements DbDriver {
   async listSchemas(): Promise<Schema[]> {
     // SQLite 没有 schema 概念，返回单个 main
     return [{ name: 'main', isDefault: true }]
+  }
+
+  async listRoles(): Promise<import('@shared/types/database').DatabaseRole[]> {
+    // SQLite 没有用户/角色体系，访问控制由文件系统权限决定。
+    // 这里返回一个占位项说明鉴权模型，避免空列表被误判为「无权限」。
+    return [
+      { name: '文件级访问', kind: 'file', comment: 'SQLite 通过文件系统权限鉴权，无内置用户/角色' },
+    ]
   }
 
   async listTables(_schema?: string): Promise<Table[]> {

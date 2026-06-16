@@ -1,6 +1,9 @@
 # electron-builder 配置
 # 文档: https://www.electron.build/configuration
-# 当前为未签名构建；后续如需签名，补 CSC_* / APPLE_* 环境变量即可。
+# 签名：macOS/Windows 走环境变量（CSC_LINK / CSC_KEY_PASSWORD 等），
+#       本地未设置时自动回退为未签名构建；CI 中通过 Secrets 注入。
+# 自动更新：依赖 publish.github，electron-builder 据此在产物里生成
+#           app-update.yml（autoUpdater 启动时自动读取，无需 setFeedURL）。
 
 appId: com.tomseanmy.dbclient
 productName: AI DB Client
@@ -9,6 +12,12 @@ copyright: Copyright © ${author}
 directories:
   output: release
   buildResources: build
+
+# 自动更新源：GitHub Releases（release.yml 已上传 latest*.yml 元数据）
+publish:
+  provider: github
+  owner: tomseanmy
+  repo: dbclient
 
 # 使用 package.json 的 version 作为构建版本
 # 打 tag 前请先把 package.json 的 version 改成与 tag 一致
@@ -23,6 +32,12 @@ files:
 asarUnpack:
   - '**/*.node'
 
+# 应用图标解包到 resources/，供窗口图标 / About 面板在打包后加载
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+    filter: ['**/*']
+
 # Node 版本与打包目标相关的元数据，electron-builder 会自动用宿主机的架构编译原生模块
 nodeGypRebuild: false
 npmRebuild: true
@@ -31,12 +46,15 @@ mac:
   category: public.app-category.developer-tools
   target:
     - dmg
-  # 未签名
-  identity: null
-  hardenedRuntime: false
+  # 签名证书：CI/本地设置 CSC_LINK（p12 的 base64 或路径）时签名，
+  # 未设置时 electron-builder 自动回退为 ad-hoc / 未签名。
+  # hardenedRuntime + notarize 仅在有证书时生效（用 APPLE_ID_* 触发公证）。
+  hardenedRuntime: true
   gatekeeperAssess: false
-  # 不做公证
-  notarize: false
+  # 公证：electron-builder 内置 notarize，当且仅当提供 APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD
+  # + APPLE_TEAM_ID 时执行（CI Secrets 注入）；否则此项被忽略，跳过公证。
+  notarize:
+    teamId: ${APPLE_TEAM_ID}
 
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}

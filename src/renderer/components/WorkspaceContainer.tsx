@@ -10,8 +10,28 @@ import type { ConnectionListItem } from '../api'
 interface WorkspaceContainerProps {
   connection: ConnectionListItem
   tabId: string
+  /** 预填的初始 SQL（从保存的查询打开时） */
+  initialSql?: string
+  /** 关联的保存查询 id（从保存的查询打开时；之后保存直接更新该记录） */
+  savedQueryId?: string
+  /** 首次保存后回调（把当前 tab 关联到新创建的保存查询） */
+  onQueryBound?: (savedQuery: { id: string; name: string }) => void
 }
 
-export function WorkspaceContainer({ connection, tabId }: WorkspaceContainerProps) {
-  return <SqlWorkspace connection={connection} tabId={tabId} />
+export function WorkspaceContainer({
+  connection,
+  tabId,
+  initialSql,
+  savedQueryId,
+  onQueryBound,
+}: WorkspaceContainerProps) {
+  return (
+    <SqlWorkspace
+      connection={connection}
+      tabId={tabId}
+      initialSql={initialSql}
+      savedQueryId={savedQueryId}
+      onQueryBound={onQueryBound ? (sq) => onQueryBound(sq) : undefined}
+    />
+  )
 }

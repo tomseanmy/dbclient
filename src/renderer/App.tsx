@@ -35,6 +35,7 @@ import { Settings } from './pages/Settings'
 import { WindowControls } from './components/WindowControls'
 import { UpdateReadyBanner } from './components/UpdateReadyBanner'
 import { useContextMenuClose } from './hooks/useContextMenu'
+import logoUrl from './assets/logo.png'
 
 /** 主内容区的 tab 类型 */
 interface Tab {
@@ -467,6 +468,7 @@ export default function App() {
           ) : (
             <div className="welcome">
               <div className="welcome-card">
+                <img className="welcome-logo" src={logoUrl} alt="AI DB Client" />
                 <h1>AI DB Client</h1>
                 <p className="welcome-subtitle">开源的 AI 原生数据库工具</p>
                 <div className="welcome-features">

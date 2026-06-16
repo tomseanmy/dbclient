@@ -34,6 +34,8 @@ export interface ExecHistoryItem {
   error?: string
   /** 关联连接名（多连接场景下标识来源） */
   connName: string
+  /** 非查询语句（增删改）的影响行数 / 反馈信息（成功且无结果集时） */
+  affected?: { rows: number; message?: string }
 }
 
 /** 工具名 → 显示信息 */

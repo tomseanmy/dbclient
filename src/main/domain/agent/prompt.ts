@@ -22,9 +22,11 @@ export function buildAgentSystemPrompt(dbType: DbType, schemaContext: string): s
 
 当前数据库：${DIALECT[dbType]}
 
-数据库结构（仅含表/列/类型/注释，不含实际数据）：
+数据库结构（含数据库类型、版本号与表/列/类型/注释，不含实际数据）：
 
 ${schemaContext}
+
+> 注意：上方结构头部标注了数据库类型与版本号。生成的 SQL 必须与该版本兼容（如 MySQL 8.0 才有的窗口函数、PG 的 JSONB 操作符等），避免使用当前版本不支持的语法。
 
 ## 可用工具
 - listTables：列出所有表和视图。不确定有哪些表时先调用它。
