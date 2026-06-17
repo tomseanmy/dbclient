@@ -72,6 +72,16 @@ jobs:
           # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
+      # Windows 专用：单独构建 portable 免安装版。
+      # 必须在 NSIS 之后单独跑：同一次 electron-builder 同时产 nsis + portable 会
+      # 互相覆盖 latest.yml（electron-builder #1813），破坏 NSIS 自动更新。
+      # portable 不支持 electron-updater，故 --publish never 且不上传 latest.yml。
+      - name: Build portable (Windows only, no publish metadata)
+        if: matrix.name == 'windows-x64'
+        run: pnpm dist:win:portable
+        env:
+          CI: true
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:

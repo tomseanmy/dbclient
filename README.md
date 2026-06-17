@@ -67,20 +67,21 @@ pnpm dev          # 启动开发模式（含 HMR）
 
 ### 常用脚本
 
-| 命令                | 说明                                        |
-| ------------------- | ------------------------------------------- |
-| `pnpm dev`          | 启动 Electron + Vite 开发模式               |
-| `pnpm build`        | 构建主进程 + preload + 渲染进程             |
-| `pnpm dist`         | 构建并打包当前平台安装包                    |
-| `pnpm dist:mac`     | 打包 macOS 安装包                           |
-| `pnpm dist:win`     | 打包 Windows 安装包                         |
-| `pnpm dist:linux`   | 打包 Linux 安装包                           |
-| `pnpm typecheck`    | TypeScript 类型检查（main + renderer）      |
-| `pnpm lint`         | ESLint 检查                                 |
-| `pnpm test`         | 运行单元测试（Vitest）                      |
-| `pnpm format`       | Prettier 格式化                             |
-| `pnpm format:check` | Prettier 格式检查（CI 用）                  |
-| `pnpm rebuild`      | 重建 native 模块（better-sqlite3 / keytar） |
+| 命令                     | 说明                                        |
+| ------------------------ | ------------------------------------------- |
+| `pnpm dev`               | 启动 Electron + Vite 开发模式               |
+| `pnpm build`             | 构建主进程 + preload + 渲染进程             |
+| `pnpm dist`              | 构建并打包当前平台安装包                    |
+| `pnpm dist:mac`          | 打包 macOS 安装包                           |
+| `pnpm dist:win`          | 打包 Windows 安装包（NSIS，per-user）       |
+| `pnpm dist:win:portable` | 打包 Windows 便携版（免安装，无自动更新）   |
+| `pnpm dist:linux`        | 打包 Linux 安装包                           |
+| `pnpm typecheck`         | TypeScript 类型检查（main + renderer）      |
+| `pnpm lint`              | ESLint 检查                                 |
+| `pnpm test`              | 运行单元测试（Vitest）                      |
+| `pnpm format`            | Prettier 格式化                             |
+| `pnpm format:check`      | Prettier 格式检查（CI 用）                  |
+| `pnpm rebuild`           | 重建 native 模块（better-sqlite3 / keytar） |
 
 ## 📁 项目结构
 

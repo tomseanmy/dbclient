@@ -111,7 +111,7 @@
                 />
               </svg>
               <div class="platform-name">Windows</div>
-              <div class="platform-meta">x64 · .exe NSIS 安装包</div>
+              <div class="platform-meta">x64 · 安装包 / 便携版</div>
               <div class="platform-links">
                 <a
                   href="https://github.com/tomseanmy/dbclient/releases/latest"
@@ -162,6 +162,16 @@ pnpm dev</code></pre>
                 >构建。首次打开若被 Gatekeeper 拦截，请在「系统设置 →
                 隐私与安全性」点击「仍要打开」，或在终端执行
                 <code>xattr -dr com.apple.quarantine /Applications/AI\ DB\ Client.app</code>。
+              </div>
+            </div>
+
+            <div class="callout warn" style="margin-top: 16px">
+              <span class="callout-icon">!</span>
+              <div>
+                <strong>关于 Windows 下载：</strong>当前 Windows 产物为<strong>未签名</strong>构建，
+                首次运行可能被 SmartScreen 拦截（蓝底「已保护你的电脑」），点击「更多信息 →
+                仍要运行」即可。安装包安装到用户目录（<code>%LocalAppData%</code>），无需管理员权限；
+                <strong>便携版</strong>为免安装绿色版，<strong>不支持自动更新</strong>（安装包支持）。
               </div>
             </div>
 

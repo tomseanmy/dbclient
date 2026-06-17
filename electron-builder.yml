@@ -74,9 +74,17 @@ win:
 
 nsis:
   oneClick: false
-  perMachine: true
-  allowToChangeInstallationDirectory: true
+  # per-user 安装：装到 %LocalAppData%，无需管理员权限 / UAC。
+  # 注意：仅消除 UAC；SmartScreen 未签名警告与安装位置无关，需代码签名根治。
+  perMachine: false
+  allowToChangeInstallationDirectory: false
   artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+# 便携版（免安装绿色版）：单独构建（dist:win:portable），不进 win.target 默认列表，
+# 以免与 nsis 同一次构建互相覆盖 latest.yml，破坏 NSIS 自动更新。
+# portable 不被 electron-updater 支持，无自动更新。
+portable:
+  artifactName: ${productName}-${version}-${arch}-portable.${ext}
 
 linux:
   category: Development
