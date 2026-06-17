@@ -391,7 +391,8 @@ dbclient/
 
 ### 6.2 跨平台构建
 
-- **electron-builder** 出 macOS（dmg，Universal）/ Windows（nsis）/ Linux（AppImage + deb）。
+- **electron-builder** 出 macOS（dmg，Universal）/ Windows（nsis per-user + portable 免安装版）/ Linux（AppImage + deb）。
+- Windows nsis 走 per-user 安装（装 `%LocalAppData%`，免 UAC），承载自动更新；portable 单独构建（`dist:win:portable`），不支持自动更新。
 - **GitHub Actions** 矩阵构建，`electron-builder` 原生支持 CI 跨平台签名。
 - macOS 自用先不签名；面向他人发布时再做公证。
 

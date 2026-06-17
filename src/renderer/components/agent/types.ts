@@ -38,10 +38,10 @@ export interface ExecHistoryItem {
   affected?: { rows: number; message?: string }
 }
 
-/** 工具名 → 显示信息 */
+/** 工具名 → 显示信息（label 存 i18n key，渲染层 t() 翻译） */
 export const TOOL_META: Record<string, { label: string; icon: LucideIcon }> = {
-  listTables: { label: '列出表', icon: Database },
-  describeTable: { label: '查看表结构', icon: Table2 },
-  runReadQuery: { label: '执行查询', icon: Terminal },
-  generateSql: { label: '生成 SQL', icon: Wrench },
+  listTables: { label: 'enums.tool.listTables', icon: Database },
+  describeTable: { label: 'enums.tool.describeTable', icon: Table2 },
+  runReadQuery: { label: 'enums.tool.runReadQuery', icon: Terminal },
+  generateSql: { label: 'enums.tool.generateSql', icon: Wrench },
 }

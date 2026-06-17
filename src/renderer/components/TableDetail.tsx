@@ -7,6 +7,7 @@
  * - view：只读展示结构（不可改）。
  * - Redis：展示 key 概览。
  */
+import { useTranslation } from 'react-i18next'
 import { useEffect, useMemo, useState } from 'react'
 import { Copy, Loader2, KeyRound, Save, AlertTriangle } from 'lucide-react'
 import {
@@ -35,6 +36,7 @@ interface TableDetailProps {
 }
 
 export function TableDetail({ connection, schema, table }: TableDetailProps) {
+  const { t } = useTranslation()
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [redisOverview, setRedisOverview] = useState<RedisKeyOverview | null>(null)
   const [loading, setLoading] = useState(true)
@@ -144,7 +146,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
     try {
       const { statements } = buildAlterStatements(dialect, meta, draft)
       if (statements.length === 0) {
-        setEditError('没有可生成的变更')
+        setEditError(t('tableDetail.noChangesToGenerate'))
         setSaving(false)
         return
       }
@@ -220,20 +222,22 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
         </div>
         {loading && (
           <div className="detail-loading">
-            <Loader2 size={16} className="spin" /> 加载中…
+            <Loader2 size={16} className="spin" /> {t('tableDetail.loading')}
           </div>
         )}
         {error && <div className="detail-error">{error}</div>}
         {redisOverview && (
           <div className="redis-overview">
             {redisOverview.serverInfo && (
-              <p className="server-info">服务器版本：Redis {redisOverview.serverInfo}</p>
+              <p className="server-info">
+                {t('tableDetail.redisServerVersion', { version: redisOverview.serverInfo })}
+              </p>
             )}
             <table className="data-table">
               <thead>
                 <tr>
                   <th>DB Index</th>
-                  <th>Key 数量</th>
+                  <th>{t('tableDetail.keyCount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,7 +252,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
                 {redisOverview.databases.filter((d) => d.keyCount > 0).length === 0 && (
                   <tr>
                     <td colSpan={2} className="empty">
-                      无数据
+                      {t('tableDetail.noData')}
                     </td>
                   </tr>
                 )}
@@ -288,7 +292,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
 
       {loading && (
         <div className="detail-loading">
-          <Loader2 size={16} className="spin" /> 加载表结构…
+          <Loader2 size={16} className="spin" /> {t('tableDetail.loadingStructure')}
         </div>
       )}
       {error && <div className="detail-error">{error}</div>}
@@ -327,7 +331,11 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
               className="btn btn-primary btn-sm"
               onClick={handleSave}
               disabled={saving || changedCount === 0}
-              title={changedCount === 0 ? '无变更' : `保存 ${changedCount} 项变更`}
+              title={
+                changedCount === 0
+                  ? t('tableDetail.saveNoChanges')
+                  : t('tableDetail.saveChanges', { count: changedCount })
+              }
             >
               {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
             </button>
@@ -343,20 +351,20 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
               className={`tab ${tab === 'columns' ? 'active' : ''}`}
               onClick={() => setTab('columns')}
             >
-              列 ({meta.columns.length})
+              {t('tableDetail.tabColumns', { count: meta.columns.length })}
             </button>
             <button
               className={`tab ${tab === 'indexes' ? 'active' : ''}`}
               onClick={() => setTab('indexes')}
             >
-              索引 ({meta.indexes.length})
+              {t('tableDetail.tabIndexes', { count: meta.indexes.length })}
             </button>
             {meta.foreignKeys.length > 0 && (
               <button
                 className={`tab ${tab === 'foreignKeys' ? 'active' : ''}`}
                 onClick={() => setTab('foreignKeys')}
               >
-                外键 ({meta.foreignKeys.length})
+                {t('tableDetail.tabForeignKeys', { count: meta.foreignKeys.length })}
               </button>
             )}
             {meta.ddl && (
@@ -373,12 +381,12 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>列名</th>
-                  <th>类型</th>
-                  <th>可空</th>
-                  <th>主键</th>
-                  <th>默认值</th>
-                  <th>注释</th>
+                  <th>{t('tableDetail.thColumnName')}</th>
+                  <th>{t('tableDetail.thType')}</th>
+                  <th>{t('tableDetail.thNullable')}</th>
+                  <th>{t('tableDetail.thPrimaryKey')}</th>
+                  <th>{t('tableDetail.thDefault')}</th>
+                  <th>{t('tableDetail.thComment')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -386,7 +394,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
                   <tr key={col.name}>
                     <td className="col-name">
                       {col.isPrimaryKey && (
-                        <span className="pk-badge" title="主键">
+                        <span className="pk-badge" title={t('tableDetail.pkBadge')}>
                           <KeyRound size={10} style={{ display: 'inline' }} />
                         </span>
                       )}
@@ -400,14 +408,15 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
                     </td>
                     <td>
                       {col.nullable ? (
-                        <span className="yes">是</span>
+                        <span className="yes">{t('tableDetail.yes')}</span>
                       ) : (
-                        <span className="no">否</span>
+                        <span className="no">{t('tableDetail.no')}</span>
                       )}
                     </td>
                     <td>{col.isPrimaryKey ? '✓' : ''}</td>
                     <td className="mono">
-                      {col.defaultValue ?? (col.autoIncrement ? '自增' : '')}
+                      {col.defaultValue ??
+                        (col.autoIncrement ? t('tableDetail.autoIncrement') : '')}
                     </td>
                     <td className="muted">{col.comment ?? ''}</td>
                   </tr>
@@ -420,10 +429,10 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>索引名</th>
-                  <th>列</th>
-                  <th>唯一</th>
-                  <th>类型</th>
+                  <th>{t('tableDetail.thIndexName')}</th>
+                  <th>{t('tableDetail.thColumns')}</th>
+                  <th>{t('tableDetail.thUnique')}</th>
+                  <th>{t('tableDetail.thType')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -447,7 +456,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
                 {meta.indexes.length === 0 && (
                   <tr>
                     <td colSpan={4} className="empty">
-                      无索引
+                      {t('tableDetail.noIndexes')}
                     </td>
                   </tr>
                 )}
@@ -459,10 +468,10 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>名称</th>
-                  <th>列</th>
-                  <th>引用表</th>
-                  <th>引用列</th>
+                  <th>{t('tableDetail.thFkName')}</th>
+                  <th>{t('tableDetail.thColumns')}</th>
+                  <th>{t('tableDetail.thFkRefTable')}</th>
+                  <th>{t('tableDetail.thFkRefColumns')}</th>
                   <th>ON DELETE</th>
                 </tr>
               </thead>
@@ -483,7 +492,7 @@ export function TableDetail({ connection, schema, table }: TableDetailProps) {
           {tab === 'ddl' && meta.ddl && (
             <div className="ddl-section">
               <button className="btn btn-secondary btn-sm" onClick={copyDdl}>
-                <Copy size={12} /> {copied ? '已复制!' : '复制 DDL'}
+                <Copy size={12} /> {copied ? t('tableDetail.copied') : t('tableDetail.copyDdl')}
               </button>
               <pre className="ddl-code">{meta.ddl}</pre>
             </div>

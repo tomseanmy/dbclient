@@ -13,6 +13,7 @@ import { dirname } from 'node:path'
 import type { DriverContext, DescribeOptions } from './driver'
 import { mapUnifiedType } from './driver'
 import type { DbDriver } from './driver'
+import { tMain } from '@main/i18n'
 import type {
   Schema,
   Table,
@@ -50,14 +51,14 @@ export class SqliteDriver implements DbDriver {
     if (this.db) return
     const { config } = ctx
     const filePath = config.database
-    if (!filePath) throw new Error('SQLite 连接需要指定数据库文件路径')
+    if (!filePath) throw new Error(tMain('errors.db.sqlitePathRequired'))
     this.db = new Database(filePath, { readonly: false })
   }
 
   async testConnection(ctx: DriverContext): Promise<{ serverInfo?: string }> {
     const { config } = ctx
     const filePath = config.database
-    if (!filePath) throw new Error('SQLite 连接需要指定数据库文件路径')
+    if (!filePath) throw new Error(tMain('errors.db.sqlitePathRequired'))
 
     // 文件不存在时的处理
     if (!existsSync(filePath)) {
@@ -70,7 +71,7 @@ export class SqliteDriver implements DbDriver {
         newDb.close()
       } else {
         // 抛出特殊错误，前端识别后提示「是否创建」
-        const err = new Error('数据库文件不存在：' + filePath)
+        const err = new Error(tMain('errors.db.fileNotFound', { path: filePath }))
         err.name = 'FileNotFound'
         throw err
       }
@@ -107,7 +108,7 @@ export class SqliteDriver implements DbDriver {
   }
 
   private getDb(): DB {
-    if (!this.db) throw new Error('SQLite 未连接，请先 connect()')
+    if (!this.db) throw new Error(tMain('errors.db.notEstablishedSqlite'))
     return this.db
   }
 
@@ -301,7 +302,7 @@ export class SqliteDriver implements DbDriver {
         rows: [],
         rowCount: 0,
         durationMs: Date.now() - start,
-        message: `${info.changes} 行受影响`,
+        message: tMain('errors.db.rowsAffected', { count: info.changes }),
       }
     }
     const truncated = rows.length > limit

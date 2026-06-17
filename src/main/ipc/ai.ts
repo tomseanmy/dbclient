@@ -7,6 +7,7 @@
  * AI 生成的 SQL 不在此执行；前端用户确认后走 db:confirmExecute（M3 安全层）。
  */
 import { registerHandler } from './registry'
+import { tMain } from '@main/i18n'
 import { chat, chatStream, stopStream, getDefaultProviderName } from '@main/domain/llm/gateway'
 import { extractSql } from '@main/domain/llm/extract-sql'
 import { buildSchemaContext } from '@main/domain/privacy/schema-context'
@@ -152,7 +153,9 @@ export function registerAiHandlers(): void {
         userContent = `执行以下 SQL 时报错：\n\nSQL:\n${req.payload.sql ?? ''}\n\n错误信息:\n${req.payload.error ?? ''}`
         break
       default:
-        throw new Error(`未知的辅助动作: ${req.action as AssistAction}`)
+        throw new Error(
+          tMain('errors.llm.unknownAssistAction', { action: req.action as AssistAction }),
+        )
     }
 
     const result = await chat({

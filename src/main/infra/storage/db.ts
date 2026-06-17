@@ -12,6 +12,7 @@
  */
 import { app } from 'electron'
 import { join } from 'node:path'
+import { tMain } from '@main/i18n'
 import Database from 'better-sqlite3'
 import { logger } from '@main/infra/logger'
 
@@ -106,7 +107,7 @@ export function initDb(): DB {
 /** 获取数据库单例（初始化后调用） */
 export function getDb(): DB {
   if (!dbInstance) {
-    throw new Error('数据库未初始化，请先调用 initDb()')
+    throw new Error(tMain('errors.db.dbNotInitialized'))
   }
   return dbInstance
 }

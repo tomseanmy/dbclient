@@ -4,6 +4,7 @@
  * 自然语言驱动的对话：用户输入 → AI 回复（可能含 SQL）→
  * 用户确认后执行 SQL（走 M3 安全层 db:confirmExecute）。
  */
+import { useTranslation } from 'react-i18next'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { MessageCircle, User, Bot, Lock, AlertTriangle } from 'lucide-react'
 import { api } from '../api'
@@ -28,6 +29,7 @@ interface AiChatProps {
 }
 
 export function AiChat({ connection }: AiChatProps) {
+  const { t } = useTranslation()
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -123,7 +125,7 @@ export function AiChat({ connection }: AiChatProps) {
     }
   }, [input, loading, turns, connection.id, selectedProviderId, setActiveStreamId])
 
-  /** 停止当前流式生成 */
+  /** {t('ai.stop')}当前流式生成 */
   const handleStop = useCallback(async () => {
     const streamId = activeStreamIdRef.current
     if (!streamId) return
@@ -164,7 +166,7 @@ export function AiChat({ connection }: AiChatProps) {
           ...prev,
           {
             role: 'assistant',
-            content: `执行成功，返回 ${rowCount} 行。`,
+            content: t('ai.execSuccessRows', { count: rowCount }),
           },
         ])
       } catch (err) {
@@ -173,7 +175,7 @@ export function AiChat({ connection }: AiChatProps) {
         setExecuting(null)
       }
     },
-    [connection.id],
+    [connection.id, t],
   )
 
   const hasProvider = providers.length > 0
@@ -193,8 +195,8 @@ export function AiChat({ connection }: AiChatProps) {
           onChange={(e) => setSelectedProviderId(e.target.value)}
           disabled={!hasProvider}
         >
-          {providers.length === 0 && <option value="">未配置 Provider</option>}
-          {providers.length > 0 && <option value="">默认补全模型</option>}
+          {providers.length === 0 && <option value="">{t('ai.noProvider')}</option>}
+          {providers.length > 0 && <option value="">{t('ai.defaultModel')}</option>}
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name} · {p.models[0] ?? '?'}
@@ -209,19 +211,19 @@ export function AiChat({ connection }: AiChatProps) {
           <div className="ai-chat-empty">
             <p className="ai-chat-ready-title">
               <MessageCircle size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> AI
-              对话已就绪
+              {t('ai.chatReady')}
             </p>
             <p className="muted">
-              用自然语言描述你的需求，例如：
+              {t('ai.placeholderExample')}
               <br />
-              「查询最近 7 天注册的用户」
+              {t('ai.example1')}
               <br />
-              「统计每个分类下的商品数量」
+              {t('ai.example2')}
             </p>
             {!hasProvider && (
               <p className="ai-chat-warn">
                 <AlertTriangle size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
-                请先在设置中配置 LLM Provider
+                {t('ai.configureFirst')}
               </p>
             )}
           </div>
@@ -278,7 +280,7 @@ export function AiChat({ connection }: AiChatProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            // 输入法正在输入合成中（敲拼音/选候选词）时，Enter 不发送
+            // 输入法正在输入合成中（敲拼音/选候选词）时，Enter 不{t('ai.send')}
             // 让输入法自行处理：通常是确认候选词并上屏
             if (e.nativeEvent.isComposing) return
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -286,15 +288,17 @@ export function AiChat({ connection }: AiChatProps) {
               handleSend()
             }
           }}
-          placeholder={
-            hasProvider ? '输入需求，Enter 发送，Shift+Enter 换行…' : '请先配置 Provider'
-          }
+          placeholder={hasProvider ? t('ai.inputPlaceholder') : t('ai.noProviderPlaceholder')}
           disabled={!hasProvider}
           rows={3}
         />
         {loading ? (
-          <button className="btn btn-danger ai-chat-send" onClick={handleStop} title="停止生成">
-            停止
+          <button
+            className="btn btn-danger ai-chat-send"
+            onClick={handleStop}
+            title={t('ai.stopGenerate')}
+          >
+            {t('ai.stop')}
           </button>
         ) : (
           <button
@@ -302,7 +306,7 @@ export function AiChat({ connection }: AiChatProps) {
             onClick={handleSend}
             disabled={!input.trim() || !hasProvider}
           >
-            发送
+            {t('ai.send')}
           </button>
         )}
       </div>
@@ -322,6 +326,7 @@ function SqlCard({
   executing: boolean
   onExecute: () => void
 }) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = () => {
@@ -336,10 +341,10 @@ function SqlCard({
         <span className="sql-card-label">SQL {index + 1}</span>
         <div className="sql-card-actions">
           <button className="btn btn-sm btn-secondary" onClick={handleCopy} disabled={executing}>
-            {copied ? '已复制' : '复制'}
+            {copied ? t('ai.copied') : t('ai.copy')}
           </button>
           <button className="btn btn-sm btn-primary" onClick={onExecute} disabled={executing}>
-            {executing ? '执行中…' : '▶ 执行'}
+            {executing ? t('ai.executing') : t('ai.execute')}
           </button>
         </div>
       </div>

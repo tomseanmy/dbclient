@@ -9,6 +9,7 @@
 import { randomUUID } from 'node:crypto'
 import type { LlmProvider, LlmProviderInput } from '@shared/types/llm'
 import { getDb } from './db'
+import { tMain } from '@main/i18n'
 import { getCredentialStore } from '../credential'
 
 interface ProviderRow {
@@ -96,7 +97,7 @@ export const llmProviderDao = {
 
     const created = this.get(id)
     if (!created) {
-      throw new Error(`Provider 创建后查询失败：${id}`)
+      throw new Error(tMain('errors.db.providerRequeryFailed', { id }))
     }
     return created
   },
@@ -127,7 +128,7 @@ export const llmProviderDao = {
 
     const updated = this.get(id)
     if (!updated) {
-      throw new Error(`Provider 更新后查询失败：${id}`)
+      throw new Error(tMain('errors.db.providerUpdateRequeryFailed', { id }))
     }
     return updated
   },

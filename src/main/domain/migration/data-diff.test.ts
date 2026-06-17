@@ -46,7 +46,7 @@ describe('extractPrimaryKeys', () => {
       indexes: [],
       foreignKeys: [],
     }
-    expect(() => extractPrimaryKeys(m)).toThrow(/无主键/)
+    expect(() => extractPrimaryKeys(m)).toThrow(/noPrimaryKey/)
   })
 })
 

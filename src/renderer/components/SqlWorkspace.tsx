@@ -17,6 +17,8 @@
  *   - 未关联的查询首次保存需命名，保存后绑定 id；后续再保存直接更新
  *   - tab 脏标记 = 当前编辑器内容偏离「上次保存的基线」
  */
+import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Download, Copy, Check, ChevronDown, Sparkles, Wrench, Save, X } from 'lucide-react'
 import { api, type ConnectionListItem, type QueryResult, type SecurityCheckResult } from '../api'
@@ -39,7 +41,7 @@ import {
 import { exportResultCsv, exportResultJson } from '../lib/export'
 
 /** SQL 编辑器初始模板，偏离即视为「已编辑」 */
-const INITIAL_SQL = '-- 在此输入 SQL\nSELECT * FROM '
+const INITIAL_SQL = i18next.t('sql.initialSql')
 
 interface SqlWorkspaceProps {
   connection: ConnectionListItem
@@ -63,6 +65,7 @@ export function SqlWorkspace({
   savedQueryId: initialSavedQueryId,
   onQueryBound,
 }: SqlWorkspaceProps) {
+  const { t } = useTranslation()
   const triggerRefresh = useConnectionStore((s) => s.triggerRefresh)
   const [sql, setSql] = useState(initialSql ?? INITIAL_SQL)
   const [result, setResult] = useState<QueryResult | null>(null)
@@ -126,13 +129,13 @@ export function SqlWorkspace({
       // 触发刷新，让数据库详情页「查询」tab 重新加载保存的列表
       triggerRefresh()
       // 窗口失焦时提醒保存完成
-      void notify('queryComplete', '已保存', '查询已保存')
+      void notify('queryComplete', t('sql.savedTitle'), t('sql.savedBody'))
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
-  }, [sql, saveName, savedQueryId, connection.id, triggerRefresh, onQueryBound])
+  }, [sql, saveName, savedQueryId, connection.id, triggerRefresh, onQueryBound, t])
 
   // Cmd/Ctrl+S 保存当前 SQL（阻止浏览器默认保存）
   useEffect(() => {
@@ -190,8 +193,10 @@ export function SqlWorkspace({
         // 窗口失焦时提醒用户查询已完成
         void notify(
           'queryComplete',
-          '查询完成',
-          res.message ? res.message : `${res.rowCount ?? 0} 行 · ${res.durationMs ?? 0}ms`,
+          t('sql.queryComplete'),
+          res.message
+            ? res.message
+            : t('sql.resultRowsMs', { count: res.rowCount ?? 0, ms: res.durationMs ?? 0 }),
         )
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
@@ -199,7 +204,7 @@ export function SqlWorkspace({
         setExecuting(false)
       }
     },
-    [connection.id, triggerRefresh],
+    [connection.id, triggerRefresh, t],
   )
 
   const handleExecute = useCallback(
@@ -360,14 +365,14 @@ export function SqlWorkspace({
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleNl2Sql()
             }}
-            placeholder="用自然语言描述需求，AI 帮你写 SQL…"
+            placeholder={t('sql.nlPlaceholder')}
           />
           <button
             className="btn btn-sm btn-primary"
             onClick={handleNl2Sql}
             disabled={!nlInput.trim()}
           >
-            生成 SQL
+            {t('sql.generateSql')}
           </button>
         </div>
 
@@ -395,9 +400,9 @@ export function SqlWorkspace({
         {error && (
           <div className="result-error result-error-inline">
             <div className="result-error-head">
-              <strong>执行错误</strong>
+              <strong>{t('sql.execError')}</strong>
               <button className="btn btn-sm btn-warning" onClick={handleAiFixError}>
-                <Wrench size={12} /> 让 AI 修复
+                <Wrench size={12} /> {t('sql.letAiFix')}
               </button>
             </div>
             <pre>{error}</pre>
@@ -409,17 +414,22 @@ export function SqlWorkspace({
           <div className="result-section">
             <div className="result-toolbar">
               <span className="result-info">
-                {result.rowCount} 行{result.durationMs > 0 && ' · ' + result.durationMs + 'ms'}
-                {result.truncated && <span className="truncated-warn">（已截断）</span>}
+                {t('sql.resultRows', { count: result.rowCount })}
+                {result.durationMs > 0 && ' · ' + result.durationMs + 'ms'}
+                {result.truncated && <span className="truncated-warn">{t('sql.truncated')}</span>}
                 {result.message && <span className="result-message">{result.message}</span>}
               </span>
               <div className="result-actions">
-                <button className="btn-icon btn-text" onClick={copyResult} title="复制结果">
-                  {copied ? <Check size={12} /> : <Copy size={12} />} 复制
+                <button
+                  className="btn-icon btn-text"
+                  onClick={copyResult}
+                  title={t('sql.copyResult')}
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />} {t('common.copy')}
                 </button>
                 <div className="export-wrapper">
                   <button className="btn-icon btn-text" onClick={() => setExportOpen(!exportOpen)}>
-                    <Download size={12} /> 导出 <ChevronDown size={10} />
+                    <Download size={12} /> {t('sql.export')} <ChevronDown size={10} />
                   </button>
                   {exportOpen && (
                     <div className="export-menu">
@@ -439,7 +449,7 @@ export function SqlWorkspace({
           !error &&
           !deniedCheck && (
             <div className="result-placeholder">
-              <p>执行查询后结果将显示在这里</p>
+              <p>{t('sql.resultEmpty')}</p>
             </div>
           )
         )}
@@ -453,16 +463,14 @@ export function SqlWorkspace({
             <div className="modal save-sql-modal" onClick={(e) => e.stopPropagation()}>
               <div className="confirm-header">
                 <Save size={18} color="var(--primary)" />
-                <h3>保存查询</h3>
+                <h3>{t('sql.saveQuery')}</h3>
               </div>
-              <p className="save-sql-hint">
-                为这段 SQL 命名，方便在「查询」tab 中复用。留空则取 SQL 前 30 字符。
-              </p>
+              <p className="save-sql-hint">{t('sql.saveQueryDesc')}</p>
               <input
                 className="save-sql-name-input"
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
-                placeholder="查询名称…"
+                placeholder={t('sql.queryNamePlaceholder')}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSave()
@@ -476,10 +484,10 @@ export function SqlWorkspace({
                 <span className="save-sql-shortcut">{isMac ? '⌘' : 'Ctrl'} + S</span>
                 <div className="toolbar-spacer" />
                 <button className="btn btn-secondary" onClick={() => setSaveOpen(false)}>
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                  {saving ? '保存中…' : '保存'}
+                  {saving ? t('connection.saving') : t('common.save')}
                 </button>
               </div>
             </div>
@@ -492,9 +500,13 @@ export function SqlWorkspace({
         <aside className="sql-workspace-aiside">
           <div className="sql-workspace-aiside-head">
             <Sparkles size={14} />
-            <span>AI 助手</span>
+            <span>{t('sql.aiAssistant')}</span>
             <div className="toolbar-spacer" />
-            <button className="btn-icon" title="关闭侧栏" onClick={() => setAiPanel(null)}>
+            <button
+              className="btn-icon"
+              title={t('sql.closeSidebar')}
+              onClick={() => setAiPanel(null)}
+            >
               <X size={14} />
             </button>
           </div>

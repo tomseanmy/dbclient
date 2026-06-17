@@ -13,6 +13,18 @@
  */
 import type { Column, UnifiedType } from '@shared/types/database'
 import type { MigrationDialect, TypeMappingWarning } from '@shared/types/migration'
+import { encodeReason } from '@shared/i18n/composite'
+
+/** 类型告警 reason key（渲染层 t() 翻译） */
+const WARN_REASON = {
+  enumDowngrade: 'migration.typeWarning.enumDowngrade',
+  jsonDowngrade: 'migration.typeWarning.jsonDowngrade',
+  uuidDowngrade: 'migration.typeWarning.uuidDowngrade',
+  booleanDowngrade: 'migration.typeWarning.booleanDowngrade',
+  typeFallback: 'migration.typeWarning.typeFallback',
+  autoIncrementDiff: 'migration.typeWarning.autoIncrementDiff',
+  datetimeTz: 'migration.typeWarning.datetimeTz',
+} as const
 
 /** 目标方言下，某 unifiedType 是否有原生支持（无原生 → 降级并告警） */
 const NATIVE_SUPPORT: Record<MigrationDialect, Partial<Record<UnifiedType, boolean>>> = {
@@ -73,21 +85,23 @@ export function mapColumnForTarget(
       column: column.name,
       fromType,
       toType: targetDialect === 'mysql' ? 'VARCHAR' : 'TEXT',
-      reason: '枚举类型跨库降级为 TEXT/VARCHAR，建议补充 CHECK 约束',
+      reason: WARN_REASON.enumDowngrade,
       severity: 'warn',
     })
   } else if (support && support[column.unifiedType] === false) {
     // 无原生支持的其他类型
-    const reasonMap: Partial<Record<UnifiedType, string>> = {
-      json: '目标库无原生 JSON 类型，降级为 TEXT（无 JSON 约束）',
-      uuid: '目标库无原生 UUID 类型，降级为 TEXT',
-      boolean: '目标库无原生布尔类型，降级为 INTEGER（0/1）',
+    const reasonKeyMap: Partial<Record<UnifiedType, string>> = {
+      json: WARN_REASON.jsonDowngrade,
+      uuid: WARN_REASON.uuidDowngrade,
+      boolean: WARN_REASON.booleanDowngrade,
     }
     warnings.push({
       column: column.name,
       fromType,
       toType: fallbackDataType(column, targetDialect),
-      reason: reasonMap[column.unifiedType] ?? `类型 ${fromType} 在目标方言降级处理`,
+      reason:
+        reasonKeyMap[column.unifiedType] ??
+        encodeReason(WARN_REASON.typeFallback, { from: fromType }),
       severity: 'warn',
     })
   }
@@ -103,7 +117,7 @@ export function mapColumnForTarget(
           : targetDialect === 'postgres'
             ? 'SERIAL/BIGSERIAL'
             : 'AUTO_INCREMENT',
-      reason: '自增列语义跨库不同，迁移时建议显式不带自增属性传输数据 ID',
+      reason: WARN_REASON.autoIncrementDiff,
       severity: 'info',
     })
   }
@@ -114,7 +128,7 @@ export function mapColumnForTarget(
       column: column.name,
       fromType,
       toType: targetDialect === 'sqlite' ? 'TEXT (ISO8601)' : 'TIMESTAMP',
-      reason: 'datetime 跨库可能存在时区/精度差异，统一以 ISO8601 字符串传输',
+      reason: WARN_REASON.datetimeTz,
       severity: 'info',
     })
   }

@@ -6,6 +6,7 @@
  * - 查询：该连接下保存的 SQL（可打开到编辑器）
  * - 角色：数据库中的角色 / 用户（无权限则提示）
  */
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Plus,
@@ -59,12 +60,13 @@ export function DatabaseDetail({
   onSelectTable,
   onOpenTableDetail,
 }: DatabaseDetailProps) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<DetailTab>('tables')
 
   const TABS: { key: DetailTab; label: string; icon: typeof Table2 }[] = [
-    { key: 'tables', label: '表', icon: Table2 },
-    { key: 'queries', label: '查询', icon: StickyNotes },
-    { key: 'roles', label: '角色', icon: UserRoundCog },
+    { key: 'tables', label: t('dbDetail.tabTables'), icon: Table2 },
+    { key: 'queries', label: t('dbDetail.tabQueries'), icon: StickyNotes },
+    { key: 'roles', label: t('dbDetail.tabRoles'), icon: UserRoundCog },
   ]
 
   return (
@@ -121,6 +123,7 @@ interface TablesTabProps {
 }
 
 function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: TablesTabProps) {
+  const { t } = useTranslation()
   const [tables, setTables] = useState<Table[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,7 +158,7 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
   )
 
   const handleDeleteTable = async (tableName: string) => {
-    if (!confirm(`确认删除表 ${tableName}？此操作不可恢复。`)) return
+    if (!confirm(t('dbDetail.confirmDropTable', { table: tableName }))) return
     // 通过 SQL 执行 DROP，走安全层
     try {
       const qualified =
@@ -176,12 +179,12 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
     <>
       {/* 工具栏 */}
       <div className="table-data-toolbar-bar">
-        <abbr title="新建表（开发中）">
+        <abbr title={t('dbDetail.newTable')}>
           <button className="icon-btn" disabled>
             <Plus size={14} />
           </button>
         </abbr>
-        <abbr title="删除选中表">
+        <abbr title={t('dbDetail.deleteSelectedTable')}>
           <button
             className="icon-btn"
             onClick={() => selectedTable && handleDeleteTable(selectedTable)}
@@ -190,7 +193,7 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
             <Trash2 size={14} />
           </button>
         </abbr>
-        <abbr title="编辑表结构">
+        <abbr title={t('dbDetail.editStructure')}>
           <button
             className="icon-btn"
             onClick={() => selectedTable && onOpenTableDetail(connection, undefined, selectedTable)}
@@ -199,26 +202,26 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
             <Pencil size={14} />
           </button>
         </abbr>
-        <abbr title="导入数据">
+        <abbr title={t('dbDetail.importData')}>
           <button className="icon-btn" disabled>
             <Upload size={14} />
           </button>
         </abbr>
         <div className="export-wrapper">
-          <abbr title="导出">
+          <abbr title={t('dbDetail.export')}>
             <button className="icon-btn" onClick={() => setExportOpen((v) => !v)}>
               <Download size={14} />
             </button>
           </abbr>
           {exportOpen && (
             <div className="export-menu" onClick={(e) => e.stopPropagation()}>
-              <button>CSV（开发中）</button>
-              <button>JSON（开发中）</button>
+              <button>{t('dbDetail.csvDev')}</button>
+              <button>{t('dbDetail.jsonDev')}</button>
             </div>
           )}
         </div>
         <div className="toolbar-spacer" />
-        <abbr title="刷新">
+        <abbr title={t('dbDetail.refresh')}>
           <button className="icon-btn" onClick={loadData} disabled={loading}>
             {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
           </button>
@@ -232,15 +235,17 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
           className="db-detail-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索表名…"
+          placeholder={t('dbDetail.searchTables')}
         />
-        <span className="db-detail-count">{filtered.length} 张表</span>
+        <span className="db-detail-count">
+          {t('dbDetail.tablesCount', { count: filtered.length })}
+        </span>
       </div>
 
       {/* 表列表 */}
       {loading && (
         <div className="detail-loading">
-          <Loader2 size={16} className="spin" /> 加载表列表…
+          <Loader2 size={16} className="spin" /> {t('dbDetail.loadingTables')}
         </div>
       )}
 
@@ -262,7 +267,9 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
                 {table.name}
               </span>
               {table.estimatedRows !== undefined && (
-                <span className="db-detail-rows">{table.estimatedRows.toLocaleString()} 行</span>
+                <span className="db-detail-rows">
+                  {t('dbDetail.rows', { count: table.estimatedRows.toLocaleString() })}
+                </span>
               )}
               {table.comment && (
                 <span className="db-detail-comment" title={table.comment}>
@@ -270,7 +277,7 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
                 </span>
               )}
               <div className="toolbar-spacer" />
-              <abbr title="查看数据">
+              <abbr title={t('dbDetail.viewData')}>
                 <button
                   className="icon-btn db-detail-action"
                   onClick={(e) => {
@@ -281,7 +288,7 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
                   <Table2 size={13} />
                 </button>
               </abbr>
-              <abbr title="表结构">
+              <abbr title={t('dbDetail.tableStructure')}>
                 <button
                   className="icon-btn db-detail-action"
                   onClick={(e) => {
@@ -295,7 +302,9 @@ function TablesTab({ connection, schema, onSelectTable, onOpenTableDetail }: Tab
             </div>
           ))}
           {filtered.length === 0 && (
-            <div className="db-detail-empty">{search ? '未找到匹配的表' : '暂无表'}</div>
+            <div className="db-detail-empty">
+              {search ? t('dbDetail.noTablesMatch') : t('dbDetail.noTables')}
+            </div>
           )}
         </div>
       )}
@@ -316,6 +325,7 @@ interface QueriesTabProps {
 }
 
 function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabProps) {
+  const { t } = useTranslation()
   const [records, setRecords] = useState<SavedQueryRecord[]>([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
@@ -349,7 +359,7 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
   }, [refreshTick, load])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确认删除此保存的查询？')) return
+    if (!confirm(t('dbDetail.confirmDeleteQuery'))) return
     try {
       await api['savedQuery:delete']({ id })
       await load()
@@ -361,13 +371,13 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
   return (
     <>
       <div className="table-data-toolbar-bar">
-        <abbr title="新建 SQL 查询">
+        <abbr title={t('dbDetail.newSqlQuery')}>
           <button className="icon-btn" onClick={() => onOpenSql(connection)}>
             <SquarePen size={14} />
           </button>
         </abbr>
         <div className="toolbar-spacer" />
-        <abbr title="刷新">
+        <abbr title={t('dbDetail.refresh')}>
           <button className="icon-btn" onClick={load} disabled={loading}>
             {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
           </button>
@@ -381,14 +391,16 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
           className="db-detail-search"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索保存的查询…"
+          placeholder={t('dbDetail.searchQueries')}
         />
-        <span className="db-detail-count">{records.length} 条</span>
+        <span className="db-detail-count">
+          {t('dbDetail.queriesCount', { count: records.length })}
+        </span>
       </div>
 
       {loading && (
         <div className="detail-loading">
-          <Loader2 size={16} className="spin" /> 加载保存的查询…
+          <Loader2 size={16} className="spin" /> {t('dbDetail.loadingQueries')}
         </div>
       )}
       {error && <div className="detail-error">{error}</div>}
@@ -402,7 +414,7 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
               onDoubleClick={() =>
                 onOpenSqlWithContent(connection, r.sqlText, { id: r.id, name: r.name })
               }
-              title="双击在编辑器中打开"
+              title={t('dbDetail.dblClickOpen')}
             >
               <span className="db-detail-table-icon">
                 <Table2 size={14} />
@@ -413,7 +425,7 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
                 </span>
               </div>
               <div className="toolbar-spacer" />
-              <abbr title="在编辑器中打开">
+              <abbr title={t('dbDetail.openInEditor')}>
                 <button
                   className="icon-btn db-detail-action"
                   onClick={() =>
@@ -423,7 +435,7 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
                   <Play size={13} />
                 </button>
               </abbr>
-              <abbr title="删除">
+              <abbr title={t('common.delete')}>
                 <button className="icon-btn db-detail-action" onClick={() => handleDelete(r.id)}>
                   <Trash2 size={13} />
                 </button>
@@ -432,8 +444,8 @@ function QueriesTab({ connection, onOpenSql, onOpenSqlWithContent }: QueriesTabP
           ))}
           {records.length === 0 && (
             <div className="db-detail-empty">
-              {keyword ? '未找到匹配的查询' : '暂无保存的查询'}
-              <div className="db-detail-empty-hint">在 SQL 编辑器中点击「保存」可收藏常用查询</div>
+              {keyword ? t('dbDetail.noQueriesMatch') : t('dbDetail.noQueries')}
+              <div className="db-detail-empty-hint">{t('dbDetail.noQueriesHint')}</div>
             </div>
           )}
         </div>
@@ -449,6 +461,7 @@ interface RolesTabProps {
 }
 
 function RolesTab({ connection }: RolesTabProps) {
+  const { t } = useTranslation()
   const [roles, setRoles] = useState<DatabaseRole[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -481,7 +494,7 @@ function RolesTab({ connection }: RolesTabProps) {
     <>
       <div className="table-data-toolbar-bar">
         <div className="toolbar-spacer" />
-        <abbr title="刷新">
+        <abbr title={t('dbDetail.refresh')}>
           <button className="icon-btn" onClick={load} disabled={loading}>
             {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
           </button>
@@ -490,17 +503,15 @@ function RolesTab({ connection }: RolesTabProps) {
 
       {loading && (
         <div className="detail-loading">
-          <Loader2 size={16} className="spin" /> 加载角色列表…
+          <Loader2 size={16} className="spin" /> {t('dbDetail.loadingRoles')}
         </div>
       )}
 
       {!loading && denied && (
         <div className="db-detail-role-denied">
           <ShieldOff size={28} />
-          <div className="db-detail-role-denied-title">无权限读取角色</div>
-          <div className="db-detail-role-denied-desc">
-            当前连接的数据库用户没有查询角色/用户列表的权限。
-          </div>
+          <div className="db-detail-role-denied-title">{t('dbDetail.rolesDeniedTitle')}</div>
+          <div className="db-detail-role-denied-desc">{t('dbDetail.rolesDeniedDesc')}</div>
           {error && <div className="db-detail-role-denied-detail">{error}</div>}
         </div>
       )}
@@ -520,11 +531,13 @@ function RolesTab({ connection }: RolesTabProps) {
               {role.kind && <span className="db-role-kind">{role.kind}</span>}
               {role.canLogin !== undefined && (
                 <span className={`db-role-login ${role.canLogin ? 'yes' : 'no'}`}>
-                  {role.canLogin ? '可登录' : '不可登录'}
+                  {role.canLogin ? t('dbDetail.canLogin') : t('dbDetail.cannotLogin')}
                 </span>
               )}
               {role.memberCount !== undefined && (
-                <span className="db-role-members">{role.memberCount} 成员</span>
+                <span className="db-role-members">
+                  {t('dbDetail.membersCount', { count: role.memberCount })}
+                </span>
               )}
               {role.comment && (
                 <span className="db-detail-comment" title={role.comment}>
@@ -535,8 +548,8 @@ function RolesTab({ connection }: RolesTabProps) {
           ))}
           {roles.length === 0 && (
             <div className="db-detail-empty">
-              暂无角色
-              <div className="db-detail-empty-hint">该数据库类型没有角色/用户概念</div>
+              {t('dbDetail.noRoles')}
+              <div className="db-detail-empty-hint">{t('dbDetail.noRolesHint')}</div>
             </div>
           )}
         </div>

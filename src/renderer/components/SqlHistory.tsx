@@ -4,6 +4,7 @@
  * 可折叠，展示执行过的 SQL，点击回填到编辑器。
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { History, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../api'
 
@@ -25,6 +26,7 @@ interface SqlHistoryProps {
 }
 
 export function SqlHistory({ connectionId, onPick }: SqlHistoryProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [records, setRecords] = useState<HistoryRecord[]>([])
   const [keyword, setKeyword] = useState('')
@@ -49,14 +51,14 @@ export function SqlHistory({ connectionId, onPick }: SqlHistoryProps) {
     <div className="sql-history-panel">
       <button className="history-toggle" onClick={() => setOpen(!open)}>
         {open ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-        <History size={12} /> 历史 ({records.length})
+        <History size={12} /> {t('sqlHistory.title', { count: records.length })}
       </button>
       {open && (
         <div className="history-content">
           <div className="history-search">
             <Search size={12} />
             <input
-              placeholder="搜索历史 SQL…"
+              placeholder={t('sqlHistory.searchPlaceholder')}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
@@ -78,7 +80,7 @@ export function SqlHistory({ connectionId, onPick }: SqlHistoryProps) {
                 </span>
               </div>
             ))}
-            {records.length === 0 && <div className="history-empty">暂无历史</div>}
+            {records.length === 0 && <div className="history-empty">{t('sqlHistory.empty')}</div>}
           </div>
         </div>
       )}

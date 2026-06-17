@@ -9,6 +9,7 @@
  */
 import type { ChatMessage, ChatResponse, TokenUsage } from '@shared/types/llm'
 import { logger } from '@main/infra/logger'
+import { tMain } from '@main/i18n'
 
 interface ChatOptions {
   temperature?: number
@@ -125,12 +126,12 @@ export async function chat(
 
     if (!resp.ok || body.error) {
       const msg = body.error?.message ?? `HTTP ${resp.status}`
-      throw new Error(`LLM 调用失败: ${msg}`)
+      throw new Error(tMain('errors.llm.callFailed', { msg }))
     }
 
     const content = body.choices?.[0]?.message?.content ?? ''
     if (!content) {
-      throw new Error('LLM 返回内容为空')
+      throw new Error(tMain('errors.llm.emptyResponse'))
     }
 
     return {
@@ -144,7 +145,7 @@ export async function chat(
     }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`LLM 请求超时（${timeoutMs / 1000}s）`)
+      throw new Error(tMain('errors.llm.requestTimeout', { seconds: timeoutMs / 1000 }))
     }
     throw err
   } finally {
@@ -218,7 +219,7 @@ export async function chatWithTools(
     const body = (await resp.json()) as OpenAiToolResponse
     if (!resp.ok || body.error) {
       const msg = body.error?.message ?? `HTTP ${resp.status}`
-      throw new Error(`LLM 工具调用失败: ${msg}`)
+      throw new Error(tMain('errors.llm.toolCallFailed', { msg }))
     }
 
     const choice = body.choices?.[0]
@@ -249,7 +250,7 @@ export async function chatWithTools(
     }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`LLM 工具调用超时（${timeoutMs / 1000}s）`)
+      throw new Error(tMain('errors.llm.toolCallTimeout', { seconds: timeoutMs / 1000 }))
     }
     throw err
   } finally {
@@ -323,10 +324,10 @@ export async function chatWithToolsStream(
     if (!resp.ok) {
       const errBody = (await resp.json().catch(() => null)) as OpenAiResponse | null
       const msg = errBody?.error?.message ?? `HTTP ${resp.status}`
-      throw new Error(`LLM 流式工具调用失败: ${msg}`)
+      throw new Error(tMain('errors.llm.streamToolCallFailed', { msg }))
     }
     if (!resp.body) {
-      throw new Error('LLM 流式工具调用响应无 body')
+      throw new Error(tMain('errors.llm.streamNoBody'))
     }
 
     const reader = resp.body.getReader()
@@ -356,7 +357,7 @@ export async function chatWithToolsStream(
         }
 
         if (payload.error) {
-          throw new Error(`LLM 流式错误: ${payload.error.message ?? data}`)
+          throw new Error(tMain('errors.llm.streamError', { msg: payload.error.message ?? data }))
         }
         if (payload.model) respModel = payload.model
 
@@ -426,7 +427,7 @@ export async function chatWithToolsStream(
           usage,
         }
       }
-      throw new Error(`LLM 流式工具调用超时（${timeoutMs / 1000}s）`)
+      throw new Error(tMain('errors.llm.streamToolCallTimeout', { seconds: timeoutMs / 1000 }))
     }
     throw err
   } finally {
@@ -510,10 +511,10 @@ export async function chatStream(
     if (!resp.ok) {
       const errBody = (await resp.json().catch(() => null)) as OpenAiResponse | null
       const msg = errBody?.error?.message ?? `HTTP ${resp.status}`
-      throw new Error(`LLM 流式调用失败: ${msg}`)
+      throw new Error(tMain('errors.llm.streamCallFailed', { msg }))
     }
     if (!resp.body) {
-      throw new Error('LLM 流式响应无 body')
+      throw new Error(tMain('errors.llm.streamResponseNoBody'))
     }
 
     // 逐行解析 SSE：空行分隔事件，每行 `data: <json>` 或 `data: [DONE]`
@@ -546,7 +547,7 @@ export async function chatStream(
         }
 
         if (payload.error) {
-          throw new Error(`LLM 流式错误: ${payload.error.message ?? data}`)
+          throw new Error(tMain('errors.llm.streamError', { msg: payload.error.message ?? data }))
         }
         if (payload.model) respModel = payload.model
 
@@ -566,7 +567,7 @@ export async function chatStream(
     }
 
     if (!fullContent) {
-      throw new Error('LLM 流式返回内容为空')
+      throw new Error(tMain('errors.llm.streamEmptyResponse'))
     }
 
     return { content: fullContent, model: respModel, usage }
@@ -576,7 +577,7 @@ export async function chatStream(
       if (opts.signal?.aborted && fullContent) {
         return { content: fullContent, model: respModel, usage }
       }
-      throw new Error(`LLM 流式请求超时（${timeoutMs / 1000}s）`)
+      throw new Error(tMain('errors.llm.streamRequestTimeout', { seconds: timeoutMs / 1000 }))
     }
     throw err
   } finally {
@@ -651,10 +652,13 @@ export async function ping(
 
     // HTTP 200 且无 error 字段即视为连通成功
     const respModel = body?.model ?? model
-    return { success: true, message: `连接成功（模型 ${respModel}）` }
+    return {
+      success: true,
+      message: `${tMain('errors.llm.testConnectSuccess', { model: respModel })}`,
+    }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      return { success: false, message: '请求超时（15s）' }
+      return { success: false, message: tMain('errors.llm.testTimeout') }
     }
     const msg = err instanceof Error ? err.message : String(err)
     return { success: false, message: msg }

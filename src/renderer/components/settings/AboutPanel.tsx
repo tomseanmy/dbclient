@@ -8,9 +8,10 @@
  *   checking → 检查中…（spinner）
  *   up-to-date → 已是最新版本
  *   available / downloading → 自动后台下载，显示进度条
- *   downloaded → 「重启以更新」按钮（点击调 installUpdate）
+ *   downloaded → 「{t('about.restartToUpdate')}」按钮（点击调 installUpdate）
  *   error → 检查更新失败 + 重试
  */
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import {
   ExternalLink,
@@ -27,6 +28,7 @@ import logoUrl from '../../assets/logo.webp'
 const REPO_URL = 'https://github.com/tomseanmy/dbclient'
 
 export function AboutPanel() {
+  const { t } = useTranslation()
   const [info, setInfo] = useState<{
     appVersion: string
     electronVersion: string
@@ -66,7 +68,7 @@ export function AboutPanel() {
     : ''
 
   const busy = status === 'checking' || status === 'downloading'
-  const newVersionLabel = updateInfo?.version ? `v${updateInfo.version}` : '新版本'
+  const newVersionLabel = updateInfo?.version ? `v${updateInfo.version}` : t('about.newVersion')
 
   return (
     <div className="about-panel">
@@ -76,41 +78,41 @@ export function AboutPanel() {
         </div>
         <div className="about-title">
           <h2>DB Client</h2>
-          <span className="about-tagline">开源 · AI 原生数据库客户端</span>
+          <span className="about-tagline">{t('about.tagline')}</span>
         </div>
       </div>
 
       <dl className="about-list">
         <div className="about-list-row">
-          <dt>版本</dt>
+          <dt>{t('about.version')}</dt>
           <dd>v{info?.appVersion ?? '—'}</dd>
         </div>
         <div className="about-list-row">
-          <dt>作者</dt>
+          <dt>{t('about.author')}</dt>
           <dd>tomsean</dd>
         </div>
         <div className="about-list-row">
-          <dt>开源协议</dt>
+          <dt>{t('about.license')}</dt>
           <dd>MIT License</dd>
         </div>
         <div className="about-list-row">
-          <dt>开源地址</dt>
+          <dt>{t('about.repo')}</dt>
           <dd>
             <button
               className="about-link"
               onClick={() => api['app:openExternal']({ url: REPO_URL }).catch(() => {})}
-              title="在浏览器中打开"
+              title={t('about.openInBrowser')}
             >
               github.com/tomseanmy/dbclient <ExternalLink size={11} />
             </button>
           </dd>
         </div>
         <div className="about-list-row">
-          <dt>运行环境</dt>
+          <dt>{t('about.runtime')}</dt>
           <dd>
             {info
               ? `Electron ${info.electronVersion} · Node ${info.nodeVersion} · ${platformLabel}`
-              : '加载中…'}
+              : t('about.loading')}
           </dd>
         </div>
       </dl>
@@ -120,46 +122,52 @@ export function AboutPanel() {
         {status === 'downloaded' ? (
           <button className="btn btn-primary btn-sm" onClick={installUpdate}>
             <RotateCw size={12} />
-            重启以更新
+            {t('about.restartToUpdate')}
           </button>
         ) : status === 'downloading' ? (
           <button className="btn btn-secondary btn-sm" disabled>
             <Download size={12} className="spin" />
-            下载中… {progress}%
+            {t('about.downloading', { progress })}
           </button>
         ) : status === 'available' ? (
           <button className="btn btn-secondary btn-sm" disabled>
             <Download size={12} className="spin" />
-            正在下载 {newVersionLabel}
+            {t('about.downloadingVersion', { version: newVersionLabel })}
           </button>
         ) : (
           <button className="btn btn-secondary btn-sm" onClick={checkForUpdates} disabled={busy}>
             <RefreshCw size={12} className={busy ? 'spin' : ''} />
-            {status === 'checking' ? '检查中…' : '检查更新'}
+            {status === 'checking' ? t('about.checking') : t('about.checkUpdate')}
           </button>
         )}
 
         {/* 状态文字提示 */}
-        {status === 'checking' && <span className="about-update-hint">正在查询最新版本…</span>}
+        {status === 'checking' && (
+          <span className="about-update-hint">{t('about.queryingVersion')}</span>
+        )}
         {status === 'available' && (
-          <span className="about-update-hint">发现新版本 {newVersionLabel}，正在后台下载</span>
+          <span className="about-update-hint">
+            {t('about.foundNewVersion', { version: newVersionLabel })}
+          </span>
         )}
         {status === 'downloading' && (
-          <span className="about-update-hint">正在下载新版本 {newVersionLabel}</span>
+          <span className="about-update-hint">
+            {t('about.downloadingNewVersion', { version: newVersionLabel })}
+          </span>
         )}
         {status === 'downloaded' && (
           <span className="about-update-success">
-            <CheckCircle2 size={12} /> 新版本 {newVersionLabel} 已就绪，重启后生效
+            <CheckCircle2 size={12} /> {t('about.readyRestart', { version: newVersionLabel })}
           </span>
         )}
         {status === 'up-to-date' && (
           <span className="about-update-success">
-            <CheckCircle2 size={12} /> 已是最新版本
+            <CheckCircle2 size={12} /> {t('about.upToDate')}
           </span>
         )}
         {status === 'error' && (
           <span className="about-update-error" title={errorMessage}>
-            <AlertCircle size={12} /> 检查更新失败，请稍后重试
+            <AlertCircle size={12} /> {t('about.checkFailed')}
           </span>
         )}
       </div>

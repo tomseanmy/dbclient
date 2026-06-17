@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * 执行结果详情弹窗（独立窗口，上下结构）
  *
@@ -19,12 +20,17 @@ export function ResultDetailModal({
   item: ExecHistoryItem
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const result = item.result
   const meta =
     result != null
-      ? `${result.rowCount} 行${result.durationMs > 0 ? ` · ${result.durationMs}ms` : ''}${
-          result.truncated ? ' · 已截断' : ''
-        }`
+      ? t('agentCards.detailRowsMs', {
+          count: result.rowCount,
+          suffix:
+            (result.durationMs > 0
+              ? t('agentCards.detailSuffixMs', { ms: result.durationMs })
+              : '') + (result.truncated ? t('agentCards.detailTruncated') : ''),
+        })
       : ''
 
   return (
@@ -33,13 +39,15 @@ export function ResultDetailModal({
         <div className="result-detail-head">
           <div className="result-detail-title">
             <Database size={14} />
-            <span className="result-detail-conn">{item.connName || '查询结果'}</span>
+            <span className="result-detail-conn">
+              {item.connName || t('agentCards.queryResultFallback')}
+            </span>
             <span className="result-detail-time">
               <Clock size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />
               {formatTime(item.time)}
             </span>
           </div>
-          <button className="btn-icon" onClick={onClose} title="关闭">
+          <button className="btn-icon" onClick={onClose} title={t('common.close')}>
             <X size={16} />
           </button>
         </div>
@@ -71,20 +79,24 @@ export function ResultDetailModal({
         {/* 下：查询结果列表 */}
         <div className="result-detail-result">
           <div className="result-detail-section-label">
-            结果{meta && <span className="result-detail-meta">{meta}</span>}
+            {t('agentCards.detailTitle')}
+            {meta && <span className="result-detail-meta">{meta}</span>}
           </div>
           <div className="result-detail-grid">
             {result && result.columns.length > 0 ? (
               <DataGrid result={result} editable={false} />
             ) : result ? (
-              <div className="result-detail-empty">{result.message ?? '执行成功（无结果集）'}</div>
+              <div className="result-detail-empty">
+                {result.message ?? t('agentCards.emptyResultMsg')}
+              </div>
             ) : item.ok ? (
               <div className="result-detail-empty">
-                {item.affected?.message ?? `${item.affected?.rows ?? 0} 行受影响`}
+                {item.affected?.message ??
+                  t('errors.db.rowsAffected', { count: item.affected?.rows ?? 0 })}
               </div>
             ) : (
               <div className="result-detail-empty result-detail-error">
-                {item.error ?? '执行失败'}
+                {item.error ?? t('agentCards.execFailed')}
               </div>
             )}
           </div>

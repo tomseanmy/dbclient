@@ -2,9 +2,10 @@
  * AI 辅助面板（可复用）
  *
  * 在 SqlWorkspace 内展示 AI 对「解释/优化/NL2SQL/修复」的回复。
- * 包含回复文本 + SQL 卡片（复制/插入编辑器/执行）。
+ * 包含回复文本 + SQL 卡片（复制/{t('aiAssist.insert')}编辑器/执行）。
  */
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import type { ConnectionListItem, AiChatResponse, AssistAction } from '../api'
 import { Loader2, X, Sparkles, Zap, MessageCircle, Wrench, Lock } from 'lucide-react'
@@ -16,7 +17,7 @@ interface AiAssistPanelProps {
   /** 动作输入 */
   payload: { sql?: string; naturalText?: string; error?: string }
   onClose: () => void
-  /** 点击「插入编辑器」时回调（把 SQL 填入编辑器） */
+  /** 点击「{t('aiAssist.insert')}编辑器」时回调（把 SQL 填入编辑器） */
   onInsertSql?: (sql: string) => void
   /** 点击「执行」时回调 */
   onExecuteSql?: (sql: string) => void
@@ -30,10 +31,10 @@ const ACTION_ICON: Record<AssistAction, React.ReactNode> = {
 }
 
 const ACTION_TEXT: Record<AssistAction, string> = {
-  explain: '解释 SQL',
-  optimize: '优化建议',
-  nl2sql: '自然语言转 SQL',
-  fixError: '修复建议',
+  explain: 'enums.assistAction.explain',
+  optimize: 'enums.assistAction.optimize',
+  nl2sql: 'enums.assistAction.nl2sql',
+  fixError: 'enums.assistAction.fixError',
 }
 
 export function AiAssistPanel({
@@ -44,6 +45,7 @@ export function AiAssistPanel({
   onInsertSql,
   onExecuteSql,
 }: AiAssistPanelProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AiChatResponse | null>(null)
@@ -82,7 +84,7 @@ export function AiAssistPanel({
     <div className="ai-assist-panel">
       <div className="ai-assist-header">
         <span className="ai-assist-title">
-          {ACTION_ICON[action]} {ACTION_TEXT[action]}
+          {ACTION_ICON[action]} {t(ACTION_TEXT[action])}
         </span>
         <button className="btn-icon" onClick={onClose}>
           <X size={14} />
@@ -92,13 +94,13 @@ export function AiAssistPanel({
       <div className="ai-assist-body">
         {loading && (
           <div className="ai-assist-loading">
-            <Loader2 size={14} className="spin" /> AI 思考中…
+            <Loader2 size={14} className="spin" /> {t('aiAssist.thinking')}
           </div>
         )}
 
         {error && (
           <div className="result-error">
-            <strong>AI 调用失败</strong>
+            <strong>{t('aiAssist.callFailed')}</strong>
             <pre>{error}</pre>
           </div>
         )}
@@ -118,14 +120,14 @@ export function AiAssistPanel({
                           className="btn btn-sm btn-secondary"
                           onClick={() => handleCopy(sql)}
                         >
-                          {copied === sql ? '✓' : '复制'}
+                          {copied === sql ? '✓' : t('ai.copy')}
                         </button>
                         {onInsertSql && (
                           <button
                             className="btn btn-sm btn-secondary"
                             onClick={() => onInsertSql(sql)}
                           >
-                            插入
+                            {t('aiAssist.insert')}
                           </button>
                         )}
                         {onExecuteSql && (
@@ -133,7 +135,7 @@ export function AiAssistPanel({
                             className="btn btn-sm btn-primary"
                             onClick={() => onExecuteSql(sql)}
                           >
-                            ▶ 执行
+                            {t('ai.execute')}
                           </button>
                         )}
                       </div>

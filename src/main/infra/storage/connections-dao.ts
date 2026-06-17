@@ -11,6 +11,7 @@ import type {
   ConnectionListItem,
 } from '@shared/types/connection'
 import { getDb } from './db'
+import { tMain } from '@main/i18n'
 import { getCredentialStore } from '../credential'
 
 interface ConnectionRow {
@@ -114,7 +115,7 @@ export const connectionsDao = {
 
     const created = this.get(id)
     if (!created) {
-      throw new Error(`连接创建后查询失败：${id}`)
+      throw new Error(tMain('errors.db.connRequeryFailed', { id }))
     }
     return created
   },
@@ -156,7 +157,7 @@ export const connectionsDao = {
 
     const updated = this.get(id)
     if (!updated) {
-      throw new Error(`连接更新后查询失败：${id}`)
+      throw new Error(tMain('errors.db.connUpdateRequeryFailed', { id }))
     }
     return updated
   },

@@ -12,6 +12,7 @@ import type {
   SavedMigrationPlanInput,
 } from '@shared/types/migration'
 import { getDb } from './db'
+import { tMain } from '@main/i18n'
 
 interface MigrationPlanRow {
   id: string
@@ -84,7 +85,7 @@ export const migrationPlanDao = {
     })
 
     const created = this.get(id)
-    if (!created) throw new Error(`迁移方案创建后查询失败：${id}`)
+    if (!created) throw new Error(tMain('errors.db.migrationPlanRequeryFailed', { id }))
     return created
   },
 
@@ -111,7 +112,7 @@ export const migrationPlanDao = {
     })
 
     const updated = this.get(id)
-    if (!updated) throw new Error(`迁移方案更新后查询失败：${id}`)
+    if (!updated) throw new Error(tMain('errors.db.migrationPlanUpdateRequeryFailed', { id }))
     return updated
   },
 

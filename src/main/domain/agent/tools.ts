@@ -17,6 +17,11 @@ import { getDriver } from '@main/domain/db/manager'
 import { checkSql } from '@main/domain/executor'
 import { auditLogDao } from '@main/infra/storage/audit-log-dao'
 import { logger } from '@main/infra/logger'
+import { tMain } from '@main/i18n'
+import { translateReason } from '@shared/i18n/composite'
+
+/** 主进程侧翻译安全 reason（check.reason 为复合 key） */
+const tr = (reason: string): string => translateReason(reason, tMain)
 
 /** 工具执行结果 */
 export interface ToolExecResult {
@@ -143,7 +148,7 @@ const EXECUTORS: Record<string, ToolExecutor> = {
       const summary = tables.map((t) => t.name).join(', ')
       return {
         ok: true,
-        result: `共 ${tables.length} 张表/视图：${summary}`,
+        result: tMain('agent.tools.tableCount', { count: tables.length, summary }),
         structured: {
           kind: 'tables',
           tables: tables.map((t) => ({ name: t.name, type: t.type })),
@@ -152,13 +157,13 @@ const EXECUTORS: Record<string, ToolExecutor> = {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       audit(connectionId, 'query_readonly', `listTables 失败: ${message}`, 'deny')
-      return { ok: false, result: `列出表失败: ${message}` }
+      return { ok: false, result: tMain('agent.tools.listTablesFailed', { error: message }) }
     }
   },
 
   async describeTable(connectionId, schema, args) {
     const table = String(args.table ?? '')
-    if (!table) return { ok: false, result: '缺少 table 参数' }
+    if (!table) return { ok: false, result: tMain('agent.tools.missingTableParam') }
     try {
       const driver = getDriver(connectionId)
       const meta = await driver.describeTable({ schema, table })
@@ -168,7 +173,7 @@ const EXECUTORS: Record<string, ToolExecutor> = {
         .join(', ')
       return {
         ok: true,
-        result: `表 ${table} 的列：${cols}`,
+        result: tMain('agent.tools.describeResult', { table, cols }),
         structured: {
           kind: 'schema',
           tableName: table,
@@ -178,13 +183,13 @@ const EXECUTORS: Record<string, ToolExecutor> = {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       audit(connectionId, 'query_readonly', `describeTable ${table} 失败: ${message}`, 'deny')
-      return { ok: false, result: `查看表结构失败: ${message}` }
+      return { ok: false, result: tMain('agent.tools.describeFailed', { error: message }) }
     }
   },
 
   async runReadQuery(connectionId, schema, args) {
     const sql = String(args.sql ?? '')
-    if (!sql) return { ok: false, result: '缺少 sql 参数' }
+    if (!sql) return { ok: false, result: tMain('agent.tools.missingSqlParam') }
 
     // T2.5 安全层：静态拦截非只读 SQL（绝不自动执行写操作）
     if (!isReadOnlySql(sql)) {
@@ -194,7 +199,7 @@ const EXECUTORS: Record<string, ToolExecutor> = {
         ok: false,
         result:
           '安全限制：runReadQuery 仅允许只读查询（SELECT/WITH/EXPLAIN/SHOW）。如需写操作请用 generateSql 生成 SQL 让用户确认。',
-        structured: { kind: 'error', message: '只读查询工具拒绝了写操作' },
+        structured: { kind: 'error', message: tMain('agent.tools.readonlyQueryRejected') },
       }
     }
 
@@ -204,7 +209,7 @@ const EXECUTORS: Record<string, ToolExecutor> = {
       audit(connectionId, check.analysis.type, `AGENT 工具安全检查拒绝: ${check.reason}`, 'deny')
       return {
         ok: false,
-        result: `安全检查未通过：${check.reason}`,
+        result: tMain('agent.tools.securityCheckFailed', { reason: tr(check.reason) }),
         structured: { kind: 'error', message: check.reason },
       }
     }
@@ -218,7 +223,12 @@ const EXECUTORS: Record<string, ToolExecutor> = {
       const rows2d = result.rows.map((r) => columns.map((c) => r[c] ?? null))
       // 序列化前 20 行给 LLM（避免 token 爆炸）
       const preview = rows2d.slice(0, 20)
-      const summary = `查询返回 ${result.rowCount} 行，列：${columns.join(', ')}。\n前 ${preview.length} 行：\n${serializeRows(columns, preview)}`
+      const summary = tMain('agent.tools.querySummary', {
+        count: result.rowCount,
+        columns: columns.join(', '),
+        preview: preview.length,
+        rows: serializeRows(columns, preview),
+      })
       return {
         ok: true,
         result: summary,
@@ -236,7 +246,7 @@ const EXECUTORS: Record<string, ToolExecutor> = {
       audit(connectionId, 'query_readonly', `runReadQuery 失败: ${message}`, 'deny')
       return {
         ok: false,
-        result: `查询执行失败：${message}`,
+        result: tMain('agent.tools.queryFailed', { error: message }),
         structured: { kind: 'error', message },
       }
     }
@@ -244,12 +254,12 @@ const EXECUTORS: Record<string, ToolExecutor> = {
 
   async generateSql(connectionId, _schema, args) {
     const sql = String(args.sql ?? '')
-    if (!sql) return { ok: false, result: '缺少 sql 参数' }
+    if (!sql) return { ok: false, result: tMain('agent.tools.missingSqlParam') }
     // 仅生成不执行；记审计标注来源
     audit(connectionId, 'generate_sql', `AGENT 生成 SQL: ${sql.slice(0, 200)}`, 'allow')
     return {
       ok: true,
-      result: `已生成 SQL（需用户确认后执行）：${sql}`,
+      result: tMain('agent.tools.sqlGenerated', { sql }),
       structured: { kind: 'sql', sql },
     }
   },
@@ -264,7 +274,7 @@ export async function executeTool(
 ): Promise<ToolExecResult> {
   const executor = EXECUTORS[name]
   if (!executor) {
-    return { ok: false, result: `未知工具: ${name}` }
+    return { ok: false, result: tMain('agent.tools.unknownTool', { name }) }
   }
   return executor(connectionId, schema, args)
 }
@@ -281,7 +291,7 @@ function cols2structured(
 
 /** 把行序列化为 Markdown 表格（回灌 LLM 用） */
 function serializeRows(columns: string[], rows: unknown[][]): string {
-  if (rows.length === 0) return '（无数据）'
+  if (rows.length === 0) return tMain('agent.tools.noDataMarkdown')
   const header = `| ${columns.join(' | ')} |`
   const sep = `| ${columns.map(() => '---').join(' | ')} |`
   const body = rows.map((r) => `| ${r.map((c) => formatCell(c)).join(' | ')} |`).join('\n')

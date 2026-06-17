@@ -21,7 +21,7 @@ import type {
 import type { RedisKeyOverview, Schema, Table, TableMeta, DatabaseRole } from './types/database'
 import type { AiStreamDeltaPayload, AiStreamDonePayload, AiStreamErrorPayload } from './types/llm'
 import type { ToolCallEvent, ToolResultEvent, AgentTextEvent } from './types/agent'
-import type { AppSettings } from './types/settings'
+import type { AppSettings, ThemeMode } from './types/settings'
 import type { UpdateStatus, UpdateInfo } from './types/update'
 import type {
   MigrationPlan,
@@ -66,6 +66,11 @@ export interface IpcContracts {
   // 显示原生桌面通知（渲染进程无 Notification 权限，委托主进程）
   'app:notify': {
     req: { title: string; body?: string }
+    res: { ok: true }
+  }
+  // 重启应用（切换语言后让用户主动触发，relaunch + exit）
+  'app:relaunch': {
+    req: void
     res: { ok: true }
   }
   // ----- 连接管理 -----
@@ -331,6 +336,13 @@ export interface IpcContracts {
   'settings:update': {
     req: Partial<AppSettings>
     res: AppSettings
+  }
+
+  // 主题：把解析后的偏好同步到主进程 nativeTheme.themeSource，
+  // 使 Win/Linux 原生标题栏、系统 select 弹层配色与应用一致
+  'theme:apply': {
+    req: ThemeMode
+    res: void
   }
 
   // ----- 窗口控制（win/linux 自绘标题栏按钮使用）-----

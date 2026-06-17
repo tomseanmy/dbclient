@@ -3,6 +3,7 @@
  *
  * 当 prod 连接的写操作被拒绝时，提示原因并提供提权按钮。
  */
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { ShieldOff, Unlock, Lock } from 'lucide-react'
 import { api, type SecurityCheckResult } from '../api'
@@ -20,6 +21,7 @@ export function PermissionNotice({
   onElevated,
   onDismiss,
 }: PermissionNoticeProps) {
+  const { t } = useTranslation()
   const [elevating, setElevating] = useState(false)
   const [elevated, setElevated] = useState(false)
   const [remainingMin, setRemainingMin] = useState(0)
@@ -48,7 +50,7 @@ export function PermissionNotice({
     return (
       <div className="perm-notice perm-elevated">
         <Unlock size={14} />
-        <span>已临时提权（剩余 {remainingMin} 分钟）</span>
+        <span>{t('permission.elevatedRemaining', { minutes: remainingMin })}</span>
         <button
           className="btn-text"
           onClick={async () => {
@@ -56,7 +58,7 @@ export function PermissionNotice({
             setElevated(false)
           }}
         >
-          <Lock size={12} /> 撤销提权
+          <Lock size={12} /> {t('permission.revoke')}
         </button>
       </div>
     )
@@ -66,16 +68,16 @@ export function PermissionNotice({
     <div className="perm-notice perm-denied">
       <ShieldOff size={14} />
       <div className="perm-content">
-        <strong>操作被拒绝</strong>
+        <strong>{t('permission.denied')}</strong>
         <span>{check.reason}</span>
       </div>
       {check.canElevate && (
         <button className="btn btn-warning btn-sm" onClick={handleElevate} disabled={elevating}>
-          <Unlock size={12} /> {elevating ? '提权中…' : '临时提权'}
+          <Unlock size={12} /> {elevating ? t('permission.elevating') : t('permission.elevate')}
         </button>
       )}
       <button className="btn-text" onClick={onDismiss}>
-        关闭
+        {t('common.close')}
       </button>
     </div>
   )

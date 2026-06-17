@@ -24,6 +24,7 @@ import {
   PlugZap,
   Sparkles,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useConnectionStore, DB_LABELS, ENV_COLORS } from '../store/connections'
 import { useContextMenuClose } from '../hooks/useContextMenu'
 import type { ConnectionListItem, Table } from '../api'
@@ -74,6 +75,7 @@ export function ObjectTree({
     refreshConnection,
     refreshTick,
   } = useConnectionStore()
+  const { t } = useTranslation()
   const [expandedConns, setExpandedConns] = useState<Set<string>>(new Set())
   const [selectedConnId, setSelectedConnId] = useState<string | null>(null)
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null)
@@ -260,24 +262,28 @@ export function ObjectTree({
     onOpenSql(conn)
     // 通过全局事件把 SQL 填入编辑器（简单方案：用 prompt 确认）
     setTimeout(() => {
-      window.confirm(`将执行 DROP TABLE ${qualified}，请到 SQL 查询中确认执行`)
+      window.confirm(t('objectTree.dropConfirm', { qualified }))
     }, 100)
   }
 
   return (
     <div className="object-tree">
       <div className="tree-header">
-        <span className="tree-title">连接</span>
-        <button className="btn-icon" onClick={onCreateConnection} title="新建连接">
+        <span className="tree-title">{t('objectTree.title')}</span>
+        <button
+          className="btn-icon"
+          onClick={onCreateConnection}
+          title={t('connection.newConnection')}
+        >
           +
         </button>
       </div>
 
       {connections.length === 0 && (
         <div className="tree-empty">
-          <p>暂无连接</p>
+          <p>{t('objectTree.empty')}</p>
           <button className="btn btn-primary btn-sm" onClick={onCreateConnection}>
-            新建连接
+            {t('connection.newConnection')}
           </button>
         </div>
       )}
@@ -313,7 +319,7 @@ export function ObjectTree({
               <span
                 className="conn-env"
                 style={{ color: ENV_COLORS[conn.environment] }}
-                title={`${conn.environment} 环境`}
+                title={t('objectTree.envTitle', { env: conn.environment })}
               >
                 {conn.environment}
               </span>
@@ -324,7 +330,7 @@ export function ObjectTree({
                     e.stopPropagation()
                     handleRefresh(conn.id)
                   }}
-                  title="刷新"
+                  title={t('common.refresh')}
                   disabled={isRefreshing}
                 >
                   <RefreshCw size={11} className={isRefreshing ? 'spin' : ''} />
@@ -334,7 +340,7 @@ export function ObjectTree({
 
             {isOpen && isConnecting && (
               <div className="tree-loading tree-level-1">
-                <Loader2 size={12} className="spin" /> 连接中…
+                <Loader2 size={12} className="spin" /> {t('objectTree.connecting')}
               </div>
             )}
 
@@ -361,7 +367,7 @@ export function ObjectTree({
                           setSelectedSchemaId(schemaKey)
                           onOpenDatabase(conn, schema.name)
                         }}
-                        title="单击打开数据库详情"
+                        title={t('objectTree.openDbHint')}
                       >
                         <ChevronRight
                           size={12}
@@ -386,7 +392,10 @@ export function ObjectTree({
                               onContextMenu={(e) =>
                                 handleTableContextMenu(e, conn, schema.name, table.name)
                               }
-                              title={`${table.name}（${schema.name}）`}
+                              title={t('objectTree.tableHint', {
+                                table: table.name,
+                                schema: schema.name,
+                              })}
                             >
                               <span className="tree-table-chevron-placeholder" />
                               <span className="tree-table-icon">
@@ -396,7 +405,9 @@ export function ObjectTree({
                             </div>
                           ))}
                           {tables.length === 0 && (
-                            <div className="tree-empty-sm tree-level-2">无表</div>
+                            <div className="tree-empty-sm tree-level-2">
+                              {t('objectTree.noTables')}
+                            </div>
                           )}
                         </div>
                       )}
@@ -404,7 +415,7 @@ export function ObjectTree({
                   )
                 })}
                 {schemas.length === 0 && (
-                  <div className="tree-empty-sm tree-level-1">无 schema</div>
+                  <div className="tree-empty-sm tree-level-1">{t('objectTree.noSchemas')}</div>
                 )}
               </div>
             )}
@@ -428,7 +439,7 @@ export function ObjectTree({
                 setConnCtxMenu(null)
               }}
             >
-              <Plug size={12} /> 连接
+              <Plug size={12} /> {t('objectTree.ctxConnect')}
             </button>
           ) : (
             <button
@@ -438,7 +449,7 @@ export function ObjectTree({
                 setConnCtxMenu(null)
               }}
             >
-              <PlugZap size={12} /> 断开
+              <PlugZap size={12} /> {t('objectTree.ctxDisconnect')}
             </button>
           )}
           <div className="ctx-divider" />
@@ -449,7 +460,7 @@ export function ObjectTree({
               setConnCtxMenu(null)
             }}
           >
-            <Pencil size={12} /> 编辑连接
+            <Pencil size={12} /> {t('objectTree.ctxEdit')}
           </button>
           <button
             className="ctx-item"
@@ -458,7 +469,7 @@ export function ObjectTree({
               setConnCtxMenu(null)
             }}
           >
-            <FileText size={12} /> SQL 查询（编辑器）
+            <FileText size={12} /> {t('objectTree.ctxSqlEditor')}
           </button>
           <button
             className="ctx-item"
@@ -467,7 +478,7 @@ export function ObjectTree({
               setConnCtxMenu(null)
             }}
           >
-            <Sparkles size={12} /> AI AGENT
+            <Sparkles size={12} /> {t('objectTree.ctxAgent')}
           </button>
         </div>
       )}
@@ -480,21 +491,21 @@ export function ObjectTree({
           onContextMenu={(e) => e.preventDefault()}
         >
           <button className="ctx-item" onClick={() => handleCtxAction('data')}>
-            <Table2 size={12} /> 查看数据
+            <Table2 size={12} /> {t('objectTree.ctxViewData')}
           </button>
           <button className="ctx-item" onClick={() => handleCtxAction('design')}>
-            <Eye size={12} /> 查看设计
+            <Eye size={12} /> {t('objectTree.ctxViewDesign')}
           </button>
           <button className="ctx-item" onClick={() => handleCtxAction('ddl')}>
-            <Table2 size={12} /> 转 DDL
+            <Table2 size={12} /> {t('objectTree.ctxToDdl')}
           </button>
           <div className="ctx-divider" />
           <button className="ctx-item" onClick={() => handleCtxAction('copyName')}>
-            <ClipboardCopy size={12} /> 复制表名
+            <ClipboardCopy size={12} /> {t('objectTree.ctxCopyName')}
           </button>
           <div className="ctx-divider" />
           <button className="ctx-item ctx-danger" onClick={() => handleCtxAction('drop')}>
-            <TrashIcon size={12} /> 删除表
+            <TrashIcon size={12} /> {t('objectTree.ctxDropTable')}
           </button>
         </div>
       )}

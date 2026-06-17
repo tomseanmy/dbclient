@@ -11,6 +11,7 @@ import {
 } from '@main/domain/security/policy'
 import { auditLogDao } from '@main/infra/storage/audit-log-dao'
 import { logger } from '@main/infra/logger'
+import { tMain } from '@main/i18n'
 
 export function registerSecurityHandlers(): void {
   // 预检：检查 SQL 安全性（不执行）
@@ -25,7 +26,7 @@ export function registerSecurityHandlers(): void {
     if (check.requireKeywordConfirm) {
       if (confirmedKeyword !== check.confirmKeyword) {
         const kw = check.confirmKeyword ?? 'CONFIRM'
-        throw new Error('请输入正确的关键词 ' + kw + ' 以确认')
+        throw new Error(tMain('errors.security.keywordMismatch', { keyword: kw }))
       }
     }
 
@@ -36,7 +37,7 @@ export function registerSecurityHandlers(): void {
       rows: [],
       rowCount: 0,
       durationMs: 0,
-      message: outcome.rowsAffected + ' 行受影响',
+      message: tMain('errors.db.rowsAffected', { count: outcome.rowsAffected }),
     }
   })
 

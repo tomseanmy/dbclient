@@ -1,3 +1,4 @@
+import { tMain } from '@main/i18n'
 /**
  * 方言生成器工厂
  *
@@ -20,7 +21,7 @@ const INSTANCES: Record<MigrationDialect, DialectGenerator> = {
 /** 获取指定方言的生成器单例（无副作用，复用实例） */
 export function getDialectGenerator(dialect: MigrationDialect): DialectGenerator {
   const gen = INSTANCES[dialect]
-  if (!gen) throw new Error(`不支持的迁移方言：${dialect}`)
+  if (!gen) throw new Error(tMain('errors.migration.unsupportedDialect', { dialect }))
   return gen
 }
 

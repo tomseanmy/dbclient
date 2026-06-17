@@ -7,6 +7,7 @@
  * 原来的 LLM Provider 管理 + Token 用量已迁出至
  * components/settings/ModelSettings.tsx。
  */
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { X, Settings2, Bot, Info } from 'lucide-react'
 import { GeneralSettings } from '../components/settings/GeneralSettings'
@@ -21,14 +22,15 @@ interface SettingsProps {
 
 type SettingsTab = 'general' | 'model' | 'about'
 
-const NAV_ITEMS: { key: SettingsTab; label: string; icon: typeof Settings2 }[] = [
-  { key: 'general', label: '常规', icon: Settings2 },
-  { key: 'model', label: '模型设置', icon: Bot },
-  { key: 'about', label: '关于', icon: Info },
-]
-
 export function Settings({ onClose, initialTab }: SettingsProps) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<SettingsTab>(initialTab ?? 'general')
+
+  const NAV_ITEMS: { key: SettingsTab; label: string; icon: typeof Settings2 }[] = [
+    { key: 'general', label: t('settings.navGeneral'), icon: Settings2 },
+    { key: 'model', label: t('settings.navModel'), icon: Bot },
+    { key: 'about', label: t('settings.navAbout'), icon: Info },
+  ]
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -37,8 +39,8 @@ export function Settings({ onClose, initialTab }: SettingsProps) {
           {/* 左侧菜单 */}
           <aside className="settings-nav">
             <div className="settings-nav-header">
-              <span className="settings-nav-title">设置</span>
-              <button className="btn-icon" onClick={onClose} title="关闭">
+              <span className="settings-nav-title">{t('settings.navTitle')}</span>
+              <button className="btn-icon" onClick={onClose} title={t('common.close')}>
                 <X size={16} />
               </button>
             </div>

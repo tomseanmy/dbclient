@@ -5,6 +5,7 @@ import mysql, { type FieldPacket, type Pool, type RowDataPacket } from 'mysql2/p
 import type { DriverContext, DescribeOptions } from './driver'
 import { mapUnifiedType } from './driver'
 import type { DbDriver } from './driver'
+import { tMain } from '@main/i18n'
 import type {
   Schema,
   Table,
@@ -114,7 +115,7 @@ export class MysqlDriver implements DbDriver {
   }
 
   private async query<T = RowDataPacket[]>(sql: string, params?: unknown[]): Promise<T> {
-    if (!this.pool) throw new Error('MySQL 未连接，请先 connect()')
+    if (!this.pool) throw new Error(tMain('errors.db.notEstablishedMysql'))
     const [rows] = await this.pool.query(sql, params)
     return rows as T
   }
@@ -276,7 +277,7 @@ export class MysqlDriver implements DbDriver {
   private async getCurrentDatabase(): Promise<string> {
     const rows = await this.query<Array<{ db: string }>>('SELECT DATABASE() AS db')
     const db = rows[0]?.db
-    if (!db) throw new Error('无法确定当前数据库，请在连接配置中指定 database')
+    if (!db) throw new Error(tMain('errors.db.mysqlDbNotSpecified'))
     return db
   }
 
@@ -313,7 +314,7 @@ export class MysqlDriver implements DbDriver {
   ): Promise<import('@shared/types/database').QueryResult> {
     const limit = opts?.limit ?? 1000
     const start = Date.now()
-    if (!this.pool) throw new Error('MySQL 未连接')
+    if (!this.pool) throw new Error(tMain('errors.db.notEstablishedMysql'))
     const [result, fields] = await this.pool.query(sql)
     const rows = Array.isArray(result) ? (result as import('mysql2').RowDataPacket[]) : []
     let columns: { name: string; dataType: string }[] = (fields as FieldPacket[]).map((field) => ({
@@ -341,7 +342,7 @@ export class MysqlDriver implements DbDriver {
     sql: string,
     _opts?: import('./driver').QueryOptions,
   ): Promise<{ rowsAffected: number }> {
-    if (!this.pool) throw new Error('MySQL 未连接')
+    if (!this.pool) throw new Error(tMain('errors.db.notEstablishedMysql'))
     const [result] = await this.pool.query(sql)
     const rowsAffected =
       result && typeof result === 'object' && 'affectedRows' in result

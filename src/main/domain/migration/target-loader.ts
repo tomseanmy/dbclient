@@ -1,3 +1,4 @@
+import { tMain } from '@main/i18n'
 /**
  * 迁移目标加载辅助
  *
@@ -24,7 +25,7 @@ export function toDialect(type: DbType): MigrationDialect {
     case 'sqlite':
       return 'sqlite'
     default:
-      throw new Error(`不支持对 ${type} 类型数据库执行迁移`)
+      throw new Error(tMain('errors.migration.unsupportedDbType', { type }))
   }
 }
 
@@ -41,7 +42,8 @@ export interface ResolvedTarget {
 /** 解析目标定位：确保连接存在、可迁移类型、返回基础信息 */
 export function resolveTarget(target: MigrationTarget): ResolvedTarget {
   const config = connectionsDao.get(target.connectionId)
-  if (!config) throw new Error(`连接配置不存在：${target.connectionId}`)
+  if (!config)
+    throw new Error(tMain('errors.migration.connConfigNotFound', { id: target.connectionId }))
   return {
     table: target.table,
     dialect: toDialect(config.type),
@@ -52,7 +54,7 @@ export function resolveTarget(target: MigrationTarget): ResolvedTarget {
 /** 校验连接已建立，并返回 driver（描述表结构用） */
 function ensureConnected(connectionId: string): ReturnType<typeof getDriver> {
   if (!isConnected(connectionId)) {
-    throw new Error(`连接 ${connectionId} 未建立，请先连接数据库`)
+    throw new Error(tMain('errors.migration.connNotEstablished', { id: connectionId }))
   }
   return getDriver(connectionId)
 }
@@ -80,7 +82,7 @@ export async function describeTargetTable(target: MigrationTarget): Promise<Tabl
 /** 校验目标连接可读（连接已建立），返回其 config 用于方言判断 */
 export function assertMigratable(target: MigrationTarget): { dialect: MigrationDialect } {
   if (!isConnected(target.connectionId)) {
-    throw new Error(`连接 ${target.connectionId} 未建立`)
+    throw new Error(tMain('errors.migration.connNotEstablishedShort', { id: target.connectionId }))
   }
   const config = getConfig(target.connectionId)
   return { dialect: toDialect(config.type) }

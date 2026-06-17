@@ -6,6 +6,7 @@
  * - 重新生成：执行报错后出现，调 ai:assist 的 fixError 动作，把错误信息回灌 LLM，
  *   拿到新 SQL 就地替换（不污染对话历史）。
  */
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { RefreshCw, Loader2 } from 'lucide-react'
 import { api } from '../../api'
@@ -24,6 +25,7 @@ export function SqlCardMini({
   /** 执行完成（无论成败）回调，父级把结果归入历史列表 */
   onExecuted?: (item: ExecHistoryItem) => void
 }) {
+  const { t } = useTranslation()
   const connectionId = connection?.id ?? ''
   // 当前展示的 SQL（重新生成后就地替换）
   const [curSql, setCurSql] = useState(sql)
@@ -45,8 +47,10 @@ export function SqlCardMini({
       const hasColumns = r.columns.length > 0
       setResult(
         hasColumns
-          ? `执行成功，返回 ${r.rowCount} 行`
-          : `执行成功，${r.message ?? r.rowCount + ' 行受影响'}`,
+          ? t('agentCards.execSuccess', { count: r.rowCount })
+          : t('agentCards.execSuccessWithMsg', {
+              message: r.message ?? t('errors.db.rowsAffected', { count: r.rowCount }),
+            }),
       )
       // 上报到历史面板（查询语句带完整结果，便于右侧展示结果表）
       onExecuted?.({
@@ -93,15 +97,17 @@ export function SqlCardMini({
         setCurSql(newSql)
         setResult(
           res.reply
-            ? `已根据错误重新生成 SQL：\n${res.reply}`
-            : '已根据错误重新生成 SQL，可重新执行',
+            ? t('agentCards.regenFromError', { reply: res.reply })
+            : t('agentCards.regenFromErrorShort'),
         )
         setLastError(null)
       } else {
-        setResult(res.reply || 'AI 未能给出修复后的 SQL，请重试')
+        setResult(res.reply || t('agentCards.aiNoSql'))
       }
     } catch (err) {
-      setResult('重新生成失败：' + (err instanceof Error ? err.message : String(err)))
+      setResult(
+        t('agentCards.regenFailed', { error: err instanceof Error ? err.message : String(err) }),
+      )
     } finally {
       setRegenerating(false)
     }
@@ -121,14 +127,14 @@ export function SqlCardMini({
             }}
             disabled={executing || regenerating}
           >
-            {copied ? '已复制' : '复制'}
+            {copied ? t('agentCards.copied') : t('agentCards.copy')}
           </button>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleRun}
             disabled={executing || regenerating}
           >
-            {executing ? '执行中…' : '▶ 执行'}
+            {executing ? t('agentCards.executing') : t('agentCards.execute')}
           </button>
         </div>
       </div>
@@ -141,15 +147,15 @@ export function SqlCardMini({
               className="btn btn-sm btn-secondary sql-regen-btn"
               onClick={handleRegenerate}
               disabled={regenerating}
-              title="把错误信息交给 AI，重新生成 SQL"
+              title={t('agentCards.regenFromErrorHint')}
             >
               {regenerating ? (
                 <>
-                  <Loader2 size={11} className="spin" /> 重新生成中…
+                  <Loader2 size={11} className="spin" /> {t('agentCards.regenerating')}
                 </>
               ) : (
                 <>
-                  <RefreshCw size={11} /> 根据错误重新生成
+                  <RefreshCw size={11} /> {t('agentCards.regenFromErrorBtn')}
                 </>
               )}
             </button>

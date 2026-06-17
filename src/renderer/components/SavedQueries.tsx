@@ -11,6 +11,7 @@
  * - 保存当前编辑器 SQL（名称 + 描述）
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bookmark, Search, ChevronDown, ChevronUp, Trash2, Save } from 'lucide-react'
 import { api } from '../api'
 import type { SavedQueryRecord } from '../api'
@@ -24,6 +25,7 @@ interface SavedQueriesProps {
 }
 
 export function SavedQueries({ connectionId, currentSql, onPick }: SavedQueriesProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [records, setRecords] = useState<SavedQueryRecord[]>([])
   const [keyword, setKeyword] = useState('')
@@ -78,7 +80,7 @@ export function SavedQueries({ connectionId, currentSql, onPick }: SavedQueriesP
     <div className="sql-history-panel">
       <button className="history-toggle" onClick={() => setOpen(!open)}>
         {open ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-        <Bookmark size={12} /> 已保存 ({records.length})
+        <Bookmark size={12} /> {t('savedQueries.title', { count: records.length })}
       </button>
       {open && (
         <div className="history-content">
@@ -86,14 +88,14 @@ export function SavedQueries({ connectionId, currentSql, onPick }: SavedQueriesP
           <div className="saved-save-row">
             <input
               className="saved-name-input"
-              placeholder="命名保存当前 SQL…"
+              placeholder={t('savedQueries.savePlaceholder')}
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
               disabled={!currentSql.trim()}
             />
             <button
               className="icon-btn"
-              title="保存当前 SQL"
+              title={t('savedQueries.saveCurrent')}
               onClick={handleSave}
               disabled={saving || !currentSql.trim()}
             >
@@ -103,7 +105,7 @@ export function SavedQueries({ connectionId, currentSql, onPick }: SavedQueriesP
           <div className="history-search">
             <Search size={12} />
             <input
-              placeholder="搜索保存的查询…"
+              placeholder={t('savedQueries.searchPlaceholder')}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
@@ -120,7 +122,7 @@ export function SavedQueries({ connectionId, currentSql, onPick }: SavedQueriesP
                 <span className="history-sql">{r.name}</span>
                 <button
                   className="icon-btn history-del"
-                  title="删除"
+                  title={t('common.delete')}
                   onClick={(e) => {
                     e.stopPropagation()
                     handleDelete(r.id)
@@ -130,7 +132,7 @@ export function SavedQueries({ connectionId, currentSql, onPick }: SavedQueriesP
                 </button>
               </div>
             ))}
-            {records.length === 0 && <div className="history-empty">暂无保存的查询</div>}
+            {records.length === 0 && <div className="history-empty">{t('savedQueries.empty')}</div>}
           </div>
         </div>
       )}

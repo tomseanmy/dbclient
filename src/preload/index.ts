@@ -50,6 +50,7 @@ const api: RendererApi = {
   'app:openUserDataFolder': () => invoke('app:openUserDataFolder'),
   'app:openExternal': (req) => invoke('app:openExternal', req),
   'app:notify': (req) => invoke('app:notify', req),
+  'app:relaunch': () => invoke('app:relaunch'),
 
   // ----- 连接管理 -----
   'connection:list': () => invoke('connection:list'),
@@ -122,6 +123,9 @@ const api: RendererApi = {
   // ----- 应用设置 -----
   'settings:getAll': () => invoke('settings:getAll'),
   'settings:update': (req) => invoke('settings:update', req),
+
+  // 同步主题到原生层（nativeTheme.themeSource）
+  'theme:apply': (req) => invoke('theme:apply', req),
 
   // ----- 窗口控制（win/linux 自绘标题栏）-----
   'window:minimize': () => invoke('window:minimize'),

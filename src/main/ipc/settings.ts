@@ -5,7 +5,7 @@
  * - app:notify：显示原生桌面通知（渲染进程无 Notification 权限，委托主进程）
  * - settings:getAll / settings:update：读取/更新应用设置（KV ↔ AppSettings 映射）
  */
-import { app, shell, Notification } from 'electron'
+import { app, shell, Notification, nativeTheme } from 'electron'
 import { registerHandler } from './registry'
 import { getAllSettings, setSetting } from '@main/infra/storage/settings-dao'
 import { DEFAULT_SETTINGS } from '@shared/types/settings'
@@ -132,5 +132,12 @@ export function registerSettingsHandlers(): void {
     }
     writeSettings(merged)
     return merged
+  })
+
+  // 把主题偏好同步到原生层：影响 Win/Linux 原生标题栏、系统 select
+  // 弹层、滚动条等由操作系统/Chromium 绘制的控件配色，使其与应用一致。
+  // ThemeMode('system'|'light'|'dark') 恰好是 nativeTheme.themeSource 的合法值。
+  registerHandler('theme:apply', (_event, mode) => {
+    nativeTheme.themeSource = mode
   })
 }

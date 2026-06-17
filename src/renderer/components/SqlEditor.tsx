@@ -5,6 +5,7 @@
  * 快捷键：Cmd/Ctrl+Enter 执行全部，Cmd/Ctrl+Shift+Enter 执行选中。
  */
 import { useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import Editor from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { KeyMod, KeyCode } from 'monaco-editor'
@@ -35,6 +36,7 @@ export function SqlEditor({
   onAiOptimize,
   database,
 }: SqlEditorProps) {
+  const { t } = useTranslation()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
 
   const handleEditorMount = (ed: editor.IStandaloneCodeEditor) => {
@@ -79,7 +81,7 @@ export function SqlEditor({
   return (
     <div className="sql-editor-container">
       <div className="sql-toolbar">
-        <abbr title="执行 SQL（⌘+Enter 全部 · ⌘+⇧+Enter 选中）">
+        <abbr title={t('sqlEditor.runHint')}>
           <button
             className="icon-btn"
             onClick={handleExecute}
@@ -89,20 +91,20 @@ export function SqlEditor({
             {executing ? <Loader2 size={14} className="spin" /> : <Play size={14} />}
           </button>
         </abbr>
-        <abbr title="格式化 SQL">
+        <abbr title={t('sqlEditor.formatHint')}>
           <button className="icon-btn" onClick={handleFormat}>
             <Wand2 size={14} />
           </button>
         </abbr>
         {onAiExplain && (
-          <abbr title="AI 解释这条 SQL">
+          <abbr title={t('sqlEditor.aiExplainHint')}>
             <button className="icon-btn" onClick={() => onAiExplain(getSelectedOrAll())}>
               <Sparkles size={14} />
             </button>
           </abbr>
         )}
         {onAiOptimize && (
-          <abbr title="AI 优化建议">
+          <abbr title={t('sqlEditor.aiOptimizeHint')}>
             <button className="icon-btn" onClick={() => onAiOptimize(getSelectedOrAll())}>
               <Zap size={14} />
             </button>

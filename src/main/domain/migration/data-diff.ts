@@ -1,3 +1,4 @@
+import { tMain } from '@main/i18n'
 /**
  * 数据 diff 计算器
  *
@@ -24,7 +25,7 @@ export type Row = Record<string, CellValue>
 export function extractPrimaryKeys(meta: TableMeta): string[] {
   const pks = meta.columns.filter((c) => c.isPrimaryKey).map((c) => c.name)
   if (pks.length === 0) {
-    throw new Error(`表 ${meta.name} 无主键，无法执行数据迁移（PK 比对需要主键）`)
+    throw new Error(tMain('errors.migration.noPrimaryKey', { table: meta.name }))
   }
   return pks
 }

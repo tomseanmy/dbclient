@@ -1,8 +1,13 @@
-/* ===== 全局 ===== */
+/* ===== 全局 =====
+   暗色为默认主题；浅色在下方 [data-theme='light'] 覆盖。
+   color-scheme 让 Chromium 把原生控件（select 弹层、滚动条、 autofill）
+   渲染成对应明暗 —— Win 上原生下拉背景与文字配色一致的关键。 */
 :root {
+  color-scheme: dark;
   /* macOS 暗岩灰配色 rgb(25,26,28) */
   --bg: #191a1c; /* 主背景：暗岩灰 */
   --bg-elevated: #1f2023; /* 卡片/面板抬升一层 */
+  --bg-secondary: #25262a; /* 次级底色：徽章/code 块等（介于 bg 与 elevated） */
   --bg-sidebar: transparent; /* 侧栏透明：透出原生毛玻璃 vibrancy */
   --bg-card: #1f2023;
   --bg-hover: rgba(255, 255, 255, 0.08);
@@ -27,6 +32,15 @@
   --surface-danger: rgba(255, 69, 58, 0.16);
   --surface-warning: rgba(255, 214, 10, 0.16);
 
+  /* 半透明毛玻璃底色（浮动工具条等，配 backdrop-filter） */
+  --surface-glass: rgba(31, 32, 35, 0.88);
+  /* 投影：浮动元素抬升感 */
+  --shadow-float: 0 4px 24px rgba(0, 0, 0, 0.4);
+  /* 投影：模态框/大弹层（深、远） */
+  --shadow-modal: 0 12px 48px rgba(0, 0, 0, 0.55);
+  /* 投影：菜单/小弹层（浅、近） */
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.38);
+
   --radius: 6px;
   --sidebar-width: 280px;
   --shell-gap: 8px;
@@ -39,6 +53,49 @@
   background: var(--bg);
 }
 
+/* ===== 浅色主题 =====
+   覆盖语义变量；布局/字号/圆角等不变量沿用 :root。
+   <html data-theme='light'> 由 store/settings.ts applyTheme() 写入。 */
+[data-theme='light'] {
+  color-scheme: light;
+  /* 暖白灰：避免纯白刺眼，贴近 macOS 浅色窗口 */
+  --bg: #f5f5f7;
+  --bg-elevated: #ffffff;
+  --bg-secondary: #ececef; /* 次级底色：徽章/code 块等 */
+  --bg-sidebar: transparent; /* 仍透出原生毛玻璃（macOS 浅色 vibrancy） */
+  --bg-card: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-hover-strong: rgba(0, 0, 0, 0.08);
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.16);
+
+  --text: #1d1d1f;
+  --text-muted: #6e6e73;
+  --text-sidebar: #1d1d1f;
+  --text-sidebar-muted: #86868b;
+
+  --primary: #0a84ff;
+  --primary-hover: #0060df;
+  --danger: #d70015; /* 浅色下系统红更深，保证对比度 */
+  --success: #1a7f37;
+  --warning: #9a6700;
+
+  /* 浅色语义底色：降低透明度并用更深的字色保证可读 */
+  --surface-info: rgba(10, 132, 255, 0.12);
+  --surface-success: rgba(26, 127, 55, 0.12);
+  --surface-danger: rgba(215, 0, 21, 0.12);
+  --surface-warning: rgba(154, 103, 0, 0.12);
+
+  /* 半透明毛玻璃底色（浮动工具条等，配 backdrop-filter） */
+  --surface-glass: rgba(255, 255, 255, 0.88);
+  /* 投影：浅色下用更深的黑但更低的透明度 */
+  --shadow-float: 0 4px 24px rgba(0, 0, 0, 0.16);
+  /* 投影：模态框/大弹层（浅色下用更低透明度的黑） */
+  --shadow-modal: 0 12px 48px rgba(0, 0, 0, 0.22);
+  /* 投影：菜单/小弹层 */
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.14);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -48,6 +105,13 @@ body {
   padding: 0;
   user-select: none;
   background: var(--bg);
+}
+
+/* mac/Win：窗口已透明（vibrancy/acrylic），body 须透明才能透出桌面；
+   Linux 无原生穿透，保持实色背景防白屏。 */
+[data-platform='darwin'] body,
+[data-platform='win32'] body {
+  background: transparent;
 }
 
 input,
@@ -88,6 +152,13 @@ textarea {
   -webkit-app-region: drag;
 }
 
+/* mac/Win：让出窗口原生层，app-root 透明以承接 vibrancy/acrylic；
+   主内容区 .main-content 自带实色背景，不受影响。 */
+[data-platform='darwin'] .app-root,
+[data-platform='win32'] .app-root {
+  background: transparent;
+}
+
 .sidebar {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
@@ -125,7 +196,7 @@ textarea {
   background: var(--bg);
   border-radius: 14px;
   box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.5),
+    0 6px 28px rgba(0, 0, 0, 0.2),
     0 0 0 1px var(--border);
   -webkit-app-region: no-drag;
   position: relative;
@@ -201,45 +272,47 @@ select,
   -webkit-app-region: no-drag;
 }
 
-/* ===== 自绘窗口控制按钮（仅 win/linux；mac 不渲染）===== */
+/* ===== 自绘窗口控制按钮（仅 win/linux；mac 不渲染）=====
+   放在左上角（mac 红绿灯同位置），独立 button 样式，
+   不占用主区/tab 栏右侧空间，避免与内容重叠。 */
 .window-controls {
   position: fixed;
-  top: 0;
-  right: 0;
+  top: 8px;
+  left: 8px;
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 6px;
   z-index: 1001; /* 高于 modal(100) 与 context-menu(1000) */
   -webkit-app-region: no-drag;
 }
 
 .wc-btn {
-  width: 46px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: transparent;
   color: var(--text-muted);
   cursor: default;
   transition:
     background 0.12s ease,
-    color 0.12s ease;
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .wc-btn:hover {
   background: var(--bg-hover);
   color: var(--text);
+  border-color: var(--text-muted);
 }
 
 .wc-close:hover {
   background: var(--danger);
   color: #fff;
-}
-
-/* 非 mac：右上自绘按钮条会压住 tab 栏右侧，让出空间避免遮挡 */
-[data-platform='win32'] .tab-bar,
-[data-platform='linux'] .tab-bar {
-  padding-right: 140px;
+  border-color: var(--danger);
 }
 
 /* ===== 对象树 ===== */
@@ -1012,7 +1085,7 @@ select,
   border-radius: 8px;
   padding: 24px;
   max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-modal);
 }
 
 .modal h3 {
@@ -1171,7 +1244,7 @@ select,
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: 4px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-pop);
   z-index: 10;
 }
 
@@ -1365,7 +1438,7 @@ select,
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-pop);
 }
 
 /* 右侧空间充足：弹窗右边缘对齐按钮 */
@@ -2016,7 +2089,7 @@ select,
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-pop);
   padding: 4px;
   max-height: 240px;
   overflow-y: auto;
@@ -2204,7 +2277,7 @@ select,
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-pop);
   z-index: 1000;
   min-width: 160px;
   padding: 4px 0;
@@ -2258,7 +2331,7 @@ select,
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal);
   width: min(720px, 92vw);
   height: min(760px, 88vh);
   overflow: hidden;
@@ -2456,7 +2529,7 @@ select,
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-pop);
   z-index: 100;
   min-width: 80px;
   padding: 4px 0;
@@ -3352,7 +3425,7 @@ select,
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal);
   width: min(720px, 92vw);
   max-height: 88vh;
   overflow: hidden;
@@ -3538,12 +3611,12 @@ select,
   align-items: center;
   gap: 16px;
   padding: 6px 14px;
-  background: rgba(31, 32, 35, 0.88);
+  background: var(--surface-glass);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-float);
   z-index: 50;
   font-size: 12px;
   white-space: nowrap;
@@ -4242,7 +4315,7 @@ select,
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: 12px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;

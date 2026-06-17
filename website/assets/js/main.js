@@ -208,11 +208,14 @@
           list.slice(0, 3).forEach((a) => {
             const sizeMb = a.size ? (a.size / 1024 / 1024).toFixed(1) + ' MB' : ''
             const ext = a.name.split('.').pop().toUpperCase()
+            // Windows 同时产出 setup 与 portable 两个 .exe：按文件名区分标签，
+            // 让用户在同卡片内看清楚该下哪个（portable 免安装、无自动更新）。
+            const label = /-portable\./i.test(a.name) ? '便携版' : '安装包'
             const a2 = document.createElement('a')
             a2.href = a.browser_download_url
             a2.target = '_blank'
             a2.rel = 'noopener'
-            a2.innerHTML = `<span>${sizeMb ? `下载 ${ext}` : '下载'}</span><span class="file-ext">${ext}${sizeMb ? ' · ' + sizeMb : ''}</span>`
+            a2.innerHTML = `<span>${label} ${ext}</span><span class="file-ext">${ext}${sizeMb ? ' · ' + sizeMb : ''}</span>`
             linksEl.appendChild(a2)
           })
         })

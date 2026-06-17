@@ -5,6 +5,7 @@
  * 支持：列排序、类型渲染、双击行内编辑、选中行。
  * 编辑通过 onChange 回调通知父组件（待提交队列在父组件管理）。
  */
+import { useTranslation } from 'react-i18next'
 import { useMemo, useRef, useState, useEffect } from 'react'
 import {
   useReactTable,
@@ -283,6 +284,7 @@ function InlineCellControl({
   column: string
   onCommit?: (rowKey: string | number, column: string, value: string) => void
 }) {
+  const { t } = useTranslation()
   // text 列本地编辑态：外部 value 变化时同步（如切类型清空长度）
   const [textValue, setTextValue] = useState(() => stringifyEditValue(value))
   const composingRef = useRef(false)
@@ -321,7 +323,9 @@ function InlineCellControl({
           onChange={(e) => onCommit?.(rowKey, column, String(e.target.checked))}
         />
         <span className="cell-checkbox-label">
-          {checked ? (editor.trueLabel ?? '是') : (editor.falseLabel ?? '否')}
+          {checked
+            ? (editor.trueLabel ?? t('dataGrid.yes'))
+            : (editor.falseLabel ?? t('dataGrid.no'))}
         </span>
       </label>
     )
@@ -412,6 +416,7 @@ export function DataGrid({
   onFilterChange,
   bottomPadding = 0,
 }: DataGridProps) {
+  const { t } = useTranslation()
   const [sorting, setSorting] = useState<SortingState>([])
   const containerRef = useRef<HTMLDivElement>(null)
   // 选中整列：优先使用受控 prop，未受控时回退到内部状态
@@ -673,7 +678,7 @@ export function DataGrid({
                     key={header.id}
                     onClick={() => handleHeaderClick(header.id)}
                     className={`grid-th ${isColSelected ? 'grid-col-selected' : ''}`}
-                    title="点击选中整列"
+                    title={t('dataGrid.selectColumn')}
                   >
                     <span className="grid-th-inner">
                       {columnMeta && (
@@ -691,7 +696,7 @@ export function DataGrid({
                             className={`col-head-btn filter-toggle ${
                               hasFilter || isFilterOpen ? 'col-head-btn-active' : ''
                             }`}
-                            title="筛选"
+                            title={t('dataGrid.filter')}
                             onClick={(e) => {
                               e.stopPropagation()
                               setFilterColumn(isFilterOpen ? null : header.id)
@@ -719,7 +724,7 @@ export function DataGrid({
                               />
                               <button
                                 className="filter-pop-clear"
-                                title="清除"
+                                title={t('dataGrid.clear')}
                                 onClick={() => {
                                   onFilterChange(header.id, '')
                                   setFilterColumn(null)
@@ -736,7 +741,7 @@ export function DataGrid({
                         className={`col-head-btn sort-toggle ${
                           sortDir ? 'col-head-btn-active' : ''
                         }`}
-                        title="排序"
+                        title={t('dataGrid.sort')}
                         onClick={(e) => {
                           e.stopPropagation()
                           header.column.getToggleSortingHandler()?.(e)
@@ -787,7 +792,7 @@ export function DataGrid({
                   onContextMenu={(e) => {
                     if (onRowContextMenu) onRowContextMenu(e, rowKey as number)
                   }}
-                  title="点击选中行 · Cmd/Ctrl 增选 · Shift 区间选中 · 右键更多操作"
+                  title={t('dataGrid.rowHint')}
                 >
                   {visibleRange.start + i + 1}
                 </td>

@@ -12,6 +12,7 @@ import IORedis from 'ioredis'
 import type { Cluster } from 'ioredis'
 import type { DriverContext, DescribeOptions } from './driver'
 import type { RedisDriver as IRedisDriver } from './driver'
+import { tMain } from '@main/i18n'
 import type { Schema, Table, TableMeta, RedisKeyOverview } from '@shared/types/database'
 
 // Redis client 最小接口（单机和 cluster 都满足）
@@ -62,7 +63,7 @@ export class RedisDriverClass implements IRedisDriver {
   }
 
   private getClient(): RedisLike {
-    if (!this.client) throw new Error('Redis 未连接，请先 connect()')
+    if (!this.client) throw new Error(tMain('errors.db.notEstablishedRedis'))
     return this.client
   }
 
@@ -105,7 +106,7 @@ export class RedisDriverClass implements IRedisDriver {
   }
 
   async describeTable(_opts: DescribeOptions): Promise<TableMeta> {
-    throw new Error('Redis 不支持 describeTable，请使用 getRedisOverview()')
+    throw new Error(tMain('errors.db.redisNotSupportDescribe'))
   }
 
   async listRoles(): Promise<import('@shared/types/database').DatabaseRole[]> {
@@ -138,10 +139,10 @@ export class RedisDriverClass implements IRedisDriver {
     }
   }
   async executeQuery(_sql: string, _opts?: import('./driver').QueryOptions): Promise<never> {
-    throw new Error('Redis 不支持 SQL 查询，请使用专属命令')
+    throw new Error(tMain('errors.db.redisNotSupportSql'))
   }
 
   async executeStatement(_sql: string, _opts?: import('./driver').QueryOptions): Promise<never> {
-    throw new Error('Redis 不支持 SQL 语句')
+    throw new Error(tMain('errors.db.redisNotSupportStatement'))
   }
 }

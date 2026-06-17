@@ -11,16 +11,17 @@ import {
   isConnected,
 } from '@main/domain/db/manager'
 import { logger } from '@main/infra/logger'
+import { tMain } from '@main/i18n'
 
 export function registerDatabaseHandlers(): void {
   // 连接到数据库
   registerHandler('db:connect', async (_event, { connectionId }) => {
     const config = connectionsDao.get(connectionId)
     if (!config) {
-      return { success: false, message: '连接配置不存在' }
+      return { success: false, message: tMain('errors.db.configNotFound') }
     }
     if (isConnected(connectionId)) {
-      return { success: true, message: '已连接' }
+      return { success: true, message: tMain('errors.db.alreadyConnected') }
     }
     try {
       logger.info('连接数据库', { id: connectionId, type: config.type })
@@ -37,7 +38,7 @@ export function registerDatabaseHandlers(): void {
       } catch {
         // 已连接成功，测试信息失败忽略
       }
-      return { success: true, message: '连接成功', serverInfo }
+      return { success: true, message: tMain('errors.db.connectSuccess'), serverInfo }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       logger.error('连接数据库失败', err)
@@ -86,7 +87,7 @@ export function registerDatabaseHandlers(): void {
       rows: [],
       rowCount: 0,
       durationMs: outcome.durationMs,
-      message: `${outcome.rowsAffected} 行受影响`,
+      message: tMain('errors.db.rowsAffected', { count: outcome.rowsAffected }),
     }
   })
 

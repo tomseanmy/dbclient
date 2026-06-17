@@ -4,6 +4,7 @@
  * 即原 Settings 页的 LLM Provider 管理 + Token 用量统计。
  * 由父级 Settings 外壳提供 modal 容器，本组件只渲染内容区。
  */
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { api, type LlmProvider, type LlmProviderInput, type UsageSummary } from '../../api'
@@ -13,6 +14,7 @@ import { useSettingsStore } from '../../store/settings'
 import type { ModelDefault } from '@shared/types/settings'
 
 export function ModelSettings() {
+  const { t } = useTranslation()
   const [providers, setProviders] = useState<LlmProvider[]>([])
   const [usage, setUsage] = useState<UsageSummary | null>(null)
   const [editing, setEditing] = useState<{ provider?: LlmProvider } | null>(null)
@@ -50,14 +52,12 @@ export function ModelSettings() {
         <div className="settings-section-header">
           <h2>LLM Provider</h2>
           <button className="btn btn-primary btn-sm" onClick={() => setEditing({})}>
-            <Plus size={12} /> 添加
+            <Plus size={12} /> {t('modelSettings.add')}
           </button>
         </div>
 
         {providers.length === 0 ? (
-          <div className="empty">
-            还没有配置 Provider，点击「添加」创建第一个（支持 OpenAI 兼容接口）。
-          </div>
+          <div className="empty">{t('modelSettings.noProvider')}</div>
         ) : (
           <div className="provider-list">
             {providers.map((p) => (
@@ -65,21 +65,23 @@ export function ModelSettings() {
                 <div className="provider-info">
                   <span className="provider-name">{p.name}</span>
                   <span className="provider-url">{p.baseUrl}</span>
-                  <span className="provider-models">{p.models.join(' · ') || '未配置模型'}</span>
+                  <span className="provider-models">
+                    {p.models.join(' · ') || t('modelSettings.noModels')}
+                  </span>
                 </div>
                 <div className="provider-actions">
                   <button
                     className="btn-icon"
-                    title="编辑"
+                    title={t('common.edit')}
                     onClick={() => setEditing({ provider: p })}
                   >
                     ✎
                   </button>
                   <button
                     className="btn-icon ctx-danger"
-                    title="删除"
+                    title={t('common.delete')}
                     onClick={async () => {
-                      if (confirm(`删除 Provider「${p.name}」？`)) {
+                      if (confirm(t('modelSettings.confirmDeleteProvider', { name: p.name }))) {
                         await api['llm:deleteProvider']({ id: p.id })
                         reload()
                       }
@@ -98,7 +100,7 @@ export function ModelSettings() {
       {usage && (
         <div className="settings-section">
           <div className="settings-section-header">
-            <h2>Token 用量统计</h2>
+            <h2>{t('modelSettings.tokenUsage')}</h2>
             {usage.totalCalls > 0 && (
               <button
                 className="btn btn-secondary btn-sm"
@@ -107,27 +109,27 @@ export function ModelSettings() {
                   reload()
                 }}
               >
-                清空
+                {t('modelSettings.clear')}
               </button>
             )}
           </div>
           {usage.totalCalls === 0 ? (
-            <div className="empty">暂无用量记录</div>
+            <div className="empty">{t('modelSettings.noUsage')}</div>
           ) : (
             <div className="usage-grid">
               <div className="usage-stat">
                 <span className="usage-stat-value">{usage.totalTokens.toLocaleString()}</span>
-                <span className="usage-stat-label">总 Token</span>
+                <span className="usage-stat-label">{t('modelSettings.totalTokens')}</span>
               </div>
               <div className="usage-stat">
                 <span className="usage-stat-value">{usage.totalCalls}</span>
-                <span className="usage-stat-label">调用次数</span>
+                <span className="usage-stat-label">{t('modelSettings.callCount')}</span>
               </div>
               {usage.byProvider.map((item) => (
                 <div key={item.provider} className="usage-stat">
                   <span className="usage-stat-value">{item.totalTokens.toLocaleString()}</span>
                   <span className="usage-stat-label">
-                    {item.provider} · {item.calls} 次
+                    {item.provider} · {t('modelSettings.callsUnit', { count: item.calls })}
                   </span>
                 </div>
               ))}
@@ -149,6 +151,7 @@ function ProviderForm({
   onSaved: () => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState(provider?.name ?? '')
   const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? 'https://api.deepseek.com/v1')
   const [models, setModels] = useState((provider?.models ?? []).join(', '))
@@ -176,7 +179,7 @@ function ProviderForm({
       setTestResult({ success: result.success, message: result.message })
       // 窗口失焦时提醒连通性测试完成（后台任务）
       if (result.success) {
-        void notify('backgroundTask', '连通性测试完成', result.message)
+        void notify('backgroundTask', t('modelSettings.testComplete'), result.message)
       }
     } catch (err) {
       setTestResult({ success: false, message: err instanceof Error ? err.message : String(err) })
@@ -187,11 +190,11 @@ function ProviderForm({
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('请输入名称')
+      setError(t('modelSettings.form.nameRequired'))
       return
     }
     if (!baseUrl.trim()) {
-      setError('请输入 Base URL')
+      setError(t('modelSettings.form.baseUrlRequired'))
       return
     }
     setSaving(true)
@@ -216,7 +219,7 @@ function ProviderForm({
     <div className="settings-provider-form">
       <div className="connection-form">
         <div className="form-field">
-          <label>名称 *</label>
+          <label>{t('modelSettings.form.name')} *</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="DeepSeek" />
         </div>
         <div className="form-field">
@@ -226,26 +229,29 @@ function ProviderForm({
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="https://api.deepseek.com/v1"
           />
-          <span className="hint">OpenAI 兼容接口，通常以 /v1 结尾</span>
+          <span className="hint">{t('modelSettings.form.baseUrlHint')}</span>
         </div>
         <div className="form-field">
-          <label>模型列表 *</label>
+          <label>{t('modelSettings.form.models')} *</label>
           <input
             value={models}
             onChange={(e) => setModels(e.target.value)}
             placeholder="deepseek-chat, deepseek-reasoner"
           />
-          <span className="hint">逗号分隔多个模型</span>
+          <span className="hint">{t('modelSettings.form.modelsHint')}</span>
         </div>
         <div className="form-field">
-          <label>API Key {provider && <span className="hint">（留空保持不变）</span>}</label>
+          <label>
+            {t('modelSettings.form.apiKey')}{' '}
+            {provider && <span className="hint">{t('modelSettings.form.apiKeyKeepHint')}</span>}
+          </label>
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-..."
           />
-          <span className="hint">存入系统 Keychain，不落库</span>
+          <span className="hint">{t('modelSettings.form.apiKeyHint')}</span>
         </div>
         {testResult && (
           <div className={`form-test-result ${testResult.success ? 'success' : 'error'}`}>
@@ -261,19 +267,19 @@ function ProviderForm({
 
         <div className="form-actions">
           <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>
-            取消
+            {t('common.cancel')}
           </button>
           <button className="btn btn-secondary" onClick={handleTest} disabled={testing || saving}>
             {testing ? (
               <>
-                <Loader2 size={12} className="spin" /> 测试中…
+                <Loader2 size={12} className="spin" /> {t('modelSettings.form.testing')}
               </>
             ) : (
-              '测试连接'
+              t('modelSettings.form.testConnect')
             )}
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? '保存中…' : provider ? '保存' : '创建'}
+            {saving ? t('connection.saving') : provider ? t('common.save') : t('connection.create')}
           </button>
         </div>
       </div>
@@ -287,6 +293,7 @@ function ProviderForm({
  * 未配置时回退到第一个 Provider 的第一个模型（由网关兜底）。
  */
 function DefaultModelSection({ providers }: { providers: LlmProvider[] }) {
+  const { t } = useTranslation()
   const { settings, update } = useSettingsStore()
 
   const handleChange = async (kind: 'agent' | 'chat', value: ModelDefault | undefined) => {
@@ -296,22 +303,22 @@ function DefaultModelSection({ providers }: { providers: LlmProvider[] }) {
   return (
     <div className="settings-section">
       <div className="settings-section-header">
-        <h2>默认模型</h2>
+        <h2>{t('modelSettings.defaultModels.title')}</h2>
       </div>
       {providers.length === 0 ? (
-        <div className="empty">先添加 Provider 后再选择默认模型。</div>
+        <div className="empty">{t('modelSettings.defaultModels.empty')}</div>
       ) : (
         <div className="default-model-list">
           <DefaultModelRow
-            label="Agent 模型"
-            hint="AGENT 模式（带工具调用）使用"
+            label={t('modelSettings.defaultModels.agentLabel')}
+            hint={t('modelSettings.defaultModels.agentHint')}
             providers={providers}
             value={settings.defaultAgentModel}
             onChange={(v) => handleChange('agent', v)}
           />
           <DefaultModelRow
-            label="补全模型"
-            hint="普通对话 / GUI 辅助使用"
+            label={t('modelSettings.defaultModels.chatLabel')}
+            hint={t('modelSettings.defaultModels.chatHint')}
             providers={providers}
             value={settings.defaultChatModel}
             onChange={(v) => handleChange('chat', v)}
@@ -336,6 +343,7 @@ function DefaultModelRow({
   value?: ModelDefault
   onChange: (v: ModelDefault | undefined) => void
 }) {
+  const { t } = useTranslation()
   // 当前选中的 provider（校验：若 value.providerId 已失效则为 null）
   const selectedProvider =
     (value?.providerId && providers.find((p) => p.id === value.providerId)) || null
@@ -374,7 +382,7 @@ function DefaultModelRow({
           value={providerId}
           onChange={(e) => handleProviderChange(e.target.value)}
         >
-          <option value="">未选择</option>
+          <option value="">{t('modelSettings.form.notSelected')}</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -387,7 +395,9 @@ function DefaultModelRow({
           onChange={(e) => handleModelChange(e.target.value)}
           disabled={!providerId}
         >
-          <option value="">{providerId ? '选择模型' : '—'}</option>
+          <option value="">
+            {providerId ? t('modelSettings.form.selectModel') : t('modelSettings.form.dash')}
+          </option>
           {selectedProvider?.models.map((m) => (
             <option key={m} value={m}>
               {m}

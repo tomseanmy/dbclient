@@ -2,6 +2,7 @@
  * llm:* IPC handler —— LLM Provider 管理 + 连通性测试 + 用量查询
  */
 import { registerHandler } from './registry'
+import { tMain } from '@main/i18n'
 import { llmProviderDao } from '@main/infra/storage/llm-provider-dao'
 import { llmUsageDao } from '@main/infra/storage/llm-usage-dao'
 import { testProvider } from '@main/domain/llm/gateway'
@@ -38,10 +39,10 @@ export function registerLlmHandlers(): void {
     logger.info('测试 LLM Provider', { name: input.name })
     const model = input.models[0]
     if (!model) {
-      return { success: false, message: '请至少配置一个模型' }
+      return { success: false, message: tMain('errors.llm.atLeastOneModel') }
     }
     if (!input.apiKey) {
-      return { success: false, message: '请填写 API Key' }
+      return { success: false, message: tMain('errors.llm.pleaseFillApiKey') }
     }
     return testProvider(input.baseUrl, input.apiKey, model)
   })

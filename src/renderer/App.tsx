@@ -4,6 +4,8 @@
  * 布局：左侧边栏（对象树）+ 右侧主内容区（tab 视图）。
  * 连接管理以 modal 形式浮层展示，不遮挡主视图。
  */
+import i18next from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   Settings as SettingsIcon,
@@ -55,11 +57,11 @@ interface Tab {
 }
 
 function getTabLabel(tab: Tab): string {
-  if (tab.kind === 'migration') return '数据库迁移'
+  if (tab.kind === 'migration') return i18next.t('app.migration')
   if (tab.kind === 'workspace') {
     // 标题格式：查询名@数据库（已关联保存查询）/ 新建查询@数据库（尚未保存）
     const db = tab.conn.database || tab.conn.name
-    const name = tab.savedQueryName ?? '新建查询'
+    const name = tab.savedQueryName ?? i18next.t('app.newQuery')
     return `${name}@${db}`
   }
   if (tab.kind === 'database') {
@@ -67,13 +69,16 @@ function getTabLabel(tab: Tab): string {
     return tab.schema ? `${db}@${tab.schema}` : db
   }
   if (tab.kind === 'tableDetail') {
-    return tab.schema ? `设计:${tab.table}@${tab.schema}` : `设计:${tab.table}`
+    return tab.schema
+      ? i18next.t('app.design', { table: tab.table, schema: tab.schema })
+      : i18next.t('app.designNoSchema', { table: tab.table })
   }
   // 表数据：表名@库名（schema 为表所属库，来自点击时的对象树）
   return tab.schema ? `${tab.table}@${tab.schema}` : (tab.table ?? '')
 }
 
 export default function App() {
+  const { t } = useTranslation()
   const { connections, loadConnections } = useConnectionStore()
   const workspaceMode = useWorkspaceStore((s) => s.mode)
   const setWorkspaceMode = useWorkspaceStore((s) => s.setMode)
@@ -320,22 +325,22 @@ export default function App() {
         />
         <div className="sidebar-brand">
           {/* 全局工作区模式切换（Segmented） */}
-          <div className="mode-segmented" role="tablist" aria-label="工作区模式">
+          <div className="mode-segmented" role="tablist" aria-label={t('app.workspaceMode')}>
             <button
               role="tab"
               aria-selected={workspaceMode === 'editor'}
               className={`mode-seg-btn ${workspaceMode === 'editor' ? 'active' : ''}`}
               onClick={() => setWorkspaceMode('editor')}
-              title="编辑器模式：人主导，AI 辅助补全/生成 SQL"
+              title={t('app.modeEditorTitle')}
             >
-              <Code2 size={13} /> 编辑器
+              <Code2 size={13} /> {t('app.modeEditor')}
             </button>
             <button
               role="tab"
               aria-selected={workspaceMode === 'agent'}
               className={`mode-seg-btn ${workspaceMode === 'agent' ? 'active' : ''}`}
               onClick={() => setWorkspaceMode('agent')}
-              title="AGENT 模式：AI 主导，自主调用工具完成任务"
+              title={t('app.modeAgentTitle')}
             >
               <Sparkles size={13} /> AGENT
             </button>
@@ -350,14 +355,14 @@ export default function App() {
                 conn: connections[0] ?? ({} as ConnectionListItem),
               })
             }
-            title="数据库迁移：结构/数据 diff + 跨库迁移"
+            title={t('app.modeMigrationTitle')}
           >
             <ArrowLeftRight size={15} />
           </button>
           <button
             className="btn-icon sidebar-settings-btn"
             onClick={() => setSettingsOpen(true)}
-            title="设置"
+            title={t('app.settingsTitle')}
           >
             <SettingsIcon size={15} />
           </button>
@@ -405,7 +410,7 @@ export default function App() {
                         )}
                       </span>
                       {/* 脏标记：未保存修改时显示实心圆点 */}
-                      {dirty && <span className="tab-dirty-dot" title="有未保存的修改" />}
+                      {dirty && <span className="tab-dirty-dot" title={t('app.tabDirty')} />}
                       <button
                         className="tab-close"
                         onClick={(e) => {
@@ -470,37 +475,37 @@ export default function App() {
               <div className="welcome-card">
                 <img className="welcome-logo" src={logoUrl} alt="AI DB Client" />
                 <h1>AI DB Client</h1>
-                <p className="welcome-subtitle">开源的 AI 原生数据库工具</p>
+                <p className="welcome-subtitle">{t('app.welcomeSubtitle')}</p>
                 <div className="welcome-features">
                   <div className="feature">
                     <span className="feature-icon">
                       <Plug size={20} />
                     </span>
-                    <span>多数据库连接（MySQL / PostgreSQL / SQLite / Redis）</span>
+                    <span>{t('app.welcomeFeature1')}</span>
                   </div>
                   <div className="feature">
                     <span className="feature-icon">
                       <Table2 size={20} />
                     </span>
-                    <span>点击表名查看数据，右键查看设计/DDL</span>
+                    <span>{t('app.welcomeFeatureViewData')}</span>
                   </div>
                   <div className="feature">
                     <span className="feature-icon">
                       <FileText size={20} />
                     </span>
-                    <span>SQL 编辑器 + AI 补全（编辑器模式）</span>
+                    <span>{t('app.welcomeFeatureEditor')}</span>
                   </div>
                   <div className="feature">
                     <span className="feature-icon">
                       <Bot size={20} />
                     </span>
-                    <span>AI AGENT：自然语言驱动，自主查询与分析数据（AGENT 模式）</span>
+                    <span>{t('app.welcomeFeatureAgent')}</span>
                   </div>
                 </div>
                 <p className="welcome-hint">
                   {connections.length === 0
-                    ? '点击左侧「+」创建你的第一个连接'
-                    : '右键点击左侧连接 → 「SQL 查询（编辑器）」或「AI AGENT」开始'}
+                    ? t('app.welcomeNoConnHint')
+                    : t('app.welcomeHasConnHint')}
                 </p>
               </div>
             </div>
@@ -550,7 +555,7 @@ export default function App() {
               setTabMenu(null)
             }}
           >
-            <X size={12} /> 关闭当前
+            <X size={12} /> {t('app.tabMenuCloseCurrent')}
           </button>
           <div className="ctx-divider" />
           <button
@@ -561,7 +566,7 @@ export default function App() {
               setTabMenu(null)
             }}
           >
-            关闭其他
+            {t('app.tabMenuCloseOthers')}
           </button>
           <button
             className="ctx-item"
@@ -571,7 +576,7 @@ export default function App() {
               setTabMenu(null)
             }}
           >
-            关闭未编辑
+            {t('app.tabMenuCloseUnedited')}
           </button>
           <div className="ctx-divider" />
           <button
@@ -582,7 +587,7 @@ export default function App() {
               setTabMenu(null)
             }}
           >
-            关闭左侧
+            {t('app.tabMenuCloseLeft')}
           </button>
           <button
             className="ctx-item"
@@ -592,7 +597,7 @@ export default function App() {
               setTabMenu(null)
             }}
           >
-            关闭右侧
+            {t('app.tabMenuCloseRight')}
           </button>
           <div className="ctx-divider" />
           <button
@@ -603,7 +608,7 @@ export default function App() {
               setTabMenu(null)
             }}
           >
-            全部关闭
+            {t('app.tabMenuCloseAll')}
           </button>
         </div>
       )}

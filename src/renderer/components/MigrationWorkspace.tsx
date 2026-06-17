@@ -20,11 +20,18 @@ import {
   ChevronRight,
   ChevronDown,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { translateReason } from '@shared/i18n/composite'
 import { useMigrationStore } from '../store/migration'
 import { useConnectionStore, DB_LABELS } from '../store/connections'
 import { api, type GeneratedStatement, type ConnectionListItem } from '../api'
 
-const STEP_LABELS = ['选择数据库', '选择表与设置', '生成脚本', '执行迁移'] as const
+const STEP_LABEL_KEYS = [
+  'migrationWizard.stepSelectDb',
+  'migrationWizard.stepSelectTables',
+  'migrationWizard.stepGenerate',
+  'migrationWizard.stepExecute',
+] as const
 
 const RISK_CLASS: Record<GeneratedStatement['riskLevel'], string> = {
   safe: 'risk-safe',
@@ -33,6 +40,7 @@ const RISK_CLASS: Record<GeneratedStatement['riskLevel'], string> = {
 }
 
 export function MigrationWorkspace() {
+  const { t } = useTranslation()
   const store = useMigrationStore()
   const { connections, loadConnections } = useConnectionStore()
   const [planName, setPlanName] = useState('')
@@ -46,7 +54,7 @@ export function MigrationWorkspace() {
     <div className="migration-workspace">
       {/* 步骤指示器 */}
       <div className="migration-stepper">
-        {STEP_LABELS.map((label, i) => {
+        {STEP_LABEL_KEYS.map((key, i) => {
           const n = (i + 1) as 1 | 2 | 3 | 4
           return (
             <div
@@ -55,7 +63,7 @@ export function MigrationWorkspace() {
               onClick={() => store.step >= n && store.setStep(n)}
             >
               <span className="step-number">{store.step > n ? '✓' : n}</span>
-              <span className="step-label">{label}</span>
+              <span className="step-label">{t(key)}</span>
               {n < 4 && <ChevronRight size={14} className="step-sep" />}
             </div>
           )
@@ -86,6 +94,7 @@ export function MigrationWorkspace() {
 // ===== 步骤1：选择源库 + 目标库 =====
 function Step1Databases({ connections }: { connections: ConnectionListItem[] }) {
   const store = useMigrationStore()
+  const { t } = useTranslation()
   const { states, connectDb, loadSchemas } = useConnectionStore()
 
   const sourceState = store.sourceConnId ? states[store.sourceConnId] : undefined
@@ -113,7 +122,7 @@ function Step1Databases({ connections }: { connections: ConnectionListItem[] }) 
     <div className="step-content">
       <div className="migration-pickers">
         <DbPicker
-          title="源数据库"
+          title={t('migrationWizard.sourceDb')}
           connections={connections}
           connId={store.sourceConnId}
           schema={store.sourceSchema}
@@ -126,7 +135,7 @@ function Step1Databases({ connections }: { connections: ConnectionListItem[] }) 
           <ArrowRight size={20} />
         </div>
         <DbPicker
-          title="目标数据库"
+          title={t('migrationWizard.targetDb')}
           connections={connections}
           connId={store.targetConnId}
           schema={store.targetSchema}
@@ -142,7 +151,7 @@ function Step1Databases({ connections }: { connections: ConnectionListItem[] }) 
           disabled={!canNext}
           onClick={() => void store.setStep(2)}
         >
-          下一步：选择表 <ChevronRight size={15} />
+          {t('migrationWizard.nextSelectTables')} <ChevronRight size={15} />
         </button>
       </div>
     </div>
@@ -160,17 +169,18 @@ function DbPicker(props: {
   onConnChange: (id: string) => void
   onSchemaChange: (s: string) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="db-picker">
       <h4>{props.title}</h4>
       <div className="form-field">
-        <label>连接</label>
+        <label>{t('migrationWizard.conn')}</label>
         <select
           className="settings-select"
           value={props.connId}
           onChange={(e) => props.onConnChange(e.target.value)}
         >
-          <option value="">选择连接…</option>
+          <option value="">{t('migrationWizard.selectConn')}</option>
           {props.connections.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}（{DB_LABELS[c.type]}）
@@ -186,7 +196,7 @@ function DbPicker(props: {
             value={props.schema}
             onChange={(e) => props.onSchemaChange(e.target.value)}
           >
-            <option value="">（默认）</option>
+            <option value="">{t('migrationWizard.defaultSchema')}</option>
             {props.schemas.map((s) => (
               <option key={s.name} value={s.name}>
                 {s.name}
@@ -196,7 +206,9 @@ function DbPicker(props: {
         </div>
       )}
       {props.state?.error && <div className="db-error">{props.state.error}</div>}
-      {props.state?.connecting && <div className="db-status">连接中…</div>}
+      {props.state?.connecting && (
+        <div className="db-status">{t('migrationWizard.connecting')}</div>
+      )}
     </div>
   )
 }
@@ -204,6 +216,7 @@ function DbPicker(props: {
 // ===== 步骤2：选择表 + 设置 =====
 function Step2Tables() {
   const store = useMigrationStore()
+  const { t } = useTranslation()
   const { states, loadTables } = useConnectionStore()
 
   const sourceState = store.sourceConnId ? states[store.sourceConnId] : undefined
@@ -222,10 +235,10 @@ function Step2Tables() {
     if (sourceTables.length > 0 && store.tables.length === 0) {
       store.setTables(
         sourceTables
-          .filter((t) => t.type === 'table')
-          .map((t) => ({
-            sourceTable: t.name,
-            targetTable: t.name,
+          .filter((tbl) => tbl.type === 'table')
+          .map((tbl) => ({
+            sourceTable: tbl.name,
+            targetTable: tbl.name,
             selected: false,
             structureItems: [],
             dataItems: [],
@@ -245,67 +258,71 @@ function Step2Tables() {
             checked={store.includeData}
             onChange={(e) => store.setIncludeData(e.target.checked)}
           />
-          <span>启用数据迁移</span>
+          <span>{t('migrationWizard.enableDataMigration')}</span>
         </label>
         {store.includeData && (
           <div className="form-field">
-            <label>数据策略</label>
+            <label>{t('migrationWizard.dataStrategy')}</label>
             <select
               className="settings-select"
               value={store.strategy}
               onChange={(e) => store.setStrategy(e.target.value as never)}
             >
-              <option value="incremental">增量（PK 新增/删除，不修改）</option>
-              <option value="fullReplace">全量替换（清空 + 重灌）</option>
-              <option value="insertOnly">仅新增（不删除目标多余）</option>
+              <option value="incremental">{t('migrationWizard.strategyIncremental')}</option>
+              <option value="fullReplace">{t('migrationWizard.strategyFullReplace')}</option>
+              <option value="insertOnly">{t('migrationWizard.strategyInsertOnly')}</option>
             </select>
           </div>
         )}
         <div className="form-field">
-          <label>事务</label>
+          <label>{t('migrationWizard.transaction')}</label>
           <select
             className="settings-select"
             value={store.transaction}
             onChange={(e) => store.setTransaction(e.target.value as never)}
           >
-            <option value="single">每表单事务（推荐）</option>
-            <option value="perStatement">逐语句（大表分批）</option>
-            {!store.includeData && <option value="none">无事务（仅 DDL）</option>}
+            <option value="single">{t('migrationWizard.txSingle')}</option>
+            <option value="perStatement">{t('migrationWizard.txPerStatement')}</option>
+            {!store.includeData && <option value="none">{t('migrationWizard.txNone')}</option>}
           </select>
         </div>
       </div>
 
       {store.includeData && (
         <div className="migration-hint migration-hint-warning">
-          ⚠ 不做行级 UPDATE（产品边界）。数据迁移强制事务。
+          {t('migrationWizard.noRowUpdateNote')}
         </div>
       )}
 
       <div className="table-select-list">
         <div className="table-select-header">
-          <span>源表（{sourceTables.filter((t) => t.type === 'table').length} 张）</span>
-          <span>目标表名</span>
-          <span>已选 {selectedCount} 张</span>
+          <span>
+            {t('migrationWizard.sourceTables', {
+              count: sourceTables.filter((x) => x.type === 'table').length,
+            })}
+          </span>
+          <span>{t('migrationWizard.targetTableName')}</span>
+          <span>{t('migrationWizard.selectedTables', { count: selectedCount })}</span>
         </div>
-        {store.tables.map((t) => (
+        {store.tables.map((tbl) => (
           <label
-            key={t.sourceTable}
-            className={`table-select-row ${t.selected ? 'table-select-row-checked' : ''}`}
+            key={tbl.sourceTable}
+            className={`table-select-row ${tbl.selected ? 'table-select-row-checked' : ''}`}
           >
             <input
               type="checkbox"
-              checked={t.selected}
-              onChange={() => store.toggleTable(t.sourceTable)}
+              checked={tbl.selected}
+              onChange={() => store.toggleTable(tbl.sourceTable)}
             />
             <span className="table-source-name">
-              <Database size={13} /> {t.sourceTable}
+              <Database size={13} /> {tbl.sourceTable}
             </span>
             <input
               className="table-target-input"
-              value={t.targetTable}
-              onChange={(e) => store.setTargetTableName(t.sourceTable, e.target.value)}
-              disabled={!t.selected}
-              placeholder="目标表名"
+              value={tbl.targetTable}
+              onChange={(e) => store.setTargetTableName(tbl.sourceTable, e.target.value)}
+              disabled={!tbl.selected}
+              placeholder={t('migrationWizard.targetPlaceholder')}
             />
           </label>
         ))}
@@ -313,14 +330,16 @@ function Step2Tables() {
 
       <div className="step-footer">
         <button className="btn btn-secondary" onClick={() => store.setStep(1)}>
-          上一步
+          {t('migrationWizard.prevStep')}
         </button>
         <button
           className="btn btn-primary"
           disabled={selectedCount === 0 || store.loading}
           onClick={() => void store.generateAll()}
         >
-          {store.loading ? '生成中…' : `生成脚本（${selectedCount} 张表）`}
+          {store.loading
+            ? t('migrationWizard.generating')
+            : t('migrationWizard.generateScript', { count: selectedCount })}
         </button>
       </div>
     </div>
@@ -330,6 +349,7 @@ function Step2Tables() {
 // ===== 步骤3：生成脚本（按表分组） =====
 function Step3Script(props: { planName: string; setPlanName: (v: string) => void }) {
   const store = useMigrationStore()
+  const { t } = useTranslation()
   const tableNames = Object.keys(store.scriptByTable)
   const totalStmts = Object.values(store.scriptByTable).reduce((s, arr) => s + arr.length, 0)
   const totalSelected = Object.values(store.selectedByTable).reduce((s, arr) => s + arr.length, 0)
@@ -371,7 +391,7 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
           <div className="warnings-header" onClick={() => setWarningsExpanded(!warningsExpanded)}>
             {warningsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <AlertTriangle size={14} />
-            <h4>跨库类型映射告警（{store.warnings.length}）</h4>
+            <h4>{t('migrationWizard.typeMapWarnings', { count: store.warnings.length })}</h4>
           </div>
           {warningsExpanded &&
             store.warnings.map((w, i) => (
@@ -381,7 +401,7 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
                 <span className="warning-types">
                   {w.fromType} → {w.toType}
                 </span>
-                <span className="warning-reason">{w.reason}</span>
+                <span className="warning-reason">{translateReason(w.reason, t)}</span>
               </div>
             ))}
         </div>
@@ -390,23 +410,28 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
       {/* 工具栏 */}
       <div className="script-toolbar">
         <span className="script-count">
-          {tableNames.length} 张表 · {totalStmts} 条语句
+          {t('migrationWizard.scriptSummary', { tables: tableNames.length, stmts: totalStmts })}
         </span>
-        <span className="script-selected">已选 {totalSelected}</span>
+        <span className="script-selected">
+          {t('migrationWizard.scriptSelected', { count: totalSelected })}
+        </span>
         <div className="script-toolbar-spacer" />
         <input
           className="plan-name-input"
-          placeholder="方案名称"
+          placeholder={t('migrationWizard.planNamePlaceholder')}
           value={props.planName}
           onChange={(e) => props.setPlanName(e.target.value)}
         />
         <button
           className="btn btn-text btn-sm"
           onClick={() =>
-            void store.savePlan(props.planName || `迁移 ${new Date().toLocaleString()}`)
+            void store.savePlan(
+              props.planName ||
+                t('migrationWizard.savePlanFallback', { date: new Date().toLocaleString() }),
+            )
           }
         >
-          <Save size={14} /> 保存方案
+          <Save size={14} /> {t('migrationWizard.savePlan')}
         </button>
         <div className="plans-popover-wrapper" ref={plansRef}>
           <button
@@ -416,7 +441,7 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
               if (!showPlansLocal) void store.loadPlans()
             }}
           >
-            方案库 ({store.plans.length})
+            {t('migrationWizard.planLibrary', { count: store.plans.length })}
           </button>
           {showPlansLocal && store.plans.length > 0 && (
             <div className="plans-popover">
@@ -424,7 +449,9 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
                 <div key={p.id} className="plan-item">
                   <div className="plan-item-info">
                     <span className="plan-name">{p.name}</span>
-                    <span className="plan-meta">{p.pairs.length} 张表</span>
+                    <span className="plan-meta">
+                      {t('migrationWizard.planTables', { count: p.pairs.length })}
+                    </span>
                   </div>
                   <button
                     className="btn btn-text btn-sm"
@@ -433,7 +460,7 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
                       setShowPlansLocal(false)
                     }}
                   >
-                    加载
+                    {t('migrationWizard.load')}
                   </button>
                   <button
                     className="btn btn-text btn-sm btn-danger-text"
@@ -447,7 +474,7 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
           )}
         </div>
         <button className="btn btn-text btn-sm" onClick={handleDownload}>
-          <Download size={13} /> 导出 .sql
+          <Download size={13} /> {t('migrationWizard.exportSql')}
         </button>
       </div>
 
@@ -460,14 +487,14 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
 
       <div className="step-footer">
         <button className="btn btn-secondary" onClick={() => store.setStep(2)}>
-          上一步
+          {t('migrationWizard.prevStep')}
         </button>
         <button
           className="btn btn-warning"
           disabled={store.executing || totalSelected === 0}
           onClick={() => void store.execute()}
         >
-          <Play size={15} /> 执行迁移（{totalSelected} 条）
+          <Play size={15} /> {t('migrationWizard.executeMigration', { count: totalSelected })}
         </button>
       </div>
     </div>
@@ -477,6 +504,7 @@ function Step3Script(props: { planName: string; setPlanName: (v: string) => void
 /** 单张表的脚本折叠组 */
 function TableScriptGroup({ tableName }: { tableName: string }) {
   const store = useMigrationStore()
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(true)
   const stmts = store.scriptByTable[tableName] ?? []
   const selected = store.selectedByTable[tableName] ?? []
@@ -498,7 +526,7 @@ function TableScriptGroup({ tableName }: { tableName: string }) {
         <Database size={14} />
         <span className="table-group-name">{tableName}</span>
         <span className="table-group-count">
-          {stmts.length} 条 · 已选 {selected.length}
+          {t('migrationWizard.stmtsSelected', { total: stmts.length, count: selected.length })}
         </span>
         <button
           className="btn btn-text btn-sm"
@@ -507,7 +535,9 @@ function TableScriptGroup({ tableName }: { tableName: string }) {
             toggleAll()
           }}
         >
-          {selected.length === stmts.length ? '全不选' : '全选'}
+          {selected.length === stmts.length
+            ? t('migrationWizard.selectAllToggle')
+            : t('migrationWizard.selectAllToggleAlt')}
         </button>
       </div>
       {expanded && (
@@ -535,6 +565,7 @@ function TableScriptGroup({ tableName }: { tableName: string }) {
 // ===== 步骤4：执行结果 =====
 function Step4Result() {
   const store = useMigrationStore()
+  const { t } = useTranslation()
   if (!store.batchResult) return null
   const { results, totalSuccess, totalFailed, durationMs } = store.batchResult
 
@@ -545,7 +576,11 @@ function Step4Result() {
       >
         {totalFailed === 0 ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
         <span>
-          迁移完成：成功 {totalSuccess} 张表，失败 {totalFailed} 张表，总耗时 {durationMs}ms
+          {t('migrationWizard.migrationComplete', {
+            success: totalSuccess,
+            failed: totalFailed,
+            ms: durationMs,
+          })}
         </span>
       </div>
 
@@ -560,14 +595,21 @@ function Step4Result() {
               <Database size={14} />
               <span className="exec-table-name">{tableName}</span>
               <span className="exec-table-meta">
-                {result.success ? `成功 ${result.applied} 条` : '失败'} · {result.durationMs}ms
+                {result.success
+                  ? t('migrationWizard.batchResult', {
+                      applied: result.applied,
+                      ms: result.durationMs,
+                    })
+                  : t('migrationWizard.batchFailed', { ms: result.durationMs })}
               </span>
             </div>
             {result.failedItems && result.failedItems.length > 0 && (
               <div className="exec-failed-items">
                 {result.failedItems.map((f, i) => (
                   <div key={i} className="failed-item">
-                    <span className="failed-item-sql">{f.sql.slice(0, 100) || '(空)'}</span>
+                    <span className="failed-item-sql">
+                      {f.sql.slice(0, 100) || t('migrationWizard.failedEmptySql')}
+                    </span>
                     <span className="failed-item-err">{f.error}</span>
                   </div>
                 ))}
@@ -579,10 +621,10 @@ function Step4Result() {
 
       <div className="step-footer">
         <button className="btn btn-secondary" onClick={() => store.setStep(3)}>
-          返回脚本
+          {t('migrationWizard.backToScript')}
         </button>
         <button className="btn btn-primary" onClick={() => store.reset()}>
-          新建迁移
+          {t('migrationWizard.newMigration')}
         </button>
       </div>
     </div>

@@ -6,6 +6,7 @@
  * 步骤3：生成脚本（按表分组）+ 勾选执行项
  * 步骤4：执行进度 + 结果
  */
+import i18next from 'i18next'
 import { create } from 'zustand'
 import { api } from '../api'
 import type {
@@ -160,7 +161,7 @@ export const useMigrationStore = create<MigrationStore>((set, get) => ({
     } = get()
     const selectedTables = tables.filter((t) => t.selected)
     if (selectedTables.length === 0) {
-      set({ error: '请至少勾选一张表' })
+      set({ error: i18next.t('migrationWizard.selectAtLeastOneTable') })
       return
     }
     set({ loading: true, error: null, scriptByTable: {}, selectedByTable: {}, warnings: [] })

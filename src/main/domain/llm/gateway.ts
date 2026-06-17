@@ -13,6 +13,7 @@ import type { ChatRequest, ChatResponse } from '@shared/types/llm'
 import type { DefaultModelKind, ModelDefault } from '@shared/types/settings'
 import { getAllSettings } from '@main/infra/storage/settings-dao'
 import { llmProviderDao } from '@main/infra/storage/llm-provider-dao'
+import { tMain } from '@main/i18n'
 import { llmUsageDao } from '@main/infra/storage/llm-usage-dao'
 import { logger } from '@main/infra/logger'
 import {
@@ -74,7 +75,7 @@ function readModelDefault(kind: DefaultModelKind): ModelDefault | null {
 async function resolveApiKey(providerId: string): Promise<string> {
   const apiKey = await llmProviderDao.getApiKey(providerId)
   if (!apiKey) {
-    throw new Error('该 Provider 未配置 API Key')
+    throw new Error(tMain('errors.llm.noApiKey'))
   }
   return apiKey
 }
@@ -97,10 +98,10 @@ function resolveProviderAndModel(
   // 1：显式 providerId（model 未指定时用该 provider 的第一个模型，与原行为一致）
   if (providerId) {
     const provider = llmProviderDao.get(providerId)
-    if (!provider) throw new Error('指定的 Provider 不存在')
+    if (!provider) throw new Error(tMain('errors.llm.providerNotFound'))
     const resolvedModel = model ?? provider.models[0]
     if (!resolvedModel) {
-      throw new Error(`Provider "${provider.name}" 未配置模型`)
+      throw new Error(tMain('errors.llm.providerNoModel', { name: provider.name }))
     }
     return { provider, model: resolvedModel }
   }
@@ -117,11 +118,11 @@ function resolveProviderAndModel(
   // 3：默认 provider + 第一个模型兜底
   const provider = llmProviderDao.getDefault()
   if (!provider) {
-    throw new Error('未配置 LLM Provider，请先在设置中添加')
+    throw new Error(tMain('errors.llm.noProvider'))
   }
   const resolvedModel = model ?? provider.models[0]
   if (!resolvedModel) {
-    throw new Error(`Provider "${provider.name}" 未配置模型`)
+    throw new Error(tMain('errors.llm.providerNoModel', { name: provider.name }))
   }
   return { provider, model: resolvedModel }
 }

@@ -1,13 +1,13 @@
 /**
  * 应用设置 store（Zustand）
  *
- * 加载/更新应用设置，并把主题偏好应用到 <html data-theme>。
+ * 加载/更新应用设置，并把主题偏好同时应用到：
+ * - <html data-theme>（解析后的实际值，驱动 CSS 变量切换深/浅色调色板）；
+ * - 主进程 nativeTheme.themeSource（通过 theme:apply IPC，使 Win/Linux
+ *   原生标题栏、系统 select 弹层等 OS 绘制的控件配色与应用一致）。
  *
- * 说明：本次仅实现「主题偏好持久化」——
- * - 偏好（深/浅/跟随系统）写入 app_settings；
- * - <html data-theme> 会被设为解析后的值（system 时读 prefers-color-scheme）；
- * - 但暂未定义浅色调色板，故 data-theme=light 时视觉仍为深色。
- *   待后续补齐浅色 CSS 变量后即可即时生效，无需改动此 store。
+ * system 模式下订阅 prefers-color-scheme，系统切换深浅时实时跟随，
+ * 无需重启应用。
  */
 import { create } from 'zustand'
 import { api } from '../api'
@@ -35,10 +35,44 @@ function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
   return prefersLight ? 'light' : 'dark'
 }
 
-/** 把解析后的主题写到 <html data-theme>。 */
+/**
+ * 把主题偏好同时应用到渲染层与原生层。
+ * - <html data-theme> 写解析后的值（light/dark），驱动 CSS 调色板；
+ * - theme:apply 写原生 ThemeMode（system/light/dark），让 nativeTheme
+ *   在 system 模式下自行跟随系统，无需渲染层代理解析。
+ */
 function applyTheme(mode: ThemeMode): void {
-  if (typeof document === 'undefined') return
-  document.documentElement.setAttribute('data-theme', resolveTheme(mode))
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', resolveTheme(mode))
+  }
+  // 失败不应阻塞主题切换（渲染层仍已生效）
+  api['theme:apply'](mode).catch(() => {})
+}
+
+/**
+ * system 模式下监听系统深浅变化：仅更新 <html data-theme>，
+ * 主进程 nativeTheme.themeSource 已是 'system' 会自行跟随，无需再通知。
+ * 模块级单例，只注册一次。
+ */
+let systemThemeListenerBound = false
+function ensureSystemThemeListener(): void {
+  if (systemThemeListenerBound || typeof window === 'undefined' || !window.matchMedia) return
+  const mql = window.matchMedia('(prefers-color-scheme: light)')
+  const onChange = () => {
+    const { settings } = useSettingsStore.getState()
+    // 仅 system 偏好才需要跟随；显式 light/dark 不受系统影响
+    if (settings.theme === 'system') {
+      document.documentElement.setAttribute('data-theme', resolveTheme('system'))
+    }
+  }
+  // addEventListener 在较新 Chromium 可用；老版本回退 addListener
+  if (typeof mql.addEventListener === 'function') {
+    mql.addEventListener('change', onChange)
+  } else {
+    // 旧 API（Safari < 14）；Electron 现代 Chromium 走不到此分支
+    mql.addListener(onChange)
+  }
+  systemThemeListenerBound = true
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -50,6 +84,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       const settings = await api['settings:getAll']()
       set({ settings, loaded: true })
       applyTheme(settings.theme)
+      ensureSystemThemeListener()
     } catch {
       // 设置加载失败不应阻塞应用启动
       set({ loaded: true })

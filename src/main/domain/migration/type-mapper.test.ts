@@ -81,7 +81,7 @@ describe('mapColumnForTarget - json 降级', () => {
     const src = col({ dataType: 'json', unifiedType: 'json', length: undefined })
     const { column, warnings } = mapColumnForTarget(src, 'sqlite')
     expect(column.dataType).toBe('text')
-    expect(warnings.some((w) => w.reason.includes('JSON'))).toBe(true)
+    expect(warnings.some((w) => w.reason.includes('jsonDowngrade'))).toBe(true)
   })
 
   it('PG/MySQL 有原生 JSON → 不告警', () => {
@@ -97,7 +97,7 @@ describe('mapColumnForTarget - uuid / boolean 降级', () => {
     expect(mapColumnForTarget(src, 'postgres').column.dataType).toBe('uuid')
     const mysql = mapColumnForTarget(src, 'mysql')
     expect(mysql.column.dataType).toBe('text')
-    expect(mysql.warnings.some((w) => w.reason.includes('UUID'))).toBe(true)
+    expect(mysql.warnings.some((w) => w.reason.includes('uuidDowngrade'))).toBe(true)
     expect(mapColumnForTarget(src, 'sqlite').column.dataType).toBe('text')
   })
 
@@ -119,7 +119,9 @@ describe('mapColumnForTarget - 自增 / datetime 告警', () => {
       length: undefined,
     })
     const { warnings } = mapColumnForTarget(src, 'postgres')
-    expect(warnings.some((w) => w.severity === 'info' && w.reason.includes('自增'))).toBe(true)
+    expect(
+      warnings.some((w) => w.severity === 'info' && w.reason.includes('autoIncrementDiff')),
+    ).toBe(true)
   })
 
   it('datetime 列产生 info 告警', () => {

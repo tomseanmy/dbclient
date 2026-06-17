@@ -6,6 +6,8 @@
  */
 import { useState } from 'react'
 import { AlertTriangle, ShieldAlert } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { translateReason } from '@shared/i18n/composite'
 import type { SecurityCheckResult } from '../api'
 
 interface ConfirmDialogProps {
@@ -16,6 +18,7 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ check, sql, onConfirm, onCancel }: ConfirmDialogProps) {
+  const { t } = useTranslation()
   const [keyword, setKeyword] = useState('')
   const isHighest = check.requireKeywordConfirm
 
@@ -32,19 +35,21 @@ export function ConfirmDialog({ check, sql, onConfirm, onCancel }: ConfirmDialog
           ) : (
             <AlertTriangle size={20} color="var(--warning)" />
           )}
-          <h3>{isHighest ? '高危操作确认' : '操作确认'}</h3>
+          <h3>{isHighest ? t('confirm.highestTitle') : t('confirm.title')}</h3>
         </div>
 
-        <p className="confirm-reason">{check.reason}</p>
+        <p className="confirm-reason">{translateReason(check.reason, t)}</p>
 
         <div className="confirm-analysis">
           {check.analysis.reasons.map((r, i) => (
             <div key={i} className="confirm-reason-item">
-              • {r}
+              • {translateReason(r, t)}
             </div>
           ))}
           {check.analysis.tables.length > 0 && (
-            <div className="confirm-tables">涉及表: {check.analysis.tables.join(', ')}</div>
+            <div className="confirm-tables">
+              {t('confirm.tablesInvolved')}: {check.analysis.tables.join(', ')}
+            </div>
           )}
         </div>
 
@@ -53,7 +58,8 @@ export function ConfirmDialog({ check, sql, onConfirm, onCancel }: ConfirmDialog
         {isHighest && (
           <div className="confirm-keyword-section">
             <label>
-              此操作不可逆。请输入 <code>{check.confirmKeyword}</code> 以确认：
+              {t('confirm.keywordPrompt')} <code>{check.confirmKeyword}</code>
+              {t('confirm.keywordPromptSuffix')}
             </label>
             <input
               value={keyword}
@@ -66,14 +72,14 @@ export function ConfirmDialog({ check, sql, onConfirm, onCancel }: ConfirmDialog
 
         <div className="modal-actions">
           <button className="btn btn-secondary" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             className="btn btn-danger"
             onClick={() => onConfirm(isHighest ? keyword : undefined)}
             disabled={isHighest && keyword !== check.confirmKeyword}
           >
-            {isHighest ? '确认执行' : '执行'}
+            {isHighest ? t('confirm.confirmExecute') : t('common.execute')}
           </button>
         </div>
       </div>

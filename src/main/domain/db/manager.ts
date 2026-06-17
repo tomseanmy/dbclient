@@ -10,6 +10,7 @@ import type { ConnectionConfig } from '@shared/types/connection'
 import { createDriver, type DbDriver, type RedisDriver } from './driver'
 import { getCredentialStore } from '@main/infra/credential'
 import { schemaCacheDao } from '@main/infra/storage/schema-cache-dao'
+import { tMain } from '@main/i18n'
 
 interface ActiveConnection {
   config: ConnectionConfig
@@ -43,7 +44,7 @@ export async function disconnect(connectionId: string): Promise<void> {
 export function getDriver(connectionId: string): DbDriver {
   const entry = pool.get(connectionId)
   if (!entry) {
-    throw new Error(`连接 ${connectionId} 未建立，请先调用 connect`)
+    throw new Error(tMain('errors.db.notConnected', { id: connectionId }))
   }
   return entry.driver
 }
@@ -52,7 +53,7 @@ export function getDriver(connectionId: string): DbDriver {
 export function getConfig(connectionId: string): ConnectionConfig {
   const entry = pool.get(connectionId)
   if (!entry) {
-    throw new Error(`连接 ${connectionId} 未建立，请先调用 connect`)
+    throw new Error(tMain('errors.db.notConnected', { id: connectionId }))
   }
   return entry.config
 }
@@ -61,7 +62,7 @@ export function getConfig(connectionId: string): ConnectionConfig {
 export function getRedisDriver(connectionId: string): RedisDriver {
   const driver = getDriver(connectionId)
   if (!('getRedisOverview' in driver)) {
-    throw new Error('该连接不是 Redis 类型')
+    throw new Error(tMain('errors.db.notRedis'))
   }
   return driver as RedisDriver
 }

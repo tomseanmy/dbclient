@@ -18,4 +18,11 @@ export function registerAppHandlers(): void {
     platform: process.platform,
     userDataPath: app.getPath('userData'),
   }))
+
+  // 重启应用：relaunch 后立即退出当前实例（切换语言后让用户主动触发）
+  registerHandler('app:relaunch', () => {
+    app.relaunch()
+    app.exit(0)
+    return { ok: true as const }
+  })
 }

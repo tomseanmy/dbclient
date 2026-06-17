@@ -9,6 +9,7 @@
  * 数据源来自 sql-completion 服务（当前激活连接的 schema）。
  * 全局只注册一次（按语言 sql）。
  */
+import i18next from 'i18next'
 import type { languages, CancellationToken } from 'monaco-editor'
 import { getCompletionSchema, preloadColumns } from '../services/sql-completion'
 
@@ -176,7 +177,7 @@ export function registerSqlCompletion(monaco: typeof import('monaco-editor')): v
                 ? monaco.languages.CompletionItemKind.Unit
                 : monaco.languages.CompletionItemKind.Struct,
             insertText: t.name,
-            detail: t.type === 'view' ? '视图' : '表',
+            detail: t.type === 'view' ? i18next.t('sql.detailView') : i18next.t('sql.detailTable'),
             sortText: '1' + t.name,
             range,
           })

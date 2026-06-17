@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from 'react'
 import { CheckCircle, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   api,
   type ConnectionInput,
@@ -13,6 +14,7 @@ import {
   type Environment,
 } from '../api'
 import { DB_LABELS, DEFAULT_PORTS, ENV_LABELS, ENV_COLORS } from '../store/connections'
+import { parseIpcError } from '../lib/ipc-error'
 
 interface ConnectionFormProps {
   /** 编辑时传入现有连接，新建时为 null */
@@ -25,6 +27,7 @@ const DB_TYPES: DbType[] = ['mysql', 'postgres', 'sqlite', 'redis']
 const ENVIRONMENTS: Environment[] = ['dev', 'staging', 'prod']
 
 export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [type, setType] = useState<DbType>(initial?.type ?? 'mysql')
   const [host, setHost] = useState(initial?.host ?? 'localhost')
@@ -86,11 +89,12 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
       setTestResult(result)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      // SQLite 文件不存在的特殊处理
-      if (msg.includes('数据库文件不存在')) {
+      const parsed = parseIpcError(err)
+      // SQLite 文件不存在的特殊处理（按结构化错误名识别）
+      if (parsed.name === 'FileNotFound') {
         setTestResult({
           success: false,
-          message: msg,
+          message: parsed.message,
           fileNotFound: true,
         })
       } else {
@@ -103,7 +107,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('请输入连接名称')
+      setError(t('connection.nameRequired'))
       return
     }
     setSaving(true)
@@ -128,7 +132,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
     <div className="connection-form-modal">
       <div className="connection-form-modal-body">
         <div className="form-field">
-          <label>类型</label>
+          <label>{t('connection.type')}</label>
           <div className="type-selector">
             {DB_TYPES.map((t) => (
               <button
@@ -144,12 +148,16 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
         </div>
 
         <div className="form-field">
-          <label>名称 *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="我的数据库" />
+          <label>{t('connection.name')} *</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('connection.namePlaceholder')}
+          />
         </div>
 
         <div className="form-field">
-          <label>环境</label>
+          <label>{t('connection.environment')}</label>
           <div className="env-selector">
             {ENVIRONMENTS.map((env) => (
               <button
@@ -173,7 +181,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
           <>
             <div className="form-row">
               <div className="form-field">
-                <label>主机</label>
+                <label>{t('connection.host')}</label>
                 <input
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
@@ -181,7 +189,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
                 />
               </div>
               <div className="form-field form-field-port">
-                <label>端口</label>
+                <label>{t('connection.port')}</label>
                 <input
                   type="number"
                   value={port}
@@ -191,7 +199,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
             </div>
 
             <div className="form-field">
-              <label>用户名</label>
+              <label>{t('connection.username')}</label>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -200,7 +208,10 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
             </div>
 
             <div className="form-field">
-              <label>密码 {initial && <span className="hint">（留空保持不变）</span>}</label>
+              <label>
+                {t('connection.password')}{' '}
+                {initial && <span className="hint">{t('connection.passwordKeepHint')}</span>}
+              </label>
               <input
                 type="password"
                 value={password}
@@ -212,7 +223,13 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
         )}
 
         <div className="form-field">
-          <label>{isSqlite ? '数据库文件路径' : type === 'redis' ? 'DB Index' : '数据库名'}</label>
+          <label>
+            {isSqlite
+              ? t('connection.dbFilePath')
+              : type === 'redis'
+                ? t('connection.dbIndex')
+                : t('connection.dbName')}
+          </label>
           <input
             value={database}
             onChange={(e) => setDatabase(e.target.value)}
@@ -221,7 +238,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
         </div>
 
         <div className="form-field">
-          <label>颜色标记（可选）</label>
+          <label>{t('connection.colorTag')}</label>
           <input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#3b82f6" />
         </div>
 
@@ -241,7 +258,7 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
                 onClick={() => handleTest({ createFile: true })}
                 disabled={testing}
               >
-                创建并测试
+                {t('connection.createAndTest')}
               </button>
             )}
           </div>
@@ -250,17 +267,17 @@ export function ConnectionForm({ initial, onSave, onCancel }: ConnectionFormProp
 
       <div className="form-actions connection-form-modal-footer">
         <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>
-          取消
+          {t('common.cancel')}
         </button>
         <button
           className="btn btn-secondary"
           onClick={() => handleTest()}
           disabled={testing || saving}
         >
-          {testing ? '测试中…' : '测试连接'}
+          {testing ? t('connection.testing') : t('connection.testConnection')}
         </button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? '保存中…' : initial ? '保存' : '创建'}
+          {saving ? t('connection.saving') : initial ? t('common.save') : t('connection.create')}
         </button>
       </div>
     </div>

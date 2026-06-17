@@ -26,13 +26,13 @@ describe('analyzeSql', () => {
   it('UPDATE 无 WHERE 识别为 dangerous', () => {
     const r = analyzeSql('UPDATE users SET name = "bob"')
     expect(r.dangerLevel).toBe('dangerous')
-    expect(r.reasons.some((s) => s.includes('WHERE'))).toBe(true)
+    expect(r.reasons.some((s) => s.includes('missingWhere') && s.includes('UPDATE'))).toBe(true)
   })
 
   it('DELETE 无 WHERE 识别为 dangerous', () => {
     const r = analyzeSql('DELETE FROM users')
     expect(r.dangerLevel).toBe('dangerous')
-    expect(r.reasons.some((s) => s.includes('WHERE'))).toBe(true)
+    expect(r.reasons.some((s) => s.includes('missingWhere') && s.includes('DELETE'))).toBe(true)
   })
 
   it('DELETE 有 WHERE 识别为 write', () => {

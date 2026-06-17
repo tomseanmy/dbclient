@@ -9,6 +9,7 @@
  * - tool：工具调用 + 结果（按 toolCallId 配对，结果异步到达）
  * - assistant：文本回复（最终总结）
  */
+import { useTranslation } from 'react-i18next'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Bot, User, Database, Table2, AlertTriangle, Settings2 } from 'lucide-react'
 import { api } from '../api'
@@ -57,6 +58,7 @@ interface AgentWorkspaceProps {
 }
 
 export function AgentWorkspace({ connection, initialInput, onOpenSettings }: AgentWorkspaceProps) {
+  const { t } = useTranslation()
   const connections = useConnectionStore((s) => s.connections)
   const connectDb = useConnectionStore((s) => s.connectDb)
   const loadSchemas = useConnectionStore((s) => s.loadSchemas)
@@ -227,7 +229,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
         if (!item.connected && !item.connecting) {
           const ok = await connectDb(item.conn.id)
           if (!ok) {
-            setError(`连接「${item.conn.name}」失败，请检查连接配置`)
+            setError(t('agent.connectFailed', { name: item.conn.name }))
             return
           }
           // 连接成功后立即拉取 schema + 默认 schema 的表，
@@ -269,7 +271,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
         el.setSelectionRange(caret, caret)
       })
     },
-    [connectDb, ensureConnLoaded],
+    [connectDb, ensureConnLoaded, t],
   )
 
   // 订阅 agent 事件（封装在 hook 内，按 activeStreamId 过滤 + 卸载清理）
@@ -319,7 +321,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
       setLoading(false)
       setActiveStreamId(null)
       // 窗口失焦时提醒用户 AGENT 任务已完成
-      void notify('agentComplete', 'AGENT 任务完成', '已生成回复')
+      void notify('agentComplete', t('agent.taskCompleteTitle'), t('agent.taskCompleteBody'))
     },
     onError: (message) => {
       setError(message)
@@ -338,7 +340,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
 
     const conn = resolveConnection(text)
     if (!conn) {
-      setError('未选择数据库。请在输入框用 `#数据库名 你的任务` 指定，或先连接一个数据库。')
+      setError(t('agent.noDbSelected'))
       return
     }
 
@@ -369,9 +371,9 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
       setLoading(false)
       setActiveStreamId(null)
     }
-  }, [input, loading, entries, resolveConnection, selectedProviderId, setActiveStreamId])
+  }, [input, loading, entries, resolveConnection, selectedProviderId, setActiveStreamId, t])
 
-  /** 停止当前 AGENT 生成：通知主进程中止底层 SSE 流，并就地结束本地流式态（保留已生成内容） */
+  /** {t('ai.stop')}当前 AGENT 生成：通知主进程中止底层 SSE 流，并就地结束本地流式态（保留已生成内容） */
   const handleStop = useCallback(async () => {
     const streamId = activeStreamIdRef.current
     if (!streamId) return
@@ -406,12 +408,10 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
               <span className="conn-dot" style={{ background: activeConn.color || '#0a84ff' }} />
               <Database size={12} />
               <span className="agent-conn-name">{activeConn.name}</span>
-              <span className="muted">· 输入 # 可切换数据库</span>
+              <span className="muted">{t('agent.hintSwitchDb')}</span>
             </>
           ) : (
-            <span className="muted">
-              未选择数据库。用 <code>#数据库名</code> 指定，如 <code>#mydb 统计订单</code>
-            </span>
+            <span className="muted">{t('agent.noDbHint')}</span>
           )}
         </div>
 
@@ -421,21 +421,21 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
             <div className="ai-chat-empty">
               <p className="ai-chat-ready-title">
                 <Bot size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> AGENT
-                已就绪
+                {t('agent.ready')}
               </p>
               <p className="muted">
-                描述你的分析任务，AGENT 会自主查询数据并给出结论，例如：
+                {t('agent.placeholderExample')}
                 <br />
-                「统计最近 30 天每天的订单量」
+                {t('agent.example1')}
                 <br />
-                「找出库存低于 10 的商品」
+                {t('agent.example2')}
                 <br />
-                「分析用户表的字段结构」
+                {t('agent.example3')}
               </p>
               {!hasProvider && (
                 <p className="ai-chat-warn">
                   <AlertTriangle size={12} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
-                  请先在设置中配置 LLM Provider
+                  {t('agent.configureFirst')}
                 </p>
               )}
             </div>
@@ -508,7 +508,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
 
         {error && <div className="ai-chat-error">{error}</div>}
 
-        {/* 胶囊输入框：模型选择 + textarea + 发送 融为一体 */}
+        {/* 胶囊输入框：模型选择 + textarea + {t('ai.send')} 融为一体 */}
         <div className="chat-composer">
           <div className="chat-composer-box">
             <textarea
@@ -567,9 +567,7 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
                 setTimeout(() => setMentionContext(null), 150)
               }}
               placeholder={
-                hasProvider
-                  ? '描述任务，Enter 发送，Shift+Enter 换行… 输入 # 选择数据库，#db 后继续输入选表'
-                  : '请先配置 Provider'
+                hasProvider ? t('agent.inputPlaceholder') : t('agent.noProviderPlaceholder')
               }
               disabled={!hasProvider || loading}
               rows={3}
@@ -580,10 +578,12 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
               <div className="mention-popover" ref={mentionListRef}>
                 <div className="mention-popover-title">
                   {mentionContext.kind === 'connection'
-                    ? '数据库连接'
+                    ? t('agent.dbConnLabel')
                     : mentionContext.connTag
-                      ? `${mentionContext.connTag} 的表`
-                      : `${resolveConnection(input)?.name ?? '当前连接'} 的表`}
+                      ? t('agent.tablesOf', { conn: mentionContext.connTag })
+                      : t('agent.tablesOfCurrent', {
+                          conn: resolveConnection(input)?.name ?? t('agent.dbConnLabel'),
+                        })}
                 </div>
                 {mentionCandidates.map((item, i) => (
                   <button
@@ -608,10 +608,10 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
                         <span className="mention-item-name">{item.conn.name}</span>
                         <span className="mention-item-status">
                           {item.connecting
-                            ? '连接中…'
+                            ? t('agent.connecting')
                             : item.connected
                               ? DB_LABELS[item.conn.type]
-                              : '未连接'}
+                              : t('agent.notConnected')}
                         </span>
                       </>
                     ) : (
@@ -632,9 +632,9 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
                   className="chat-model-select"
                   value={selectedProviderId}
                   onChange={(e) => setSelectedProviderId(e.target.value)}
-                  title="选择模型（不选则用默认 Agent 模型）"
+                  title={t('agent.selectModelHint')}
                 >
-                  <option value="">默认 Agent 模型</option>
+                  <option value="">{t('agent.defaultAgentModel')}</option>
                   {providers.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} · {p.models[0] ?? '?'}
@@ -645,27 +645,27 @@ export function AgentWorkspace({ connection, initialInput, onOpenSettings }: Age
                 <button
                   className="chat-model-select chat-model-configure"
                   onClick={() => onOpenSettings?.()}
-                  title="未配置模型，点击前往设置"
+                  title={t('agent.noModelHint')}
                 >
-                  <Settings2 size={13} /> 配置模型
+                  <Settings2 size={13} /> {t('agent.configureModel')}
                 </button>
               )}
               {loading ? (
                 <button
                   className="btn btn-danger chat-send-btn chat-stop-btn"
                   onClick={handleStop}
-                  title="停止生成（再按可中止请求）"
+                  title={t('agent.stopHint')}
                 >
-                  停止
+                  {t('ai.stop')}
                 </button>
               ) : (
                 <button
                   className="btn btn-primary chat-send-btn"
                   onClick={handleSend}
                   disabled={!input.trim() || !hasProvider}
-                  title="发送（Enter）"
+                  title={t('agent.sendHint')}
                 >
-                  发送
+                  {t('ai.send')}
                 </button>
               )}
             </div>

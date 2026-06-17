@@ -30,6 +30,8 @@ import {
   CircleSlash,
   Filter,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { translateReason } from '@shared/i18n/composite'
 import { api, type ConnectionListItem, type QueryResult, type TableMeta } from '../api'
 import { DataGrid } from './DataGrid'
 import { useTabStore } from '../store/tabs'
@@ -79,12 +81,13 @@ interface CellContextMenu {
 }
 
 const AUTO_REFRESH_OPTIONS = [
-  { label: '关闭', value: 0 },
+  { labelKey: 'tableData.autoRefreshOff', value: 0 },
   { label: '5s', value: 5 },
   { label: '10s', value: 10 },
 ]
 
 export function TableData({ connection, schema, tableName, tabId }: TableDataProps) {
+  const { t } = useTranslation()
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -505,7 +508,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
       for (const stmt of stmts) {
         const check = await api['db:checkSql']({ connectionId: connection.id, sql: stmt })
         if (check.denied) {
-          results.push('✗ 拒绝: ' + check.reason)
+          results.push(t('tableData.commitDenied', { reason: translateReason(check.reason, t) }))
           break
         }
         try {
@@ -519,7 +522,9 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
       setCommitLog(results.join('\n'))
       await loadData()
     } catch (err) {
-      setCommitLog('提交失败: ' + (err instanceof Error ? err.message : String(err)))
+      setCommitLog(
+        t('tableData.commitFailed', { error: err instanceof Error ? err.message : String(err) }),
+      )
     } finally {
       setCommitting(false)
     }
@@ -607,7 +612,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
       {/* 工具栏 */}
       <div className="table-data-toolbar-bar">
         {/* 刷新 */}
-        <abbr title="刷新数据">
+        <abbr title={t('tableData.refreshData')}>
           <button className="icon-btn" onClick={loadData} disabled={loading}>
             {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
           </button>
@@ -615,7 +620,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
 
         {/* 自动更新 */}
         <div className="auto-refresh-wrapper">
-          <abbr title="自动刷新">
+          <abbr title={t('tableData.autoRefresh')}>
             <button
               className={`icon-btn ${autoRefresh > 0 ? 'icon-btn-active' : ''}`}
               onClick={() => setAutoRefreshOpen((v) => !v)}
@@ -635,7 +640,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
                     setAutoRefreshOpen(false)
                   }}
                 >
-                  {opt.label}
+                  {opt.labelKey ? t(opt.labelKey) : opt.label}
                 </button>
               ))}
             </div>
@@ -646,14 +651,14 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
         <div className="toolbar-divider" />
 
         {/* 添加行 */}
-        <abbr title="添加行">
+        <abbr title={t('tableData.addRow')}>
           <button className="icon-btn" onClick={handleAddRow}>
             <Plus size={14} />
           </button>
         </abbr>
 
         {/* 删除行 */}
-        <abbr title="删除选中行">
+        <abbr title={t('tableData.deleteSelectedRows')}>
           <button
             className="icon-btn"
             onClick={handleDeleteRow}
@@ -664,14 +669,20 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
         </abbr>
 
         {/* 撤销修改 */}
-        <abbr title="撤销所有修改">
+        <abbr title={t('tableData.undoAll')}>
           <button className="icon-btn" onClick={handleRollback} disabled={!hasChanges}>
             <Undo2 size={14} />
           </button>
         </abbr>
 
         {/* 提交 */}
-        <abbr title={hasChanges ? '提交 ' + changes.size + ' 个变更' : '无变更可提交'}>
+        <abbr
+          title={
+            hasChanges
+              ? t('tableData.commitHint', { count: changes.size })
+              : t('tableData.noChanges')
+          }
+        >
           <button
             className="icon-btn"
             onClick={handleCommit}
@@ -685,7 +696,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
         <div className="toolbar-spacer" />
 
         {/* 导入（占位） */}
-        <abbr title="导入数据">
+        <abbr title={t('tableData.importData')}>
           <button className="icon-btn" onClick={() => fileInputRef.current?.click()}>
             <Upload size={14} />
           </button>
@@ -702,7 +713,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
 
         {/* 导出 */}
         <div className="export-wrapper">
-          <abbr title="导出数据">
+          <abbr title={t('tableData.exportData')}>
             <button className="icon-btn" onClick={() => setExportOpen((v) => !v)}>
               <Download size={14} />
             </button>
@@ -720,7 +731,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
       {hasFilter && (
         <div className="filter-bar">
           <Filter size={12} />
-          <span>已筛选：</span>
+          <span>{t('tableData.filtered')}</span>
           {Object.entries(filters)
             .filter(([, v]) => v !== '')
             .map(([col, val]) => (
@@ -735,14 +746,14 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               </span>
             ))}
           <button className="filter-clear" onClick={() => setFilters({})}>
-            清除全部
+            {t('tableData.clearAll')}
           </button>
         </div>
       )}
 
       {loading && (
         <div className="detail-loading">
-          <Loader2 size={16} className="spin" /> 加载数据…
+          <Loader2 size={16} className="spin" /> {t('tableData.loadingData')}
         </div>
       )}
 
@@ -784,17 +795,21 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
       {displayResult && !loading && !error && (
         <div className="pagination-bar">
           <div className="pagination-info">
-            {hasChanges && <span className="changes-badge">{changes.size} 变更</span>}
+            {hasChanges && (
+              <span className="changes-badge">
+                {t('tableData.changesBadge', { count: changes.size })}
+              </span>
+            )}
             <span className="pagination-count">
               {totalCount !== null
-                ? `共 ${totalCount.toLocaleString()} 行`
-                : `${result?.rowCount ?? 0} 行`}
+                ? t('tableData.totalRows', { count: totalCount.toLocaleString() })
+                : t('tableData.rowCount', { count: result?.rowCount ?? 0 })}
               {result && result.durationMs > 0 && ` · ${result.durationMs}ms`}
             </span>
           </div>
           <div className="pagination-controls">
             <label className="pagination-size">
-              每页
+              {t('tableData.perPage')}
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -813,7 +828,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               className="pagination-btn"
               onClick={() => setPage(1)}
               disabled={page <= 1}
-              title="第一页"
+              title={t('tableData.firstPage')}
             >
               <ChevronsLeft size={14} />
             </button>
@@ -821,7 +836,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               className="pagination-btn"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              title="上一页"
+              title={t('tableData.prevPage')}
             >
               <ChevronLeft size={14} />
             </button>
@@ -843,7 +858,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               className="pagination-btn"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              title="下一页"
+              title={t('tableData.nextPage')}
             >
               <ChevronRight size={14} />
             </button>
@@ -851,7 +866,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               className="pagination-btn"
               onClick={() => setPage(totalPages)}
               disabled={page >= totalPages}
-              title="最后一页"
+              title={t('tableData.lastPage')}
             >
               <ChevronsRight size={14} />
             </button>
@@ -880,7 +895,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               setCtxMenu(null)
             }}
           >
-            <Copy size={12} /> 复制行
+            <Copy size={12} /> {t('tableData.ctxDuplicateRow')}
           </button>
           <button
             className="ctx-item"
@@ -889,7 +904,7 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               setCtxMenu(null)
             }}
           >
-            <ArrowDownToLine size={12} /> 插入行
+            <ArrowDownToLine size={12} /> {t('tableData.ctxInsertRow')}
           </button>
           <div className="ctx-divider" />
           <button
@@ -901,9 +916,9 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               setCtxMenu(null)
             }}
           >
-            <Trash2 size={12} /> 删除行
+            <Trash2 size={12} /> {t('tableData.ctxDeleteRow')}
             {ctxMenu.selectedKeys && ctxMenu.selectedKeys.length > 1
-              ? `（${ctxMenu.selectedKeys.length}）`
+              ? t('tableData.ctxDeleteRowCount', { count: ctxMenu.selectedKeys.length })
               : ''}
           </button>
         </div>
@@ -924,22 +939,22 @@ export function TableData({ connection, schema, tableName, tabId }: TableDataPro
               setCellCtxMenu(null)
             }}
           >
-            <Check size={12} /> 编辑
+            <Check size={12} /> {t('tableData.ctxEdit')}
           </button>
           <button className="ctx-item" onClick={handleCopyValue}>
-            <Copy size={12} /> 复制值
+            <Copy size={12} /> {t('tableData.ctxCopyValue')}
           </button>
           <button className="ctx-item" onClick={handlePasteCell}>
-            <ClipboardPaste size={12} /> 粘贴
+            <ClipboardPaste size={12} /> {t('tableData.ctxPaste')}
           </button>
           <button className="ctx-item" onClick={handleSetNull}>
-            <CircleSlash size={12} /> 设为 NULL
+            <CircleSlash size={12} /> {t('tableData.ctxSetNull')}
           </button>
           {!cellCtxMenu.isInsertRow && (
             <>
               <div className="ctx-divider" />
               <button className="ctx-item" onClick={handleAddFilter}>
-                <Filter size={12} /> 添加到筛选
+                <Filter size={12} /> {t('tableData.ctxAddFilter')}
               </button>
             </>
           )}

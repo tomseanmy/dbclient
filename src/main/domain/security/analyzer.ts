@@ -5,6 +5,8 @@
  * 解析失败时保守判为 dangerous（需确认），宁可误拦不漏放。
  */
 import { Parser } from 'node-sql-parser'
+import { ANALYSIS_REASON } from '@shared/i18n/keys'
+import { encodeReason } from '@shared/i18n/composite'
 
 /** SQL 语句类型 */
 export type SqlType = 'query' | 'dml' | 'ddl' | 'unknown'
@@ -32,7 +34,7 @@ export function analyzeSql(sql: string): SqlAnalysis {
     return {
       type: 'unknown',
       dangerLevel: 'safe',
-      reasons: ['空语句'],
+      reasons: [ANALYSIS_REASON.emptyStatement],
       tables: [],
       parseFailed: false,
     }
@@ -49,7 +51,7 @@ export function analyzeSql(sql: string): SqlAnalysis {
     const re = new RegExp('\\b' + kw + '\\b', 'i')
     if (re.test(trimmed)) {
       dangerLevel = 'dangerous'
-      reasons.push('包含危险关键字: ' + kw)
+      reasons.push(encodeReason(ANALYSIS_REASON.dangerousKeyword, { keyword: kw }))
       if (kw === 'DROP' || kw === 'TRUNCATE') type = 'ddl'
     }
   }
@@ -90,7 +92,9 @@ export function analyzeSql(sql: string): SqlAnalysis {
         const hasWhere = !!(stmt?.where || stmt?.ast?.where)
         if (!hasWhere) {
           dangerLevel = 'dangerous'
-          reasons.push(stmtType.toUpperCase() + ' 缺少 WHERE 子句（全表操作）')
+          reasons.push(
+            encodeReason(ANALYSIS_REASON.missingWhere, { stmtType: stmtType.toUpperCase() }),
+          )
         }
       }
     }
@@ -99,12 +103,12 @@ export function analyzeSql(sql: string): SqlAnalysis {
     parseFailed = true
     if (dangerLevel === 'safe' && type !== 'query') {
       dangerLevel = 'dangerous'
-      reasons.push('SQL 解析失败，保守判定为需确认')
+      reasons.push(ANALYSIS_REASON.parseFailed)
     }
   }
 
   if (reasons.length === 0 && dangerLevel === 'safe') {
-    reasons.push('只读查询')
+    reasons.push(ANALYSIS_REASON.readonly)
   }
 
   return { type, dangerLevel, reasons, tables, parseFailed }

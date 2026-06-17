@@ -7,6 +7,7 @@ const { Pool: PgPool } = pg
 import type { DriverContext, DescribeOptions } from './driver'
 import { mapUnifiedType } from './driver'
 import type { DbDriver } from './driver'
+import { tMain } from '@main/i18n'
 import type {
   Schema,
   Table,
@@ -128,7 +129,7 @@ export class PostgresDriver implements DbDriver {
   }
 
   private async query<T extends QueryResultRow>(sql: string, params?: unknown[]): Promise<T[]> {
-    if (!this.pool) throw new Error('PostgreSQL 未连接，请先 connect()')
+    if (!this.pool) throw new Error(tMain('errors.db.notEstablishedPostgres'))
     const res = await this.pool.query<T>(sql, params)
     return res.rows
   }
@@ -352,7 +353,7 @@ export class PostgresDriver implements DbDriver {
   ): Promise<import('@shared/types/database').QueryResult> {
     const limit = opts?.limit ?? 1000
     const start = Date.now()
-    if (!this.pool) throw new Error('PostgreSQL 未连接')
+    if (!this.pool) throw new Error(tMain('errors.db.notEstablishedPostgres'))
     const res = await this.pool.query(sql)
     const columns = res.fields.map((f) => ({
       name: f.name,
@@ -373,7 +374,7 @@ export class PostgresDriver implements DbDriver {
     sql: string,
     _opts?: import('./driver').QueryOptions,
   ): Promise<{ rowsAffected: number }> {
-    if (!this.pool) throw new Error('PostgreSQL 未连接')
+    if (!this.pool) throw new Error(tMain('errors.db.notEstablishedPostgres'))
     const res = await this.pool.query(sql)
     return { rowsAffected: res.rowCount ?? 0 }
   }

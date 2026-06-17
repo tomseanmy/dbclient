@@ -8,6 +8,7 @@
  *
  * 草稿以受控方式上抛给 TableDetail，由其负责安全检查与执行。
  */
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import Editor from '@monaco-editor/react'
@@ -66,6 +67,7 @@ export function TableStructureEditor({
   }
 
   /** 列类型 select 选项（按分组） */
+  const { t } = useTranslation()
   const typeOptions = useMemo(() => {
     const grouped = getColumnTypesGrouped(dialect)
     return grouped.flatMap((g) =>
@@ -116,12 +118,16 @@ export function TableStructureEditor({
           return c ? !typeNeedsLength(dialect, c.dataType) : true
         },
       },
-      nullable: { kind: 'checkbox', trueLabel: '是', falseLabel: '否' },
-      isPrimaryKey: { kind: 'checkbox', trueLabel: '是', falseLabel: '否' },
+      nullable: { kind: 'checkbox', trueLabel: t('dataGrid.yes'), falseLabel: t('dataGrid.no') },
+      isPrimaryKey: {
+        kind: 'checkbox',
+        trueLabel: t('dataGrid.yes'),
+        falseLabel: t('dataGrid.no'),
+      },
       defaultValue: { kind: 'text' },
       comment: { kind: 'text' },
     }),
-    [draft.columns, dialect, typeOptions],
+    [draft.columns, dialect, typeOptions, t],
   )
 
   const handleColumnCellChange = (rowKey: string | number, column: string, value: string) => {
@@ -197,8 +203,8 @@ export function TableStructureEditor({
   const indexEditors: Record<string, ColumnEditor> = {
     name: { kind: 'text' },
     columns: { kind: 'text' },
-    isUnique: { kind: 'checkbox', trueLabel: '是', falseLabel: '否' },
-    isPrimaryKey: { kind: 'checkbox', trueLabel: '是', falseLabel: '否' },
+    isUnique: { kind: 'checkbox', trueLabel: t('dataGrid.yes'), falseLabel: t('dataGrid.no') },
+    isPrimaryKey: { kind: 'checkbox', trueLabel: t('dataGrid.yes'), falseLabel: t('dataGrid.no') },
   }
 
   const handleIndexCellChange = (rowKey: string | number, column: string, value: string) => {
@@ -351,19 +357,21 @@ export function TableStructureEditor({
           className={`tab ${tab === 'columns' ? 'active' : ''}`}
           onClick={() => switchTab('columns')}
         >
-          列 ({draft.columns.filter((c) => !c._removed).length})
+          {t('tableEdit.columns', { count: draft.columns.filter((c) => !c._removed).length })}
         </button>
         <button
           className={`tab ${tab === 'indexes' ? 'active' : ''}`}
           onClick={() => switchTab('indexes')}
         >
-          索引 ({draft.indexes.filter((i) => !i._removed).length})
+          {t('tableEdit.indexes', { count: draft.indexes.filter((i) => !i._removed).length })}
         </button>
         <button
           className={`tab ${tab === 'foreignKeys' ? 'active' : ''}`}
           onClick={() => switchTab('foreignKeys')}
         >
-          外键 ({draft.foreignKeys.filter((f) => !f._removed).length})
+          {t('tableEdit.foreignKeys', {
+            count: draft.foreignKeys.filter((f) => !f._removed).length,
+          })}
         </button>
         {headerExtra && <div className="detail-tabs-extra">{headerExtra}</div>}
       </div>
@@ -373,7 +381,7 @@ export function TableStructureEditor({
           <>
             <button
               className="btn btn-secondary btn-sm edit-add-btn"
-              title="添加列"
+              title={t('tableEdit.addColumn')}
               onClick={addColumn}
             >
               <Plus size={14} />
@@ -381,7 +389,11 @@ export function TableStructureEditor({
             <button
               className="btn btn-danger btn-sm edit-remove-btn"
               disabled={selectedColKey === null}
-              title={selectedColKey === null ? '先点左侧序号选中一列' : '删除选中的列'}
+              title={
+                selectedColKey === null
+                  ? t('tableEdit.deleteColHintNone')
+                  : t('tableEdit.deleteColHintSel')
+              }
               onClick={() => {
                 if (selectedColKey !== null) removeColumn(String(selectedColKey))
                 setSelectedColKey(null)
@@ -395,7 +407,7 @@ export function TableStructureEditor({
           <>
             <button
               className="btn btn-secondary btn-sm edit-add-btn"
-              title="添加索引"
+              title={t('tableEdit.addIndex')}
               onClick={addIndex}
             >
               <Plus size={14} />
@@ -403,7 +415,11 @@ export function TableStructureEditor({
             <button
               className="btn btn-danger btn-sm edit-remove-btn"
               disabled={selectedIdxKey === null}
-              title={selectedIdxKey === null ? '先点左侧序号选中一个索引' : '删除选中的索引'}
+              title={
+                selectedIdxKey === null
+                  ? t('tableEdit.deleteIdxHintNone')
+                  : t('tableEdit.deleteIdxHintSel')
+              }
               onClick={() => {
                 if (selectedIdxKey !== null) removeIndex(String(selectedIdxKey))
                 setSelectedIdxKey(null)
@@ -417,7 +433,7 @@ export function TableStructureEditor({
           <>
             <button
               className="btn btn-secondary btn-sm edit-add-btn"
-              title="添加外键"
+              title={t('tableEdit.addForeignKey')}
               onClick={addFk}
             >
               <Plus size={14} />
@@ -425,7 +441,11 @@ export function TableStructureEditor({
             <button
               className="btn btn-danger btn-sm edit-remove-btn"
               disabled={selectedFkKey === null}
-              title={selectedFkKey === null ? '先点左侧序号选中一个外键' : '删除选中的外键'}
+              title={
+                selectedFkKey === null
+                  ? t('tableEdit.deleteFkHintNone')
+                  : t('tableEdit.deleteFkHintSel')
+              }
               onClick={() => {
                 if (selectedFkKey !== null) removeFk(String(selectedFkKey))
                 setSelectedFkKey(null)
@@ -485,7 +505,7 @@ export function TableStructureEditor({
           height="180px"
           language="sql"
           theme="vs-dark"
-          value={ddlPreview || '-- 无变更'}
+          value={ddlPreview || t('tableEdit.noChanges')}
           options={{
             readOnly: true,
             minimap: { enabled: false },

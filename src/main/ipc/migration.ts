@@ -11,6 +11,7 @@
 import { dialog, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { registerHandler } from './registry'
+import { tMain } from '@main/i18n'
 import { logger } from '@main/infra/logger'
 import { diffStructure } from '@main/domain/migration/structure-diff'
 import { generateStructureScript } from '@main/domain/migration/structure-script'
@@ -87,7 +88,12 @@ export function registerMigrationHandlers(): void {
       describeTargetTable(target),
     ])
     if (!sourceMeta) {
-      throw new Error(`源表 ${source.schema ?? ''}.${source.table} 不存在，无法迁移`)
+      throw new Error(
+        tMain('errors.migration.sourceTableNotFound', {
+          schema: source.schema ?? '',
+          table: source.table,
+        }),
+      )
     }
 
     // 跨库类型映射：源端列 → 目标方言（登记告警 + 调整 dataType）
@@ -110,7 +116,12 @@ export function registerMigrationHandlers(): void {
       describeTargetTable(target),
     ])
     if (!sourceMeta) {
-      throw new Error(`源表 ${source.schema ?? ''}.${source.table} 不存在，无法迁移`)
+      throw new Error(
+        tMain('errors.migration.sourceTableNotFound', {
+          schema: source.schema ?? '',
+          table: source.table,
+        }),
+      )
     }
 
     const pkColumns = extractPrimaryKeys(sourceMeta)
@@ -142,7 +153,12 @@ export function registerMigrationHandlers(): void {
     const previewLimit = limit ?? 100
     const sourceMeta = await describeTargetTable(source)
     if (!sourceMeta) {
-      throw new Error(`源表 ${source.schema ?? ''}.${source.table} 不存在`)
+      throw new Error(
+        tMain('errors.migration.sourceTableNotFoundShort', {
+          schema: source.schema ?? '',
+          table: source.table,
+        }),
+      )
     }
     const pkColumns = extractPrimaryKeys(sourceMeta)
     const sourceDriver = getDriver(source.connectionId)
@@ -240,11 +256,11 @@ export function registerMigrationHandlers(): void {
   // 导出脚本为 .sql（弹保存对话框 + 写文件 + 打开所在文件夹）
   registerHandler('migration:exportScript', async (_event, { sql, defaultName }) => {
     const result = await dialog.showSaveDialog({
-      title: '导出迁移脚本',
+      title: tMain('migration.exportScriptTitle'),
       defaultPath: defaultName ?? `migration-${Date.now()}.sql`,
       filters: [
         { name: 'SQL', extensions: ['sql'] },
-        { name: '所有文件', extensions: ['*'] },
+        { name: tMain('migration.allFiles'), extensions: ['*'] },
       ],
     })
     if (result.canceled || !result.filePath) {

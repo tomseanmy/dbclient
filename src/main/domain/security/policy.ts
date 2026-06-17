@@ -6,6 +6,7 @@
  */
 import type { Environment } from '@shared/types/connection'
 import type { SqlAnalysis } from './analyzer'
+import { SECURITY_REASON } from '@shared/i18n/keys'
 
 /** 权限判定结果 */
 export type Decision = 'allow' | 'deny' | 'confirm_required'
@@ -42,41 +43,47 @@ export function decide(ctx: PolicyContext): PolicyResult {
 
   // 只读查询：任何环境都放行
   if (dangerLevel === 'safe' && type === 'query') {
-    return { decision: 'allow', reason: '只读查询' }
+    return { decision: 'allow', reason: SECURITY_REASON.readonly }
   }
 
   // 危险语句：任何环境都需确认
   if (dangerLevel === 'dangerous') {
     if (environment === 'dev') {
-      return { decision: 'confirm_required', reason: '危险操作，需确认' }
+      return { decision: 'confirm_required', reason: SECURITY_REASON.dangerousNeedConfirm }
     }
     if (environment === 'staging') {
-      return { decision: 'confirm_required', reason: '危险操作，需确认' }
+      return { decision: 'confirm_required', reason: SECURITY_REASON.dangerousNeedConfirm }
     }
     // prod：即使提权，危险操作仍需确认
     if (elevated) {
-      return { decision: 'confirm_required', reason: '危险操作（prod 已提权），需确认' }
+      return {
+        decision: 'confirm_required',
+        reason: SECURITY_REASON.dangerousNeedConfirmProdElevated,
+      }
     }
-    return { decision: 'deny', reason: 'prod 环境禁止危险操作（需临时提权）' }
+    return { decision: 'deny', reason: SECURITY_REASON.prodDangerousDenied }
   }
 
   // 普通写操作（dangerLevel === 'write'）
   switch (environment) {
     case 'dev':
-      return { decision: 'allow', reason: 'dev 环境允许写操作' }
+      return { decision: 'allow', reason: SECURITY_REASON.devWriteAllowed }
     case 'staging':
       if (type === 'ddl') {
-        return { decision: 'confirm_required', reason: 'staging 环境 DDL 需确认' }
+        return { decision: 'confirm_required', reason: SECURITY_REASON.stagingDdlNeedConfirm }
       }
-      return { decision: 'allow', reason: 'staging 环境允许 DML' }
+      return { decision: 'allow', reason: SECURITY_REASON.stagingDmlAllowed }
     case 'prod':
       if (elevated) {
         if (type === 'ddl') {
-          return { decision: 'confirm_required', reason: 'prod 环境（已提权）DDL 需确认' }
+          return {
+            decision: 'confirm_required',
+            reason: SECURITY_REASON.prodElevatedDdlNeedConfirm,
+          }
         }
-        return { decision: 'allow', reason: 'prod 环境已提权，允许写操作' }
+        return { decision: 'allow', reason: SECURITY_REASON.prodElevatedWriteAllowed }
       }
-      return { decision: 'deny', reason: 'prod 环境禁止写操作（需临时提权）' }
+      return { decision: 'deny', reason: SECURITY_REASON.prodWriteDenied }
   }
 }
 

@@ -14,9 +14,11 @@ import { app, BrowserWindow, shell, Menu, nativeImage } from 'electron'
 import { join } from 'node:path'
 import { logger } from './infra/logger'
 import { initDb, closeDb } from './infra/storage/db'
+import { getAllSettings } from './infra/storage/settings-dao'
 import { registerAllHandlers } from './ipc/registry'
 import { closeAll as closeAllConnections } from './domain/db/manager'
 import { initUpdater, maybeAutoCheckOnStartup } from './domain/updater'
+import { initMainI18n, tMain } from './i18n'
 
 /** 应用显示名（菜单栏首项 / About 标题） */
 const APP_NAME = 'DB Client'
@@ -84,36 +86,36 @@ function setupAppMenu(): void {
           ],
         },
         {
-          label: '编辑',
+          label: tMain('menu.edit'),
           submenu: [
-            { role: 'undo', label: '撤销' },
-            { role: 'redo', label: '重做' },
+            { role: 'undo', label: tMain('menu.undo') },
+            { role: 'redo', label: tMain('menu.redo') },
             { type: 'separator' },
-            { role: 'cut', label: '剪切' },
-            { role: 'copy', label: '复制' },
-            { role: 'paste', label: '粘贴' },
-            { role: 'selectAll', label: '全选' },
+            { role: 'cut', label: tMain('menu.cut') },
+            { role: 'copy', label: tMain('menu.copy') },
+            { role: 'paste', label: tMain('menu.paste') },
+            { role: 'selectAll', label: tMain('menu.selectAll') },
           ],
         },
         {
-          label: '视图',
+          label: tMain('menu.view'),
           submenu: [
-            { role: 'reload', label: '重新加载' },
-            { role: 'forceReload', label: '强制重新加载' },
-            { role: 'toggleDevTools', label: '开发者工具' },
+            { role: 'reload', label: tMain('menu.reload') },
+            { role: 'forceReload', label: tMain('menu.forceReload') },
+            { role: 'toggleDevTools', label: tMain('menu.devTools') },
             { type: 'separator' },
-            { role: 'resetZoom', label: '重置缩放' },
-            { role: 'zoomIn', label: '放大' },
-            { role: 'zoomOut', label: '缩小' },
+            { role: 'resetZoom', label: tMain('menu.resetZoom') },
+            { role: 'zoomIn', label: tMain('menu.zoomIn') },
+            { role: 'zoomOut', label: tMain('menu.zoomOut') },
             { type: 'separator' },
-            { role: 'togglefullscreen', label: '全屏' },
+            { role: 'togglefullscreen', label: tMain('menu.fullscreen') },
           ],
         },
         {
-          label: '窗口',
+          label: tMain('menu.window'),
           submenu: [
-            { role: 'minimize', label: '最小化' },
-            { role: 'zoom', label: '缩放' },
+            { role: 'minimize', label: tMain('menu.minimize') },
+            { role: 'zoom', label: tMain('menu.zoom') },
             { type: 'separator' },
             { role: 'front' },
           ],
@@ -121,33 +123,33 @@ function setupAppMenu(): void {
       ]
     : [
         {
-          label: '文件',
-          submenu: [isMac ? { role: 'close' } : { role: 'quit', label: '退出' }],
+          label: tMain('menu.file'),
+          submenu: [isMac ? { role: 'close' } : { role: 'quit', label: tMain('menu.quit') }],
         },
         {
-          label: '编辑',
+          label: tMain('menu.edit'),
           submenu: [
-            { role: 'undo', label: '撤销' },
-            { role: 'redo', label: '重做' },
+            { role: 'undo', label: tMain('menu.undo') },
+            { role: 'redo', label: tMain('menu.redo') },
             { type: 'separator' },
-            { role: 'cut', label: '剪切' },
-            { role: 'copy', label: '复制' },
-            { role: 'paste', label: '粘贴' },
-            { role: 'selectAll', label: '全选' },
+            { role: 'cut', label: tMain('menu.cut') },
+            { role: 'copy', label: tMain('menu.copy') },
+            { role: 'paste', label: tMain('menu.paste') },
+            { role: 'selectAll', label: tMain('menu.selectAll') },
           ],
         },
         {
-          label: '视图',
+          label: tMain('menu.view'),
           submenu: [
-            { role: 'reload', label: '重新加载' },
-            { role: 'forceReload', label: '强制重新加载' },
-            { role: 'toggleDevTools', label: '开发者工具' },
+            { role: 'reload', label: tMain('menu.reload') },
+            { role: 'forceReload', label: tMain('menu.forceReload') },
+            { role: 'toggleDevTools', label: tMain('menu.devTools') },
             { type: 'separator' },
-            { role: 'resetZoom', label: '重置缩放' },
-            { role: 'zoomIn', label: '放大' },
-            { role: 'zoomOut', label: '缩小' },
+            { role: 'resetZoom', label: tMain('menu.resetZoom') },
+            { role: 'zoomIn', label: tMain('menu.zoomIn') },
+            { role: 'zoomOut', label: tMain('menu.zoomOut') },
             { type: 'separator' },
-            { role: 'togglefullscreen', label: '全屏' },
+            { role: 'togglefullscreen', label: tMain('menu.fullscreen') },
           ],
         },
       ]
@@ -158,6 +160,10 @@ function setupAppMenu(): void {
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
+  const isWin = process.platform === 'win32'
+  // Linux 无原生 acrylic/vibrancy，用不透明实色兜底；
+  // mac/Win 侧栏要穿透窗体透出桌面，窗口背景必须透明。
+  const transparentWindow = isMac || isWin
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -169,9 +175,16 @@ function createWindow(): void {
     ...(isMac && { trafficLightPosition: { x: 13, y: 14 } }),
     show: false, // ready-to-show 后再显示，避免白屏
     title: 'AI DB Client',
-    backgroundColor: '#191a1c', // 暗岩灰 rgb(25,26,28)，防止启动白屏
+    // 窗口背景色：
+    // - mac/Win：必须透明（#00000000），否则 vibrancy/acrylic 被实色挡死，无法透出桌面；
+    // - Linux：不透明实色（暗岩灰）防启动白屏。
+    backgroundColor: transparentWindow ? '#00000000' : '#191a1c',
+    // mac/Win：原生透明穿透，让侧栏区域真正透到桌面
+    ...(transparentWindow && { transparent: true }),
     // macOS 毛玻璃：侧栏透出桌面（仅 mac 生效）
     ...(isMac && { vibrancy: 'under-window', visualEffectState: 'active' }),
+    // Win11 亚克力磨砂：半透明+模糊，深浅自动跟随 nativeTheme（theme:apply 已接通）
+    ...(isWin && { backgroundMaterial: 'acrylic' }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, // 安全：隔离 Node 与渲染上下文
@@ -217,8 +230,10 @@ app.whenReady().then(async () => {
   logger.info('应用启动', { version: app.getVersion(), platform: process.platform })
 
   try {
-    setupAppMenu()
     initDb()
+    // 初始化主进程 i18n（读本地设置 language；重启生效策略）
+    await initMainI18n(getAllSettings().language)
+    setupAppMenu()
     await registerAllHandlers()
     createWindow()
     // 自动更新：初始化 + 启动后台静默检查（24h 节流，打包模式才生效）

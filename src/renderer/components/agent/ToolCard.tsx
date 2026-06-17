@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * AGENT 工具调用卡片（从 AgentWorkspace 拆分）
  *
@@ -16,6 +17,7 @@ export function ToolCard({
   entry: ToolEntry
   connectionId: string
 }) {
+  const { t } = useTranslation()
   const meta = TOOL_META[entry.name]
   const Icon = meta?.icon ?? Wrench
   const result = entry.result
@@ -24,7 +26,7 @@ export function ToolCard({
     <div className="agent-tool-card">
       <div className="agent-tool-head">
         <Icon size={13} />
-        <span className="agent-tool-name">{meta?.label ?? entry.name}</span>
+        <span className="agent-tool-name">{meta ? t(meta.label) : entry.name}</span>
         {entry.name === 'runReadQuery' && (
           <code className="agent-tool-sql">{String(entry.args.sql ?? '').slice(0, 60)}</code>
         )}
@@ -84,11 +86,12 @@ function ResultTable({
 }: {
   structured: Extract<ToolResultEvent['structured'], { kind: 'query' }>
 }) {
+  const { t } = useTranslation()
   const previewRows = structured.rows.slice(0, 8)
   return (
     <div className="agent-result-table">
       <div className="agent-result-meta">
-        {structured.rowCount} 行{structured.truncated ? '（已截断至 50）' : ''}
+        {t('agentCards.rowsTruncated', { count: structured.rowCount })}
       </div>
       <table>
         <thead>

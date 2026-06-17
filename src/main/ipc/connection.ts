@@ -5,6 +5,7 @@ import { registerHandler } from './registry'
 import { connectionsDao } from '@main/infra/storage/connections-dao'
 import { createDriver } from '@main/domain/db/driver'
 import { logger } from '@main/infra/logger'
+import { tMain } from '@main/i18n'
 
 export function registerConnectionHandlers(): void {
   // 列出所有连接
@@ -65,7 +66,11 @@ export function registerConnectionHandlers(): void {
         config: tempConfig,
         password,
       })
-      return { success: true, message: '连接成功', serverInfo: result.serverInfo }
+      return {
+        success: true,
+        message: tMain('errors.db.connectSuccess'),
+        serverInfo: result.serverInfo,
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       logger.warn('测试连接失败', { message })
